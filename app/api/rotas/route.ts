@@ -1,0 +1,40 @@
+import {NextResponse} from 'next/server';import {currentIdentity} from '@/lib/access';import {db} from '@/lib/db';
+export const dynamic='force-dynamic';
+const fail=(error:string,status=400)=>NextResponse.json({error},{status});
+export async function GET(){
+ const user=await currentIdentity();if(!user)return fail('Acesso não autorizado',401);
+ const scope=user.role==='agent'?"where r.agent_id=$1 and r.status in ('published','in_progress','completed')":'';const params=user.role==='agent'?[user.id]:[];
+ const items=await db().query(`select r.id,r.route_date,r.status,c.name as campaign_name,p.full_name as agent_name,
+ (select count(*)::int from route_stops where route_id=r.id) as stops
+ from routes r join campaigns c on c.id=r.campaign_id join app_profiles p on p.auth_user_id=r.agent_id
+ ${scope} order by r.route_date desc limit 100`,params);
+ return NextResponse.json({items});
+}
+export async function POST(req:Request){
+ const user=await currentIdentity();if(!user||user.role==='agent')return fail('Somente administração e supervisão.',403);
+ const data=await req.json().catch(()=>({}));
+ const campaign=String(data.campaign_id||''),agent=String(data.agent_id||''),date=String(data.date||'');
+ const stops=Array.isArray(data.establishment_ids)?data.establishment_ids.map(String):[];
+ if(!/^[0-9a-f-]{36}$/i.test(campaign)||!agent||!/^\d{4}-\d{2}-\d{2}$/.test(date)||stops.length<1||stops.length>40||new Set(stops).size!==stops.length||stops.some((x:string)=>!/^[0-9a-f-]{36}$/i.test(x)))return fail('Informe campanha, agente, dia e de 1 a 40 empresas únicas.');
+ const [c]=await db().query('select id from campaigns where id=$1 and $2::date between start_date and end_date and status<>\'cancelled\'',[campaign,date]);
+ const [a]=await db().query('select auth_user_id from app_profiles where auth_user_id=$1 and role=\'agent\' and is_active=true',[agent]);
+ if(!c||!a)return fail('Campanha fora do período ou agente não encontrado.');
+ const check=await db().query('select id from establishments where id=ANY($1::uuid[])',[stops]);if(check.length!==stops.length)return fail('Há empresas inexistentes na seleção.');
+ const dup=await db().query(`select 1 from routes r join route_stops s on s.route_id=r.id
+ where r.route_date=$1 and r.status<>'cancelled' and s.establishment_id=ANY($2::uuid[]) limit 1`,[date,stops]);
+ if(dup.length)return fail('Uma das empresas já consta em outra rota ativa nessa data.',409);
+ const [route]=await db().query('insert into routes(campaign_id,agent_id,route_date,status) values($1,$2,$3,\'draft\') returning id',[campaign,agent,date]);
+ for(let i=0;i<stops.length;i++)await db().query('insert into route_stops(route_id,establishment_id,position_order) values($1,$2,$3)',[route.id,stops[i],i+1]);
+ await db().query('insert into audit_logs(actor_id,action,details) values($1,$2,$3::jsonb)',[user.id,'route.created',JSON.stringify({id:route.id,count:stops.length})]);
+ return NextResponse.json({id:route.id,count:stops.length});
+}
+
+export async function PATCH(req:Request){
+ const u=await currentIdentity();if(!u||u.role==='agent')return fail('Apenas administração e supervisão.',403);
+ const data=await req.json().catch(()=>({}));const id=String(data.id||'');
+ if(!/^[0-9a-f-]{36}$/i.test(id))return fail('Rota inválida.');
+ const rows=await db().query("update routes set status='published' where id=$1 and status='draft' and exists(select 1 from route_stops where route_id=$1) returning id",[id]);
+ if(!rows.length)return fail('A rota deve existir, possuir paradas e estar em rascunho.',409);
+ await db().query('insert into audit_logs(actor_id,action,details) values($1,$2,$3::jsonb)',[u.id,'route.published',JSON.stringify({route_id:id})]);
+ return NextResponse.json({ok:true});
+}
