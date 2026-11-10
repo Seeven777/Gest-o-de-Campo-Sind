@@ -8,9 +8,9 @@ const fail=(message:string,status=400)=>NextResponse.json({error:message},{statu
 type Point={id:string;position_order:number;legal_name:string;trade_name:string|null;street:string|null;street_number:string|null;city:string|null;state:string|null;postal_code:string|null;cnpj:string;lat:number|null;lon:number|null};
 type Coordinates=[number,number];
 
-async function ors(url:string,init:RequestInit,token:string){
+async function ors(url:string,init:RequestInit,token:string,accept:'application/json'|'application/geo+json'='application/json'){
  const signal=AbortSignal.timeout(15000);
- const response=await fetch(url,{...init,signal,headers:{Authorization:token,Accept:'application/json',...(init.body?{'Content-Type':'application/json'}:{})},cache:'no-store'});
+ const response=await fetch(url,{...init,signal,headers:{Authorization:token,Accept:accept,...(init.body?{'Content-Type':'application/json'}:{})},cache:'no-store'});
  if(!response.ok){const detail=(await response.text()).slice(0,250);throw new Error('Roteirizador indisponível (HTTP '+response.status+'): '+detail);}
  return response.json();
 }
@@ -62,6 +62,7 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
  const coords=located.map(s=>[Number(s.lon),Number(s.lat)] as Coordinates);
  const common={points:located.map(s=>({id:s.id,lat:Number(s.lat),lon:Number(s.lon)})),missing:unresolved,partial:unresolved.length>0,total:stops.length,located:located.length,geocoded,origin:origin?{lat:origin[1],lon:origin[0]}:null};
  if(coords.length===1&&!origin)return NextResponse.json({...common,order:[located[0].id],geometry:{type:'LineString',coordinates:coords},distance_m:0,duration_s:0,estimated:true});
+ let stage:'optimization'|'directions'='optimization';
  try{
   // O primeiro endereço é o ponto inicial. Os demais são otimizados pelo serviço VROOM.
   const jobCoords=origin?coords:coords.slice(1);
@@ -73,11 +74,20 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
   const indices=origin?best.map((i:number)=>i-1):[0,...best];
   if(new Set(indices).size!==located.length||indices.some((i:number)=>i<0||i>=located.length))return fail('A sequência otimizada retornou paradas inválidas.',502);
   const sorted=origin?[origin,...indices.map((i:number)=>coords[i])]:indices.map((i:number)=>coords[i]);
+  stage='directions';
   const directions=await ors('https://api.openrouteservice.org/v2/directions/driving-car/geojson',
-   {method:'POST',body:JSON.stringify({coordinates:sorted,instructions:false})},token);
+   {method:'POST',body:JSON.stringify({coordinates:sorted,instructions:false})},token,'application/geo+json');
   const feature=directions?.features?.[0],geometry=feature?.geometry;
   if(!geometry||geometry.type!=='LineString'||!Array.isArray(geometry.coordinates))return fail('Não foi possível desenhar o trajeto pelas ruas.',502);
   const summary=feature.properties?.summary??{};
   return NextResponse.json({...common,order:indices.map((i:number)=>located[i].id),geometry,distance_m:Number(summary.distance||0),duration_s:Number(summary.duration||0),estimated:true},{headers:{'Cache-Control':'no-store'}});
- }catch(e){console.error('[otimizar rota]',e instanceof Error?e.message:e);return fail('Não foi possível calcular a rota. Confira a chave e os limites da API de roteirização.',502)}
+ }catch(e){
+  const message=e instanceof Error?e.message:String(e);
+  console.error('[otimizar rota]',stage,message);
+  const code=message.match(/HTTP (\\d{3})/);
+  const status=code?Number(code[1]):null;
+  const title=stage==='directions'?'desenhar o percurso pelas ruas':'ordenar as empresas da rota';
+  const hint=status===406?'A API rejeitou o formato da resposta (HTTP 406).':status===429?'Limite de consultas do serviço atingido (HTTP 429).':status===401||status===403?'A chave da API não autorizou esta operação.':status===404?'O serviço não encontrou um trajeto rodoviário entre esses pontos.':'Verifique o serviço de rotas e os endereços das empresas.';
+  return NextResponse.json({error:'Não foi possível '+title+'. '+hint,stage,http_status:status},{status:502,headers:{'Cache-Control':'no-store'}});
+ }
 }
