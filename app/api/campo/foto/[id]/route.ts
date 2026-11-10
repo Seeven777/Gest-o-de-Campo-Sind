@@ -9,7 +9,7 @@ export async function GET(_req:Request,{params}:{params:Promise<{id:string}>}){
  const [row]=await db().query(`select ev.storage_key,ev.mime_type,v.agent_id
  from visit_evidence ev join visits v on v.id=ev.visit_id
  where ev.id=$1 and ev.deleted_at is null and ev.expires_at>now()`,[id]);
- if(!row||u.role==='agent'&&row.agent_id!==u.id)return denied();
+ if(!row||!(u.role==='admin'||u.role==='supervisor'||(u.role==='agent'&&row.agent_id===u.id)))return denied();
  try{
   const photo=await get(String(row.storage_key),{access:'private'});
   if(!photo||photo.statusCode!==200||!photo.stream)return denied();
