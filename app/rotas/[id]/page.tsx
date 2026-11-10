@@ -85,7 +85,7 @@ export default function DetalheRota(){
  const sorted=data?[...data.order.map(i=>byId.get(i)).filter((s):s is Stop=>Boolean(s)),...stops.filter(s=>!data.order.includes(s.id))]:stops;
  return <Portal title="Percurso de campo" subtitle={title||'Empresas atribuídas à rota'}>
  {error&&<p className="error" role="alert">{error}</p>}
- <section className="panel" style={{marginBottom:18}}>
+ <section className="panel" style={{marginBottom:18}}><div style={{marginBottom:16}}><Link href={'/campo/'+id} className="button"><Navigation size={17}/> Abrir jornada guiada do agente</Link></div>
  <div className="panel-title"><div><small>MAPA DO PERCURSO</small><h2>Melhor sequência de visitas</h2></div><MapPinned size={22} color="#ef702c"/></div>
  <p className="muted" style={{lineHeight:1.7}}>Consulte as empresas no próprio mapa. O cálculo usa a malha viária, mantém a primeira empresa como início ou utiliza o GPS, caso autorizado, e sugere a ordem das demais, sem considerar trânsito em tempo real.</p>
  <div style={{display:'flex',gap:12,alignItems:'center',flexWrap:'wrap',margin:'18px 0'}}>
