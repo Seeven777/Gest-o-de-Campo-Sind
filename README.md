@@ -1,59 +1,82 @@
-# SindPetshop-SP — Gestão de Campo
+# SindPetshop-SP · Campo & Território
 
-Starter da primeira etapa do MVP: navegação administrativa e do agente, login por Supabase Auth, consulta/importação CSV e criação de campanhas. Os demais módulos estão identificados na interface, mas ainda não possuem fluxo operacional real.
+**Versão 0.2 — Redesign + migração inicial para Neon**
 
-## Pré-requisitos
+Central operacional responsiva criada em Next.js para a gestão territorial do SindPetshop-SP. Identidade visual proposta com fundos claros, laranja e verde; **o ícone é ilustrativo, não o logotipo oficial do sindicato**.
 
-- Node.js 22 ou superior.
-- Projeto Supabase configurado.
-- Projeto Vercel para deploy.
+## Estado dos módulos
 
-## Instalação
+| Módulo | Estado |
+| --- | --- |
+| Autenticação Neon Auth | Implementação inicial; requer configuração e testes em conta real |
+| Perfis de acesso (admin/supervisor/agent) | Validação no servidor via `app_profiles` |
+| Dashboard | Consulta real de contagens ao Neon |
+| Empresas | Busca paginada com restrição para agente |
+| Importação CSV | Upload em lotes de até 100 CNPJs por requisição e atualização por CNPJ |
+| Campanhas | Consulta e criação de campanhas em rascunho |
+| Rotas, GPS, fotos, validação, reembolsos, mapa | Telas visuais / estrutura SQL; **operações ainda não implementadas** |
 
-```bash
-npm install
-cp .env.example .env.local
-npm run dev
+## Substituição dos arquivos no repositório
+
+1. Faça backup/crie uma branch do repositório atual.
+2. Extraia este ZIP na **raiz do repositório** `Seeven777/Gest-o-de-Campo-Sind`, substituindo arquivos iguais.
+3. **Exclua o diretório antigo `supabase/` e o arquivo `lib/supabase.ts`, se presentes.** O ZIP já foi preparado sem eles; extrair por cima não os apaga automaticamente.
+4. Confira o `git diff` e não envie arquivos `.env.local` nem credenciais.
+5. Use Node 22, rode `npm install`, `npm run typecheck`, `npm run build` e **versione o `package-lock.json`** gerado.
+6. Suba a branch para o GitHub e verifique o deploy Preview na Vercel antes de atualizar a produção.
+
+### Configuração da Vercel
+
+O projeto já recebe automaticamente da integração Neon:
+
+- `DATABASE_URL`
+- `DATABASE_NEON_AUTH_BASE_URL`
+
+**Falta adicionar manualmente** uma variável **server-only** de sessão, presente nos ambientes Production e Preview:
+
+```text
+NEON_AUTH_COOKIE_SECRET=<valor aleatório de pelo menos 32 caracteres>
 ```
 
-No Windows PowerShell, use `Copy-Item .env.example .env.local`.
+Gere localmente com `openssl rand -base64 48` (ou `node -e "console.log(require('crypto').randomBytes(48).toString('base64'))"`). Cadastre diretamente em **Vercel → Settings → Environment Variables**. Não compartilhe o valor em conversas e não prefixe com `NEXT_PUBLIC_`.
 
-Configure `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` com valores públicos do seu projeto. **Não** configure chaves secretas com prefixo `NEXT_PUBLIC_`.
+A Vercel pode oferecer Node 26 por padrão; selecione **22.x** nas configurações de build se estiver disponível e teste com o mesmo Node localmente.
 
-Sem configurar variáveis de ambiente, a interface abre em **modo de demonstração**, sem operações persistentes.
+### Criar as tabelas
 
-## Banco de dados
+1. Na integração Vercel/Neon, escolha **Open in Neon** e abra o SQL Editor da branch `production`.
+2. Revise e execute `neon/001_init.sql`.
+3. Faça o mesmo na branch `preview`, **somente** se ela for um banco separado. Não copie dados reais para Preview sem análise de privacidade.
+4. No Neon Auth, crie o usuário administrador por um fluxo de cadastro **controlado**, ou convide o usuário se o painel disponibilizar esse procedimento.
+5. Localize o **ID do usuário de autenticação** no Neon Auth e execute no SQL Editor (substituindo valores):
 
-1. Crie um projeto Supabase novo.
-2. Execute `supabase/migrations/0001_foundation.sql` no SQL Editor após revisar as políticas.
-3. Na configuração Data API do projeto, habilite o acesso às tabelas necessárias. Em projetos Supabase recentes, tabelas novas não são necessariamente expostas automaticamente; verifique também `GRANT SELECT/INSERT/UPDATE` para `authenticated` nas tabelas que a UI acessará. Mantenha RLS ativo.
-4. Crie o primeiro usuário em Authentication > Users.
-5. Associe sua conta a um perfil `admin` conforme comentário no final do SQL.
-6. Reinicie o servidor após configurar `.env.local`.
+```sql
+insert into app_profiles(auth_user_id, full_name, role)
+values ('ID_REAL_DO_USUARIO_NEON_AUTH', 'Administrador SindPetshop', 'admin');
+```
 
-**Atenção:** não execute o SQL de produção sem revisar o modelo de autorização, especialmente ao ampliar os módulos. O script é uma base de desenvolvimento, não um certificado de segurança.
+Não existe concessão automática de acesso administrativo. Usuários sem linha em `app_profiles` recebem erro de autorização.
 
-## Importação
+### Importação de empresas
 
-Acesse `/importacoes` e envie CSV com cabeçalhos `cnpj,razao_social,nome_fantasia,logradouro,numero,bairro,municipio,uf,cep,cnae`.
+Acesse `/importacoes` e carregue CSV com colunas `cnpj,razao_social,nome_fantasia,logradouro,numero,bairro,municipio,uf,cep,cnae`.
 
-A importação é feita em lotes de 100 via sessão autenticada e RLS. CNPJs repetidos são atualizados (`upsert`), preservando seu ID. Em caso de interrupção, o histórico de lotes pode ficar parcial e deve ser reconciliado antes de reprocessar. Não há ainda geocodificação automática.
+O arquivo é analisado primeiro no navegador; a API volta a validar CNPJ e campos no servidor. Os lotes são enviados sequencialmente. Se houver falha entre lotes, os anteriores permanecem gravados e podem ser reprocessados por CNPJ. **Não envie grandes volumes reais antes de testar em Preview.**
 
-## Deploy Vercel
+### Segurança
 
-1. Envie esta pasta para um repositório GitHub.
-2. Importe o repositório na Vercel como Next.js.
-3. Configure as duas variáveis `NEXT_PUBLIC_...` no projeto Vercel.
-4. Faça deploy após configurar banco, perfis e políticas de acesso.
+- Todas as consultas SQL acontecem no servidor. A string `DATABASE_URL` não vai ao navegador.
+- Cada endpoint valida a sessão Neon Auth e consulta o papel autorizado em `app_profiles`.
+- Administração e supervisão podem importar e criar campanhas; agentes consultam apenas empresas atribuídas a rotas próprias.
+- Esta versão não disponibiliza coleta de fotos, GPS ou documentos; a escolha do storage privado e a política de retenção ficam para a implementação desses módulos.
+- Antes de produção real, testar cenários de usuário sem perfil, agente, supervisor e administrador; revisar auditoria, rate limits, importação massiva e política de privacidade.
 
-## Segurança e limitações conhecidas
+### Atenção
 
-- Somente o módulo inicial de empresas/importação/campanhas possui integração real com o banco.
-- Não existe ainda motor de rotas, coleta de localização, fotos ou fluxo de reembolso.
-- RLS está habilitado; papéis de acesso e buckets de evidências ainda precisam de revisão e teste de políticas antes de implantação real.
-- Dashboard apresenta contagens simples de registros, não métricas consolidadas de validação.
-- Gestão de empresas carrega apenas os 500 registros mais recentes (paginação futura).
-- Suporte XLSX, geocodificação, integração com buscador de CNPJ e processamento assíncrono de grandes importações ficam para etapas posteriores.
-- Dependências estão declaradas, mas o lockfile deve ser gerado com `npm install` e commitado antes de publicar.
+**O código foi preparado, mas não recebeu build completo neste ambiente:** o registry npm não estava acessível por DNS. As versões foram verificadas na documentação e no catálogo público, porém `npm install`, `typecheck`, `build` e testes de integração ainda são obrigatórios. Não considére a migração de autenticação validada até realizar login com Neon Auth e consultar dados reais.
 
-Veja `docs/INTEGRACAO-FUTURA.md` para o contrato proposto com o buscador de CNPJs.
+## Documentação
+
+- `docs/INTEGRACAO-FUTURA.md` — contrato futuro com o buscador de CNPJs.
+- `neon/001_init.sql` — migração SQL inicial.
+- `.env.example` — nomes de configuração necessários.

@@ -1,35 +1,28 @@
 'use client';
-import { useEffect, useState } from 'react';
+import {useEffect,useState} from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
-import { LogOut, Menu, X, ShieldCheck, MapPinned } from 'lucide-react';
-import { adminMenu,agentMenu } from '@/lib/menu';
-import { getSupabase } from '@/lib/supabase';
-type Profile={id:string;full_name:string;role:'admin'|'supervisor'|'agent'};
-export function Portal({children,title,subtitle}:{children:React.ReactNode;title:string;subtitle?:string}) {
- const [profile,setProfile]=useState<Profile|null>(null);
- const [ready,setReady]=useState(false);
- const [opened,setOpened]=useState(false);
- const router=useRouter();const pathname=usePathname();
- useEffect(()=>{let active=true; (async()=>{
-   const supabase=getSupabase();if(!supabase){setReady(true);return;}
-   const {data:{user}}=await supabase.auth.getUser();if(!user){router.replace('/login');return;}
-   const {data,error}=await supabase.from('profiles').select('id,full_name,role').eq('id',user.id).single();
-   if(!active)return;
-   if(error||!data){setReady(true);return;}
-   setProfile(data as Profile);setReady(true);
- })();return()=>{active=false};},[router]);
- const configured=!!getSupabase();
- if(!ready) return <main className="loading">Verificando acesso...</main>;
- if(configured&&!profile)return <main className="loading">Usuário sem perfil autorizado. Solicite acesso ao administrador.</main>;
- const isAgent=profile?.role==='agent';const items=isAgent?agentMenu:adminMenu;
- return <div className="shell">
- <aside className={`sidebar ${opened?'open':''}`}>
- <div className="brand"><MapPinned size={27}/><div><strong>SindPetshop-SP</strong><small>Gestão de Campo</small></div><button className="mobile-only icon-button" onClick={()=>setOpened(false)} aria-label="Fechar menu"><X/></button></div>
- <div className="sidebar-caption">{isAgent?'APLICAÇÃO DO AGENTE':'PAINEL ADMINISTRATIVO'}</div>
- <nav>{items.map(({label,href,icon:Icon})=><Link onClick={()=>setOpened(false)} className={`nav-item ${pathname===href?'current':''}`} href={href} key={href}><Icon size={18}/>{label}</Link>)}</nav>
- <div className="sidebar-bottom"><div className="identity"><ShieldCheck size={18}/><span>{profile?profile.full_name:'Modo de demonstração'}<small>{profile?profile.role:'Sem conexão Supabase'}</small></span></div>{configured&&<button className="nav-item logout" onClick={async()=>{await getSupabase()?.auth.signOut();router.replace('/login')}}><LogOut size={17}/> Sair</button>}</div>
- </aside>
- <div className="content"><header className="topbar"><button className="icon-button mobile-only" onClick={()=>setOpened(true)} aria-label="Abrir menu"><Menu/></button><span>Operações de campo / {title}</span><span className="topbar-tag">{configured?'Ambiente conectado':'Prévia local'}</span></header><main className="main"><div className="page-head"><div><h1>{title}</h1><p>{subtitle||'Plataforma de captação e inteligência territorial'}</p></div></div>{!configured&&<div className="notice"><strong>Modo de demonstração.</strong> Configure o Supabase para habilitar persistência, autenticação e importação real.</div>}{children}</main></div>
+import {usePathname,useRouter} from 'next/navigation';
+import {ArrowUpRight,Bell,ChevronRight,LogOut,Menu,PanelLeftClose,X} from 'lucide-react';
+import {BrandMark} from '@/components/brand-mark';
+import {adminMenu,agentMenu} from '@/lib/menu';
+import {authClient} from '@/lib/auth/client';
+type User={id:string;name:string;email:string;role:'admin'|'supervisor'|'agent'};
+export function Portal({title,subtitle,children,action}:{title:string;subtitle?:string;children:React.ReactNode;action?:React.ReactNode}){
+ const [user,setUser]=useState<User|null>(null),[loading,setLoading]=useState(true),[drawer,setDrawer]=useState(false),[collapsed,setCollapsed]=useState(false);
+ const router=useRouter(),pathname=usePathname();
+ useEffect(()=>{let live=true;fetch('/api/me',{cache:'no-store'}).then(async r=>{if(!r.ok){if(r.status===401)router.replace('/login');return null}return r.json()}).then(j=>{if(live&&j?.user){setUser(j.user);if(j.user.role==='agent'&&pathname==='/dashboard')router.replace('/agente')}}).catch(()=>{}).finally(()=>{if(live)setLoading(false)});return()=>{live=false}},[router,pathname]);
+ const agent=user?.role==='agent';const items=agent?agentMenu:adminMenu;
+ if(loading)return <div className="loading-screen"><BrandMark size={52}/><p>Preparando seu espaço de trabalho...</p></div>;
+ if(!user)return <div className="loading-screen"><BrandMark size={52}/><h2>Acesso restrito</h2><p>Entre na sua conta ou solicite que a administração libere seu perfil.</p><Link className="button" href="/login">Ir para o acesso</Link></div>;
+ return <div className={`app-shell ${collapsed?'collapsed':''}`}>
+  <aside className={`side ${drawer?'shown':''}`}>
+    <div className="side-head"><Link href="/dashboard" className="brand"><BrandMark size={42}/><div><strong>SindPetshop<span>-SP</span></strong><small>Campo & Território</small></div></Link><button className="icon-btn side-close" aria-label="Fechar" onClick={()=>setDrawer(false)}><X size={19}/></button></div>
+    <div className="side-scroll"><div className="side-unit"><span className="eyebrow">{agent?'ESPAÇO DO AGENTE':'CENTRAL DE OPERAÇÕES'}</span><strong>{agent?'Sua jornada de campo':'Onde a presença vira resultado.'}</strong></div>
+    <nav aria-label="Navegação principal">{['principal','operacao','inteligencia','sistema'].map(g=>{const subset=items.filter(i=>i.group===g);return subset.length?<div className="nav-section" key={g}><span className="nav-caption">{{principal:'Área de trabalho',operacao:'Trabalho de campo',inteligencia:'Inteligência',sistema:'Sistema'}[g]}</span>{subset.map(({href,label,icon:Icon})=><Link key={href} href={href} title={label} onClick={()=>setDrawer(false)} className={`side-link ${pathname===href?'active':''}`}><Icon size={19} strokeWidth={1.9}/><span>{label}</span>{pathname===href&&<span className="active-pin"/>}</Link>)}</div>:null})}</nav></div>
+    <div className="side-footer"><div className="avatar">{user.name.charAt(0).toUpperCase()}</div><div className="user-info"><strong>{user.name}</strong><small>{user.role==='admin'?'Administração':user.role==='supervisor'?'Supervisão':'Agente de campo'}</small></div><button aria-label="Sair" className="icon-btn" onClick={async()=>{await authClient.signOut();router.replace('/login')}}><LogOut size={18}/></button></div>
+  </aside>
+  {drawer&&<button aria-label="Fechar menu" className="scrim" onClick={()=>setDrawer(false)}/>}
+  <div className="workspace"><header className="topbar"><div className="topbar-left"><button aria-label="Abrir menu" className="icon-btn menu-mobile" onClick={()=>setDrawer(true)}><Menu size={21}/></button><button aria-label="Recolher menu" className="icon-btn menu-desktop" onClick={()=>setCollapsed(x=>!x)}><PanelLeftClose size={20}/></button><span className="breadcrumbs">SindPetshop-SP <ChevronRight size={14}/> <b>{title}</b></span></div><div className="topbar-right"><span className="env-pill"><span/> Operação interna</span><button className="icon-btn" aria-label="Notificações ainda não implementadas" title="Notificações na próxima etapa" disabled><Bell size={19}/></button><div className="avatar small">{user.name.charAt(0).toUpperCase()}</div></div></header>
+  <main className="page-wrap"><div className="page-heading"><div><span className="kicker"><span className="kicker-dot"/> CENTRAL SINDPETSHOP-SP</span><h1>{title}</h1><p>{subtitle||'Sua operação territorial, de ponta a ponta.'}</p></div>{action&&<div className="heading-action">{action}</div>}</div>{children}<footer className="page-footer"><span>SindPetshop-SP · Gestão territorial</span><span>Protegendo quem cuida <ArrowUpRight size={13}/></span></footer></main></div>
  </div>
 }
