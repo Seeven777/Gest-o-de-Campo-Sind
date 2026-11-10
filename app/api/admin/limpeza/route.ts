@@ -16,11 +16,11 @@ async function candidates(kind:Kind,term:string){
  where c.name ilike '%teste%' and (e.legal_name ilike '%'||$1||'%' or v.id::text=$1) order by v.created_at desc limit 50`,[term]);
  if(kind==='expense')return db().query(`select e.id,c.name||' · R$ '||e.amount::text as label,0::int linked,0::int visits from expenses e join campaigns c on c.id=e.campaign_id where c.name ilike '%teste%' and e.approval_status<>'paid' and (c.name ilike '%'||$1||'%' or e.id::text=$1) order by e.created_at desc limit 50`,[term]);
  if(kind==='campaign')return db().query(`select c.id,c.name as label,(select count(*)::int from routes where campaign_id=c.id) as linked,
- (select count(*)::int from expenses where campaign_id=c.id) as visits from campaigns c where c.name ilike '%teste%' and c.name ilike '%'||$1||'%' order by c.created_at desc limit 50`,[term]);
+ (select count(*)::int from expenses where campaign_id=c.id) as visits from campaigns c where c.name ilike '%teste%' and (c.name ilike '%'||$1||'%' or c.id::text=$1) order by c.created_at desc limit 50`,[term]);
  return db().query(`select e.id,e.legal_name||' · '||e.cnpj::text as label,
  (select count(*)::int from route_stops s where s.establishment_id=e.id) as linked,
  (select count(*)::int from registration_records rr where rr.establishment_id=e.id and rr.state='confirmed') as visits
- from establishments e where (e.legal_name ilike '%'||$1||'%' or e.cnpj::text like '%'||$1||'%') order by e.created_at desc limit 50`,[term]);
+ from establishments e where (e.legal_name ilike '%'||$1||'%' or e.cnpj::text like '%'||$1||'%' or e.id::text=$1) order by e.created_at desc limit 50`,[term]);
 }
 export async function GET(req:Request){
  const u=await currentIdentity();if(!u||u.role!=='admin')return fail('Somente administradores podem acessar a limpeza de testes.',403);
@@ -32,6 +32,7 @@ export async function GET(req:Request){
 }
 export async function DELETE(req:Request){
  const u=await currentIdentity();if(!u||u.role!=='admin')return fail('Somente administradores podem excluir registros.',403);
+ const origin=req.headers.get('origin');if(origin&&new URL(origin).origin!==new URL(req.url).origin)return fail('Origem não autorizada.',403);
  const body=await req.json().catch(()=>({}));const kind=String(body.kind||'') as Kind,id=String(body.id||''),confirmation=String(body.confirmation||'');
  if(!kinds.includes(kind)||!uuid.test(id))return fail('Registro inválido.');
  const current=await candidates(kind,id);const item=current.find(x=>String(x.id)===id);
