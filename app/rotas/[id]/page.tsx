@@ -56,19 +56,29 @@ const fmtDistance=(n:number)=>(n/1000).toLocaleString('pt-BR',{maximumFractionDi
 const fmtDuration=(n:number)=>Math.round(n/60).toLocaleString('pt-BR')+' min';
 
 export default function DetalheRota(){
- const {id}=useParams<{id:string}>();const [stops,setStops]=useState<Stop[]>([]),[title,setTitle]=useState(''),[error,setError]=useState(''),[routeError,setRouteError]=useState(''),[loading,setLoading]=useState(true),[calculating,setCalculating]=useState(false),[useGps,setUseGps]=useState(false),[data,setData]=useState<Calculation|null>(null);
+ const {id}=useParams<{id:string}>();const [stops,setStops]=useState<Stop[]>([]),[title,setTitle]=useState(''),[error,setError]=useState(''),[routeError,setRouteError]=useState(''),[loading,setLoading]=useState(true),[calculating,setCalculating]=useState(false),[progress,setProgress]=useState(''),[useGps,setUseGps]=useState(false),[data,setData]=useState<Calculation|null>(null);
  useEffect(()=>{let current=true;fetch('/api/rotas/'+encodeURIComponent(id),{cache:'no-store'})
  .then(async r=>{const d=await r.json();if(!r.ok)throw Error(d.error);if(current){setStops(d.stops||[]);setTitle(d.route.campaign_name)}})
  .catch(e=>{if(current)setError(e instanceof Error?e.message:'Falha ao carregar rota')}).finally(()=>{if(current)setLoading(false)});
  return()=>{current=false}},[id]);
  async function optimize(){
-  setCalculating(true);setRouteError('');
+  setCalculating(true);setRouteError('');setProgress('Preparando endereços...');
   try{let start: {lat:number;lon:number}|undefined;
    if(useGps){const point=await new Promise<GeolocationPosition>((resolve,reject)=>{if(!navigator.geolocation)return reject(Error('Este navegador não possui suporte a GPS.'));navigator.geolocation.getCurrentPosition(resolve,reject,{enableHighAccuracy:true,timeout:15000,maximumAge:0})});start={lat:point.coords.latitude,lon:point.coords.longitude}}
-   const r=await fetch('/api/rotas/'+encodeURIComponent(id)+'/otimizar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({start}),cache:'no-store'});
-   const response=await r.json();if(!r.ok)throw Error(response.error||'Falha na otimização');
-   setData(response as Calculation);
-  }catch(e){setRouteError(e instanceof Error?e.message:'Falha ao calcular o trajeto')}finally{setCalculating(false)}
+   let complete=false;
+   for(let batch=1;batch<=12;batch++){
+    setProgress('Consultando endereços e calculando o percurso · etapa '+batch);
+    const r=await fetch('/api/rotas/'+encodeURIComponent(id)+'/otimizar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({start}),cache:'no-store'});
+    const response=await r.json();
+    if(r.ok){setData(response as Calculation);complete=true;break}
+    if(r.status===422&&response.retryable===true&&batch<12){
+      setProgress('Coordenadas encontradas. Faltam '+response.remaining+' empresas — continuando automaticamente...');
+      continue;
+    }
+    throw Error(response.error||'Falha na otimização');
+   }
+   if(!complete)throw Error('A consulta atingiu o limite de tentativas. Confira os endereços antes de tentar novamente.');
+  }catch(e){setRouteError(e instanceof Error?e.message:'Falha ao calcular o trajeto')}finally{setCalculating(false);setProgress('')}
  }
  const byId=new Map(stops.map(s=>[s.id,s]));
  const sorted=data?data.order.map(i=>byId.get(i)).filter((s):s is Stop=>Boolean(s)):stops;
@@ -82,6 +92,7 @@ export default function DetalheRota(){
  <button className="button" disabled={calculating||loading||!stops.length} onClick={()=>void optimize()}>{calculating?<RefreshCw size={16}/>:<RouteIcon size={16}/>} {calculating?'Calculando percurso...':data?'Recalcular melhor trajeto':'Calcular melhor trajeto'}</button>
  {data&&<><span className="pill">{fmtDistance(data.distance_m)}</span><span className="pill">{fmtDuration(data.duration_s)} estimados em movimento</span></>}
  </div>
+ {calculating&&<p className="muted" role="status" style={{marginBottom:12}}>{progress}</p>}
  {routeError&&<div className="notice" role="alert">{routeError}</div>}
  {data?<RouteMap data={data}/>:<div className="empty" style={{minHeight:260}}><div><MapPinned size={34} color="#6c957e"/><strong>Mapa do percurso</strong><p>{loading?'Carregando paradas...':'Clique em Calcular melhor trajeto para localizar as empresas, desenhar o percurso e sugerir a ordem de visita.'}</p></div></div>}
  {data&&<p className="muted" style={{marginTop:14}}>Tempo e distância são estimativas de deslocamento, sem duração das visitas, paradas ou trânsito ao vivo. Confira a localização dos estabelecimentos antes de sair.</p>}
