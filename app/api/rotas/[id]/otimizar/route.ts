@@ -14,7 +14,8 @@ async function ors(url:string,init:RequestInit,token:string){
  if(!response.ok){const detail=(await response.text()).slice(0,250);throw new Error('Roteirizador indisponível (HTTP '+response.status+'): '+detail);}
  return response.json();
 }
-export async function POST(_req:Request,{params}:{params:Promise<{id:string}>}){
+export const maxDuration=60;
+export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
  const user=await currentIdentity();
  if(!user)return fail('Faça login para consultar o percurso.',401);
  const {id}=await params;
@@ -27,6 +28,9 @@ export async function POST(_req:Request,{params}:{params:Promise<{id:string}>}){
  from route_stops s join establishments e on e.id=s.establishment_id where s.route_id=$1 order by s.position_order`,[id]);
  const stops=raw as Point[];
  if(!stops.length)return fail('A rota ainda não possui paradas.');
+ const body=await req.json().catch(()=>({}));
+ const start=body.start;
+ const origin=(start&&Number.isFinite(start.lat)&&Number.isFinite(start.lon)&&Math.abs(start.lat)<=90&&Math.abs(start.lon)<=180)?[Number(start.lon),Number(start.lat)] as Coordinates:null;
  const token=process.env.OPENROUTESERVICE_API_KEY;
  if(!token)return fail('O mapa otimizado precisa da variável OPENROUTESERVICE_API_KEY na Vercel.',503);
  // Geocodificação pontual e sob demanda, limitada para evitar consumo excessivo de créditos.
@@ -49,22 +53,23 @@ export async function POST(_req:Request,{params}:{params:Promise<{id:string}>}){
  }
  if(missing.length)return NextResponse.json({error:'Ainda faltam coordenadas para '+missing.length+' empresas. Confira os endereços e execute o cálculo novamente. É possível localizar até 8 novos endereços por execução.',missing,geocoded},{status:422});
  const coords=stops.map(s=>[Number(s.lon),Number(s.lat)] as Coordinates);
- if(coords.length===1)return NextResponse.json({order:[stops[0].id],points:stops.map(s=>({id:s.id,lat:Number(s.lat),lon:Number(s.lon)})),geometry:{type:'LineString',coordinates:coords},distance_m:0,duration_s:0,estimated:true,geocoded});
+ if(coords.length===1&&!origin)return NextResponse.json({order:[stops[0].id],points:stops.map(s=>({id:s.id,lat:Number(s.lat),lon:Number(s.lon)})),geometry:{type:'LineString',coordinates:coords},distance_m:0,duration_s:0,estimated:true,geocoded});
  try{
   // O primeiro endereço é o ponto inicial. Os demais são otimizados pelo serviço VROOM.
+  const jobCoords=origin?coords:coords.slice(1);
   const optimization=await ors('https://api.openrouteservice.org/optimization',{
-   method:'POST',body:JSON.stringify({jobs:stops.slice(1).map((s,i)=>({id:i+1,location:coords[i+1]})),vehicles:[{id:1,profile:'driving-car',start:coords[0]}]})
+   method:'POST',body:JSON.stringify({jobs:jobCoords.map((location,i)=>({id:i+1,location})),vehicles:[{id:1,profile:'driving-car',start:origin||coords[0]}]})
   },token);
   const best=optimization?.routes?.[0]?.steps?.filter((s:{type:string})=>s.type==='job').map((s:{id:number})=>Number(s.id));
-  if(!Array.isArray(best)||best.length!==stops.length-1||optimization.unassigned?.length)return fail('A otimização não conseguiu incluir todas as paradas.',422);
-  const indices=[0,...best];
+  if(!Array.isArray(best)||best.length!==jobCoords.length||optimization.unassigned?.length)return fail('A otimização não conseguiu incluir todas as paradas.',422);
+  const indices=origin?best.map((i:number)=>i-1):[0,...best];
   if(new Set(indices).size!==stops.length||indices.some((i:number)=>i<0||i>=stops.length))return fail('A sequência otimizada retornou paradas inválidas.',502);
-  const sorted=indices.map((i:number)=>coords[i]);
+  const sorted=origin?[origin,...indices.map((i:number)=>coords[i])]:indices.map((i:number)=>coords[i]);
   const directions=await ors('https://api.openrouteservice.org/v2/directions/driving-car/geojson',
    {method:'POST',body:JSON.stringify({coordinates:sorted,instructions:false})},token);
   const feature=directions?.features?.[0],geometry=feature?.geometry;
   if(!geometry||geometry.type!=='LineString'||!Array.isArray(geometry.coordinates))return fail('Não foi possível desenhar o trajeto pelas ruas.',502);
   const summary=feature.properties?.summary??{};
-  return NextResponse.json({order:indices.map((i:number)=>stops[i].id),points:stops.map(s=>({id:s.id,lat:Number(s.lat),lon:Number(s.lon)})),geometry,distance_m:Number(summary.distance||0),duration_s:Number(summary.duration||0),estimated:true,geocoded},{headers:{'Cache-Control':'no-store'}});
+  return NextResponse.json({order:indices.map((i:number)=>stops[i].id),points:stops.map(s=>({id:s.id,lat:Number(s.lat),lon:Number(s.lon)})),origin:origin?{lat:origin[1],lon:origin[0]}:null,geometry,distance_m:Number(summary.distance||0),duration_s:Number(summary.duration||0),estimated:true,geocoded},{headers:{'Cache-Control':'no-store'}});
  }catch(e){console.error('[otimizar rota]',e instanceof Error?e.message:e);return fail('Não foi possível calcular a rota. Confira a chave e os limites da API de roteirização.',502)}
 }
