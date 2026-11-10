@@ -11,7 +11,7 @@ export async function GET(){
  return NextResponse.json({items});
 }
 export async function POST(req:Request){
- const user=await currentIdentity();if(!user||user.role==='agent')return fail('Somente administração e supervisão.',403);
+ const user=await currentIdentity();if(!user||!['admin','supervisor'].includes(user.role))return fail('Somente administração e supervisão.',403);
  const data=await req.json().catch(()=>({}));
  const campaign=String(data.campaign_id||''),agent=String(data.agent_id||''),date=String(data.date||'');
  const stops=Array.isArray(data.establishment_ids)?data.establishment_ids.map(String):[];
@@ -30,7 +30,7 @@ export async function POST(req:Request){
 }
 
 export async function PATCH(req:Request){
- const u=await currentIdentity();if(!u||u.role==='agent')return fail('Apenas administração e supervisão.',403);
+ const u=await currentIdentity();if(!u||!['admin','supervisor','marketing'].includes(u.role))return fail('Somente administração, supervisão ou marketing podem publicar.',403);
  const data=await req.json().catch(()=>({}));const id=String(data.id||'');
  if(!/^[0-9a-f-]{36}$/i.test(id))return fail('Rota inválida.');
  const rows=await db().query("update routes set status='published' where id=$1 and status='draft' and exists(select 1 from route_stops where route_id=$1) returning id",[id]);
