@@ -30,7 +30,7 @@ export async function GET() {
           FROM app_profiles p LEFT JOIN neon_auth."user" u ON u.id::text=p.auth_user_id
           ORDER BY p.created_at DESC LIMIT 250`),
       ]);
-      return NextResponse.json({requests,profiles},{headers:{'Cache-Control':'no-store'}});
+      return NextResponse.json({authorized:true,requests,profiles},{headers:{'Cache-Control':'no-store'}});
     }
     const [request] = await db().query(`SELECT status,created_at,reviewed_at FROM access_requests WHERE auth_user_id=$1`,[user.id]);
     return NextResponse.json({request:request||null,authorized:Boolean(identity)}, {headers:{'Cache-Control':'no-store'}});
