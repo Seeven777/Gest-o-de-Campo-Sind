@@ -84,10 +84,13 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
  }catch(e){
   const message=e instanceof Error?e.message:String(e);
   console.error('[otimizar rota]',stage,message);
-  const code=message.match(/HTTP (\\d{3})/);
+  const code=message.match(/HTTP (\d{3})/);
   const status=code?Number(code[1]):null;
   const title=stage==='directions'?'desenhar o percurso pelas ruas':'ordenar as empresas da rota';
   const hint=status===406?'A API rejeitou o formato da resposta (HTTP 406).':status===429?'Limite de consultas do serviço atingido (HTTP 429).':status===401||status===403?'A chave da API não autorizou esta operação.':status===404?'O serviço não encontrou um trajeto rodoviário entre esses pontos.':'Verifique o serviço de rotas e os endereços das empresas.';
-  return NextResponse.json({error:'Não foi possível '+title+'. '+hint,stage,http_status:status},{status:502,headers:{'Cache-Control':'no-store'}});
+  // Falhas do provedor não devem impedir a visualização das coordenadas já localizadas.
+  // Sem geometria viária nem estimativas: é apenas um mapa de pontos, não uma rota calculada.
+  return NextResponse.json({...common,order:located.map(s=>s.id),geometry:{type:'LineString',coordinates:[]},distance_m:null,duration_s:null,estimated:false,route_warning:'O mapa mostra somente as empresas localizadas. Não foi possível '+title+'. '+hint,stage,http_status:status},{headers:{'Cache-Control':'no-store'}});
+
  }
 }
