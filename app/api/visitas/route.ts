@@ -7,7 +7,12 @@ export async function GET(){
  from visits v join route_stops s on s.id=v.stop_id join establishments e on e.id=s.establishment_id
  join app_profiles p on p.auth_user_id=v.agent_id
  where ($1::bool=false or v.agent_id=$2) order by v.created_at desc limit 150`,[user.role==='agent',user.id]);
- return NextResponse.json({items:rows});
+ const stops=await db().query(`select s.id as stop_id,s.position_order,e.legal_name,e.trade_name,e.street,e.street_number,e.city,e.state,r.route_date,
+ (select v.checkin_at from visits v where v.stop_id=s.id order by v.created_at desc limit 1) checkin_at,
+ (select v.checkout_at from visits v where v.stop_id=s.id order by v.created_at desc limit 1) checkout_at
+ from route_stops s join routes r on r.id=s.route_id join establishments e on e.id=s.establishment_id
+ where ($1::bool=false or r.agent_id=$2) order by r.route_date desc,s.position_order limit 100`,[user.role==='agent',user.id]);
+ return NextResponse.json({items:rows,stops});
 }
 export async function POST(req:Request){
  const user=await currentIdentity();if(!user)return fail('Sem sessão',401);
