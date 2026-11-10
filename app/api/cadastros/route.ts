@@ -1,7 +1,7 @@
 import {NextResponse} from 'next/server';import {currentIdentity} from '@/lib/access';import {db} from '@/lib/db';
 export const dynamic='force-dynamic';
 const fail=(error:string,status=400)=>NextResponse.json({error},{status});
-export async function GET(req:Request){const user=await currentIdentity();if(!user||user.role==='agent')return fail('Acesso restrito',403);
+export async function GET(req:Request){const user=await currentIdentity();if(!user||!['admin','supervisor'].includes(user.role))return fail('Acesso restrito',403);
  const q=(new URL(req.url).searchParams.get('q')||'').slice(0,100).trim();
  const rows=await db().query(`select e.id,e.cnpj,e.legal_name,e.trade_name,e.city,e.field_status,coalesce(rr.state,'pending') registration_state,rr.reference,rr.confirmed_at
  from establishments e left join registration_records rr on rr.establishment_id=e.id
