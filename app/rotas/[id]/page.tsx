@@ -7,7 +7,8 @@ import {MapPinned,Route as RouteIcon,RefreshCw,Navigation} from 'lucide-react';
 
 type Stop={id:string;position_order:number;legal_name:string;trade_name:string|null;street:string|null;street_number:string|null;city:string|null;state:string|null;postal_code:string|null;cnpj:string};
 type Point={id:string;lat:number;lon:number};
-type Calculation={order:string[];points:Point[];geometry:{type:'LineString';coordinates:[number,number][]};distance_m:number;duration_s:number;estimated:boolean;geocoded:number;origin?:{lat:number;lon:number}|null};
+type Missing={id:string;name:string;address:string};
+type Calculation={order:string[];points:Point[];geometry:{type:'LineString';coordinates:[number,number][]};distance_m:number;duration_s:number;estimated:boolean;geocoded:number;origin?:{lat:number;lon:number}|null;partial?:boolean;missing?:Missing[];total?:number;located?:number};
 type Layer={addTo:(map:unknown)=>Layer;bindTooltip:(text:string)=>Layer};
 type MapLike={fitBounds:(bounds:unknown,options?:unknown)=>void;remove:()=>void};
 type Leaflet={map:(node:HTMLElement,options:unknown)=>MapLike;tileLayer:(url:string,options:unknown)=>Layer;polyline:(points:number[][],options:unknown)=>Layer;marker:(point:number[],options:unknown)=>Layer;divIcon:(options:unknown)=>unknown;latLngBounds:(points:number[][])=>unknown};
@@ -81,7 +82,7 @@ export default function DetalheRota(){
   }catch(e){setRouteError(e instanceof Error?e.message:'Falha ao calcular o trajeto')}finally{setCalculating(false);setProgress('')}
  }
  const byId=new Map(stops.map(s=>[s.id,s]));
- const sorted=data?data.order.map(i=>byId.get(i)).filter((s):s is Stop=>Boolean(s)):stops;
+ const sorted=data?[...data.order.map(i=>byId.get(i)).filter((s):s is Stop=>Boolean(s)),...stops.filter(s=>!data.order.includes(s.id))]:stops;
  return <Portal title="Percurso de campo" subtitle={title||'Empresas atribuídas à rota'}>
  {error&&<p className="error" role="alert">{error}</p>}
  <section className="panel" style={{marginBottom:18}}>
@@ -94,6 +95,7 @@ export default function DetalheRota(){
  </div>
  {calculating&&<p className="muted" role="status" style={{marginBottom:12}}>{progress}</p>}
  {routeError&&<div className="notice" role="alert">{routeError}</div>}
+ {data?.partial&&<div style={{padding:16,marginBottom:16,border:'1px solid #edcfa7',borderRadius:12,background:'#fff9ee'}} role="status"><strong>Percurso parcial: {data.located} de {data.total} empresas localizadas.</strong><p style={{fontSize:13,margin:'8px 0'}}>As empresas abaixo continuam na lista de trabalho, mas não fazem parte do trajeto desenhado. Verifique suas coordenadas antes de usar este percurso como rota completa.</p><ul style={{paddingLeft:20,margin:'8px 0'}}>{(data.missing||[]).map(x=><li key={x.id} style={{marginBottom:7}}><strong>{x.name}</strong> — {x.address||'Endereço incompleto'}</li>)}</ul></div>}
  {data?<RouteMap data={data}/>:<div className="empty" style={{minHeight:260}}><div><MapPinned size={34} color="#6c957e"/><strong>Mapa do percurso</strong><p>{loading?'Carregando paradas...':'Clique em Calcular melhor trajeto para localizar as empresas, desenhar o percurso e sugerir a ordem de visita.'}</p></div></div>}
  {data&&<p className="muted" style={{marginTop:14}}>Tempo e distância são estimativas de deslocamento, sem duração das visitas, paradas ou trânsito ao vivo. Confira a localização dos estabelecimentos antes de sair.</p>}
  </section>

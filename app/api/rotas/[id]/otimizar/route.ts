@@ -54,9 +54,14 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
    await db().query('update establishments set position=ST_SetSRID(ST_MakePoint($2,$3),4326)::geography where id=(select establishment_id from route_stops where id=$1) and position is null',[stop.id,stop.lon,stop.lat]);
   }catch{missing.push(stop.legal_name)}
  }
- if(missing.length)return NextResponse.json({error:'Ainda faltam coordenadas para '+missing.length+' empresas. Confira os endereços se o processo não avançar.',missing,geocoded,remaining:missing.length,retryable:geocoded>0},{status:422});
- const coords=stops.map(s=>[Number(s.lon),Number(s.lat)] as Coordinates);
- if(coords.length===1&&!origin)return NextResponse.json({order:[stops[0].id],points:stops.map(s=>({id:s.id,lat:Number(s.lat),lon:Number(s.lon)})),geometry:{type:'LineString',coordinates:coords},distance_m:0,duration_s:0,estimated:true,geocoded});
+ const unresolved=stops.filter(s=>s.lat===null||s.lon===null||!Number.isFinite(Number(s.lat))||!Number.isFinite(Number(s.lon)))
+ .map(s=>({id:s.id,name:s.trade_name||s.legal_name,address:[s.street,s.street_number,s.city,s.state,s.postal_code].filter(Boolean).join(', ')}));
+ const located=stops.filter(s=>s.lat!==null&&s.lon!==null&&Number.isFinite(Number(s.lat))&&Number.isFinite(Number(s.lon)));
+ if(unresolved.length&&geocoded>0&&attempts>=6)return NextResponse.json({retryable:true,remaining:unresolved.length,geocoded,missing:unresolved},{status:422});
+ if(!located.length)return NextResponse.json({error:'Nenhuma empresa possui coordenadas. Revise os endereços.',missing:unresolved},{status:422});
+ const coords=located.map(s=>[Number(s.lon),Number(s.lat)] as Coordinates);
+ const common={points:located.map(s=>({id:s.id,lat:Number(s.lat),lon:Number(s.lon)})),missing:unresolved,partial:unresolved.length>0,total:stops.length,located:located.length,geocoded,origin:origin?{lat:origin[1],lon:origin[0]}:null};
+ if(coords.length===1&&!origin)return NextResponse.json({...common,order:[located[0].id],geometry:{type:'LineString',coordinates:coords},distance_m:0,duration_s:0,estimated:true});
  try{
   // O primeiro endereço é o ponto inicial. Os demais são otimizados pelo serviço VROOM.
   const jobCoords=origin?coords:coords.slice(1);
@@ -66,13 +71,13 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
   const best=optimization?.routes?.[0]?.steps?.filter((s:{type:string})=>s.type==='job').map((s:{id:number})=>Number(s.id));
   if(!Array.isArray(best)||best.length!==jobCoords.length||optimization.unassigned?.length)return fail('A otimização não conseguiu incluir todas as paradas.',422);
   const indices=origin?best.map((i:number)=>i-1):[0,...best];
-  if(new Set(indices).size!==stops.length||indices.some((i:number)=>i<0||i>=stops.length))return fail('A sequência otimizada retornou paradas inválidas.',502);
+  if(new Set(indices).size!==located.length||indices.some((i:number)=>i<0||i>=located.length))return fail('A sequência otimizada retornou paradas inválidas.',502);
   const sorted=origin?[origin,...indices.map((i:number)=>coords[i])]:indices.map((i:number)=>coords[i]);
   const directions=await ors('https://api.openrouteservice.org/v2/directions/driving-car/geojson',
    {method:'POST',body:JSON.stringify({coordinates:sorted,instructions:false})},token);
   const feature=directions?.features?.[0],geometry=feature?.geometry;
   if(!geometry||geometry.type!=='LineString'||!Array.isArray(geometry.coordinates))return fail('Não foi possível desenhar o trajeto pelas ruas.',502);
   const summary=feature.properties?.summary??{};
-  return NextResponse.json({order:indices.map((i:number)=>stops[i].id),points:stops.map(s=>({id:s.id,lat:Number(s.lat),lon:Number(s.lon)})),origin:origin?{lat:origin[1],lon:origin[0]}:null,geometry,distance_m:Number(summary.distance||0),duration_s:Number(summary.duration||0),estimated:true,geocoded},{headers:{'Cache-Control':'no-store'}});
+  return NextResponse.json({...common,order:indices.map((i:number)=>located[i].id),geometry,distance_m:Number(summary.distance||0),duration_s:Number(summary.duration||0),estimated:true},{headers:{'Cache-Control':'no-store'}});
  }catch(e){console.error('[otimizar rota]',e instanceof Error?e.message:e);return fail('Não foi possível calcular a rota. Confira a chave e os limites da API de roteirização.',502)}
 }
