@@ -11,15 +11,16 @@ export async function GET(){
  (select v.checkin_at from visits v where v.stop_id=s.id order by v.created_at desc limit 1) checkin_at,
  (select v.checkout_at from visits v where v.stop_id=s.id order by v.created_at desc limit 1) checkout_at
  from route_stops s join routes r on r.id=s.route_id join establishments e on e.id=s.establishment_id
- where ($1::bool=false or r.agent_id=$2) order by r.route_date desc,s.position_order limit 100`,[user.role==='agent',user.id]);
+ where ($1::bool=false or r.agent_id=$2) and r.status in ('published','in_progress','completed') order by r.route_date desc,s.position_order limit 100`,[user.role==='agent',user.id]);
  return NextResponse.json({items:rows,stops});
 }
 export async function POST(req:Request){
  const user=await currentIdentity();if(!user)return fail('Sem sessão',401);
  const data=await req.json().catch(()=>({}));const stop=String(data.stop_id||'');const action=String(data.action||'');
  if(!/^[0-9a-f-]{36}$/i.test(stop)||!['checkin','checkout'].includes(action))return fail('Parada ou operação inválida');
- const [assigned]=await db().query('select r.agent_id,s.id from route_stops s join routes r on r.id=s.route_id where s.id=$1',[stop]);
+ const [assigned]=await db().query('select r.agent_id,s.id,r.status from route_stops s join routes r on r.id=s.route_id where s.id=$1',[stop]);
  if(!assigned)return fail('Parada não encontrada',404);
+ if(!['published','in_progress'].includes(assigned.status))return fail('A rota ainda não foi publicada ou está encerrada.',409);
  if(user.role==='agent'&&assigned.agent_id!==user.id)return fail('Parada não atribuída a você',403);
  const agent=String(assigned.agent_id);
  if(action==='checkin'){
