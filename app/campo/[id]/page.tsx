@@ -96,7 +96,7 @@ function ArrivalSlider({disabled,onConfirm}:{disabled:boolean;onConfirm:()=>void
     value={value} disabled={disabled}
     onChange={e=>update(Number(e.target.value))}
     onPointerUp={release} onPointerCancel={()=>update(0)}
-    onKeyUp={e=>{if(e.key==='ArrowRight'||e.key==='End'||e.key===' '||e.key==='Enter')release()}}
+    onKeyUp={e=>{if(e.key==='End'||e.key==='Enter'||e.key===' ')release()}}
     style={{background:`linear-gradient(to right,#f36a21 ${value}%,#e7eeea ${value}%)`}}
     aria-label="Arraste o controle para a direita até o final para confirmar chegada"/>
    <span className="navigator-slider-end" aria-hidden="true"><Check size={21}/></span>
