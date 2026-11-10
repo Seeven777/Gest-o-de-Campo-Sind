@@ -3,10 +3,10 @@ import {useCallback,useEffect,useState} from 'react';
 import {Portal} from '@/components/portal';
 import {CheckCircle2,Clock3,ShieldCheck,UserCheck,UsersRound,XCircle} from 'lucide-react';
 
-type Role='admin'|'supervisor'|'agent';
+type Role='admin'|'supervisor'|'agent'|'marketing';
 type Request={id:string;auth_user_id:string;email:string;full_name:string;status:'pending'|'approved'|'rejected';assigned_role:Role|null;created_at:string};
 type Profile={auth_user_id:string;full_name:string;email:string|null;role:Role;is_active:boolean};
-const labels:Record<Role,string>={admin:'Administrador',supervisor:'Supervisor',agent:'Agente de campo'};
+const labels:Record<Role,string>={admin:'Administrador',supervisor:'Supervisor',agent:'Agente de campo',marketing:'Marketing'};
 export default function Equipes(){
  const [requests,setRequests]=useState<Request[]>([]),[profiles,setProfiles]=useState<Profile[]>([]);
  const [loading,setLoading]=useState(true),[denied,setDenied]=useState(false),[busy,setBusy]=useState<string|null>(null);
@@ -51,7 +51,7 @@ export default function Equipes(){
       <div style={{minWidth:220,flex:1}}><strong style={{fontSize:15}}>{r.full_name}</strong><p className="muted" style={{margin:'5px 0'}}>{r.email}</p><span className="pill warn">Aguardando desde {new Date(r.created_at).toLocaleDateString('pt-BR')}</span></div>
       <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
        <select aria-label={`Perfil para ${r.full_name}`} className="field" value={roles[r.id]||'agent'} onChange={e=>setRoles(p=>({...p,[r.id]:e.target.value as Role}))}>
-        <option value="agent">Agente de campo</option><option value="supervisor">Supervisor</option><option value="admin">Administrador</option>
+        <option value="agent">Equipe de campo</option><option value="marketing">Marketing</option><option value="supervisor">Supervisão</option><option value="admin">Administrador</option>
        </select>
        <button className="button" disabled={busy!==null} onClick={()=>void decide(r,'approve')}><UserCheck size={16}/> Aprovar</button>
        <button className="button secondary" disabled={busy!==null} onClick={()=>void decide(r,'reject')}><XCircle size={16}/> Recusar</button>
