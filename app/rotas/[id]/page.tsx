@@ -1,9 +1,90 @@
 'use client';
-import {useEffect,useState} from 'react';import {useParams} from 'next/navigation';import {Portal} from '@/components/portal';import Link from 'next/link';
-type Stop={id:string;position_order:number;legal_name:string;trade_name:string;street:string;street_number:string;city:string;state:string;postal_code:string;cnpj:string};
-export default function DetalheRota(){const {id}=useParams<{id:string}>();const [stops,setStops]=useState<Stop[]>([]),[title,setTitle]=useState(''),[error,setError]=useState('');
-useEffect(()=>{fetch('/api/rotas/'+encodeURIComponent(id),{cache:'no-store'}).then(async r=>{const d=await r.json();if(!r.ok)throw Error(d.error);setStops(d.stops);setTitle(d.route.campaign_name)}).catch(e=>setError(e.message))},[id]);
-return <Portal title="Percurso de campo" subtitle={title||'Empresas atribuídas à rota'}>
-{error&&<p className="error">{error}</p>}<section className="panel"><div className="panel-title"><div><small>SEQUÊNCIA DE VISITAS</small><h2>{stops.length} paradas</h2></div><Link href="/visitas" className="button">Registrar visita</Link></div>
-<div className="roadmap-list">{stops.map(s=><div key={s.id}><span>{String(s.position_order).padStart(2,'0')}</span><p><strong>{s.trade_name||s.legal_name}</strong><br/><small>{s.street} {s.street_number}, {s.city} / {s.state} · CNPJ {s.cnpj}</small><br/><a className="link-inline" target="_blank" rel="noopener noreferrer" href={'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent([s.street,s.street_number,s.city,s.state,s.postal_code].filter(Boolean).join(', '))}>Abrir endereço no mapa</a></p></div>)}</div>
-{!stops.length&&!error&&<div className="empty">Carregando paradas...</div>}</section></Portal>}
+import {useEffect,useRef,useState} from 'react';
+import {useParams} from 'next/navigation';
+import {Portal} from '@/components/portal';
+import Link from 'next/link';
+import {MapPinned,Route as RouteIcon,RefreshCw,Navigation} from 'lucide-react';
+
+type Stop={id:string;position_order:number;legal_name:string;trade_name:string|null;street:string|null;street_number:string|null;city:string|null;state:string|null;postal_code:string|null;cnpj:string};
+type Point={id:string;lat:number;lon:number};
+type Calculation={order:string[];points:Point[];geometry:{type:'LineString';coordinates:[number,number][]};distance_m:number;duration_s:number;estimated:boolean;geocoded:number};
+type Layer={addTo:(map:unknown)=>Layer;bindTooltip:(text:string)=>Layer};
+type MapLike={fitBounds:(bounds:unknown,options?:unknown)=>void;remove:()=>void};
+type Leaflet={map:(node:HTMLElement,options:unknown)=>MapLike;tileLayer:(url:string,options:unknown)=>Layer;polyline:(points:number[][],options:unknown)=>Layer;marker:(point:number[],options:unknown)=>Layer;divIcon:(options:unknown)=>unknown;latLngBounds:(points:number[][])=>unknown};
+const leafletLoader=()=>{
+ if(typeof window==='undefined')return Promise.reject(Error('Mapa disponível somente no navegador.'));
+ const win=window as typeof window&{L?:Leaflet};
+ if(win.L)return Promise.resolve(win.L);
+ if(!document.querySelector('link[data-leaflet]')){const link=document.createElement('link');link.rel='stylesheet';link.href='https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';link.dataset.leaflet='1';document.head.appendChild(link)}
+ return new Promise<Leaflet>((resolve,reject)=>{
+  const existing=document.querySelector('script[data-leaflet]') as HTMLScriptElement|null;
+  const script=existing||document.createElement('script');
+  const done=()=>win.L?resolve(win.L):reject(Error('Não foi possível iniciar o mapa.'));
+  if(existing){script.addEventListener('load',done,{once:true});script.addEventListener('error',()=>reject(Error('Falha ao carregar mapa.')),{once:true});if(win.L)done()}
+  else {script.src='https://unpkg.com/leaflet@1.9.4/dist/leaflet.js';script.async=true;script.dataset.leaflet='1';script.onload=done;script.onerror=()=>reject(Error('Falha ao carregar o mapa.'));document.head.appendChild(script)}
+ });
+};
+function RouteMap({data}:{data:Calculation}){
+ const node=useRef<HTMLDivElement|null>(null);const [error,setError]=useState('');
+ useEffect(()=>{let closed=false;let map:MapLike|undefined;
+ leafletLoader().then(L=>{
+  if(closed||!node.current)return;
+  map=L.map(node.current,{zoomControl:true,scrollWheelZoom:false});
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap contributors',maxZoom:19}).addTo(map);
+  const byId=new Map(data.points.map(p=>[p.id,p]));
+  const positions:number[][]=[];
+  data.order.forEach((id,i)=>{
+   const p=byId.get(id);if(!p)return;
+   const coords=[p.lat,p.lon];positions.push(coords);
+   const marker=L.divIcon({className:'route-number-marker',html:'<span>'+String(i+1)+'</span>',iconSize:[32,32],iconAnchor:[16,16]});
+   L.marker(coords,{icon:marker}).addTo(map!).bindTooltip('Parada '+(i+1));
+  });
+  const line=data.geometry.coordinates.map(([lon,lat])=>[lat,lon]);
+  if(line.length>1)L.polyline(line,{color:'#fa6920',weight:5,opacity:.9}).addTo(map);
+  const bounds=L.latLngBounds(line.length>1?line:positions);
+  map.fitBounds(bounds,{padding:[35,35],maxZoom:15});
+ }).catch(e=>{if(!closed)setError(e instanceof Error?e.message:'Falha ao exibir mapa')});
+ return()=>{closed=true;map?.remove()};
+ },[data]);
+ return <div style={{position:'relative'}}>{error&&<p className="error">{error}</p>}
+ <div ref={node} style={{height:480,width:'100%',borderRadius:16,overflow:'hidden',background:'#eef3ed'}} role="img" aria-label="Mapa do trajeto sugerido e empresas numeradas"/>
+ <style jsx global>{`.route-number-marker{border:2px solid #fff;background:#fb6b22;border-radius:50%;box-shadow:0 2px 9px #0005;color:#fff;text-align:center;font-weight:800;line-height:28px}.route-number-marker span{font-size:13px}`}</style>
+ </div>
+}
+const fmtDistance=(n:number)=>(n/1000).toLocaleString('pt-BR',{maximumFractionDigits:1})+' km';
+const fmtDuration=(n:number)=>Math.round(n/60).toLocaleString('pt-BR')+' min';
+
+export default function DetalheRota(){
+ const {id}=useParams<{id:string}>();const [stops,setStops]=useState<Stop[]>([]),[title,setTitle]=useState(''),[error,setError]=useState(''),[routeError,setRouteError]=useState(''),[loading,setLoading]=useState(true),[calculating,setCalculating]=useState(false),[data,setData]=useState<Calculation|null>(null);
+ useEffect(()=>{let current=true;fetch('/api/rotas/'+encodeURIComponent(id),{cache:'no-store'})
+ .then(async r=>{const d=await r.json();if(!r.ok)throw Error(d.error);if(current){setStops(d.stops||[]);setTitle(d.route.campaign_name)}})
+ .catch(e=>{if(current)setError(e instanceof Error?e.message:'Falha ao carregar rota')}).finally(()=>{if(current)setLoading(false)});
+ return()=>{current=false}},[id]);
+ async function optimize(){
+  setCalculating(true);setRouteError('');
+  try{const r=await fetch('/api/rotas/'+encodeURIComponent(id)+'/otimizar',{method:'POST',cache:'no-store'});
+   const response=await r.json();if(!r.ok)throw Error(response.error||'Falha na otimização');
+   setData(response as Calculation);
+  }catch(e){setRouteError(e instanceof Error?e.message:'Falha ao calcular o trajeto')}finally{setCalculating(false)}
+ }
+ const byId=new Map(stops.map(s=>[s.id,s]));
+ const sorted=data?data.order.map(i=>byId.get(i)).filter((s):s is Stop=>Boolean(s)):stops;
+ return <Portal title="Percurso de campo" subtitle={title||'Empresas atribuídas à rota'}>
+ {error&&<p className="error" role="alert">{error}</p>}
+ <section className="panel" style={{marginBottom:18}}>
+ <div className="panel-title"><div><small>MAPA DO PERCURSO</small><h2>Melhor sequência de visitas</h2></div><MapPinned size={22} color="#ef702c"/></div>
+ <p className="muted" style={{lineHeight:1.7}}>Consulte as empresas no próprio mapa. O cálculo usa a malha viária, mantém a primeira parada como início e sugere a ordem das demais, sem considerar trânsito em tempo real.</p>
+ <div style={{display:'flex',gap:12,alignItems:'center',flexWrap:'wrap',margin:'18px 0'}}>
+ <button className="button" disabled={calculating||loading||!stops.length} onClick={()=>void optimize()}>{calculating?<RefreshCw size={16}/>:<RouteIcon size={16}/>} {calculating?'Calculando percurso...':data?'Recalcular melhor trajeto':'Calcular melhor trajeto'}</button>
+ {data&&<><span className="pill">{fmtDistance(data.distance_m)}</span><span className="pill">{fmtDuration(data.duration_s)} estimados em movimento</span></>}
+ </div>
+ {routeError&&<div className="notice" role="alert">{routeError}</div>}
+ {data?<RouteMap data={data}/>:<div className="empty" style={{minHeight:260}}><div><MapPinned size={34} color="#6c957e"/><strong>Mapa do percurso</strong><p>{loading?'Carregando paradas...':'Clique em Calcular melhor trajeto para localizar as empresas, desenhar o percurso e sugerir a ordem de visita.'}</p></div></div>}
+ {data&&<p className="muted" style={{marginTop:14}}>Tempo e distância são estimativas de deslocamento, sem duração das visitas, paradas ou trânsito ao vivo. Confira a localização dos estabelecimentos antes de sair.</p>}
+ </section>
+ <section className="panel"><div className="panel-title"><div><small>ETAPAS DO DIA</small><h2>{sorted.length} empresas na rota</h2></div><Link href="/visitas" className="button secondary"><Navigation size={16}/> Registrar visita</Link></div>
+ <div className="roadmap-list">{sorted.map((s,i)=><div key={s.id}><span>{String(i+1).padStart(2,'0')}</span><p><strong>{s.trade_name||s.legal_name}</strong><br/><small>{[s.street,s.street_number,s.city,s.state].filter(Boolean).join(', ')} · CNPJ {s.cnpj}</small></p></div>)}</div>
+ {!stops.length&&!loading&&!error&&<div className="empty">Não existem paradas nesta rota.</div>}
+ </section>
+ </Portal>;
+}
