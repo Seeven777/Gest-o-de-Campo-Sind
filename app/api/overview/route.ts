@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
 import { withRole } from '@/lib/api';
 export const dynamic='force-dynamic';
-export async function GET(){return withRole(['admin','supervisor'], async()=>{
+export async function GET(){return withRole(['admin','supervisor','marketing'], async()=>{
  const [row] = await db().query(`select
    (select count(*)::int from establishments) as establishments,
    (select count(*)::int from campaigns) as campaigns,
