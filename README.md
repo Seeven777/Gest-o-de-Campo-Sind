@@ -80,3 +80,23 @@ O arquivo é analisado primeiro no navegador; a API volta a validar CNPJ e campo
 - `docs/INTEGRACAO-FUTURA.md` — contrato futuro com o buscador de CNPJs.
 - `neon/001_init.sql` — migração SQL inicial.
 - `.env.example` — nomes de configuração necessários.
+
+## Novidade — Gestão de convites (v0.3)
+
+1. **Antes do deploy**, execute `neon/002_access_invitations.sql` no Neon SQL Editor no banco correto (e na branch Preview separadamente se aplicável).
+2. Acesse `/equipes` com usuário que já possui `role='admin'` em `app_profiles`.
+3. Preencha nome, e-mail e perfil; gere um convite de validade de 72h. O link aparece **uma vez** — copie e envie por um canal privado à pessoa convidada.
+4. A pessoa abre `/convite?token=...`, cria sua conta (ou entra com conta existente) **usando o mesmo e-mail**. A API valida o token e a sessão antes de inserir o perfil. Caso a criação da conta exija confirmação de e-mail, conclua essa etapa e retorne ao link para entrar/ativar.
+5. O administrador pode revogar convites ainda não usados. Tokens ficam armazenados somente como SHA-256. A equipe não recebe poderes de administrador por se cadastrar diretamente no Neon.
+
+**Limites de segurança:** o Neon Auth gerenciado pode permitir cadastro público no nível do provedor. Isso **não** concede acesso às APIs internas, que verificam `app_profiles` do servidor. Para impedir também registros de identidade não convidados, é necessário configurar restrição no provedor de Auth quando suportada. O link deve ser compartilhado apenas com destinatários autorizados. Não se deve alterar papel/permissão no navegador nem usar SQL para criar senhas. Não há envio automático de convites por e-mail nesta versão.
+
+### Arquivos novos/modificados da atualização
+
+- `neon/002_access_invitations.sql` — tabela e índices
+- `app/api/access-invitations/route.ts` — criar/listar/revogar (admin)
+- `app/api/access-invitations/redeem/route.ts` — validar/aceitar (titular)
+- `app/equipes/page.tsx` — interface administrativa
+- `app/convite/page.tsx` — ativação do convidado
+
+O pacote de atualização contém **somente esses arquivos**, preservando os arquivos existentes da versão 0.2/PR de recuperação de senha.
