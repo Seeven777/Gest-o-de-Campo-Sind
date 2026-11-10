@@ -1,0 +1,27 @@
+name: Jornada guiada - verificações
+on:
+  push:
+    branches: [feat/jornada-guiada-fotos-gps-v12]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Baixar código
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+        with:
+          persist-credentials: false
+      - name: Preparar Node.js
+        uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: '22'
+      - name: Instalar dependências sem scripts de instalação
+        run: npm install --ignore-scripts --no-audit --no-fund
+      - name: Verificar TypeScript
+        run: npm run typecheck
+      - name: Verificar ESLint
+        run: npm run lint
