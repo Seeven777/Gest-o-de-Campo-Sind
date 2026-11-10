@@ -7,7 +7,7 @@ import {MapPinned,Route as RouteIcon,RefreshCw,Navigation} from 'lucide-react';
 
 type Stop={id:string;position_order:number;legal_name:string;trade_name:string|null;street:string|null;street_number:string|null;city:string|null;state:string|null;postal_code:string|null;cnpj:string};
 type Point={id:string;lat:number;lon:number};
-type Calculation={order:string[];points:Point[];geometry:{type:'LineString';coordinates:[number,number][]};distance_m:number;duration_s:number;estimated:boolean;geocoded:number};
+type Calculation={order:string[];points:Point[];geometry:{type:'LineString';coordinates:[number,number][]};distance_m:number;duration_s:number;estimated:boolean;geocoded:number;origin?:{lat:number;lon:number}|null};
 type Layer={addTo:(map:unknown)=>Layer;bindTooltip:(text:string)=>Layer};
 type MapLike={fitBounds:(bounds:unknown,options?:unknown)=>void;remove:()=>void};
 type Leaflet={map:(node:HTMLElement,options:unknown)=>MapLike;tileLayer:(url:string,options:unknown)=>Layer;polyline:(points:number[][],options:unknown)=>Layer;marker:(point:number[],options:unknown)=>Layer;divIcon:(options:unknown)=>unknown;latLngBounds:(points:number[][])=>unknown};
@@ -39,6 +39,7 @@ function RouteMap({data}:{data:Calculation}){
    const marker=L.divIcon({className:'route-number-marker',html:'<span>'+String(i+1)+'</span>',iconSize:[32,32],iconAnchor:[16,16]});
    L.marker(coords,{icon:marker}).addTo(map!).bindTooltip('Parada '+(i+1));
   });
+  if(data.origin){const icon=L.divIcon({className:'route-origin-marker',html:'<span>Início</span>',iconSize:[46,26],iconAnchor:[23,13]});L.marker([data.origin.lat,data.origin.lon],{icon}).addTo(map).bindTooltip('Ponto inicial escolhido pelo agente')}
   const line=data.geometry.coordinates.map(([lon,lat])=>[lat,lon]);
   if(line.length>1)L.polyline(line,{color:'#fa6920',weight:5,opacity:.9}).addTo(map);
   const bounds=L.latLngBounds(line.length>1?line:positions);
@@ -48,21 +49,23 @@ function RouteMap({data}:{data:Calculation}){
  },[data]);
  return <div style={{position:'relative'}}>{error&&<p className="error">{error}</p>}
  <div ref={node} style={{height:480,width:'100%',borderRadius:16,overflow:'hidden',background:'#eef3ed'}} role="img" aria-label="Mapa do trajeto sugerido e empresas numeradas"/>
- <style jsx global>{`.route-number-marker{border:2px solid #fff;background:#fb6b22;border-radius:50%;box-shadow:0 2px 9px #0005;color:#fff;text-align:center;font-weight:800;line-height:28px}.route-number-marker span{font-size:13px}`}</style>
+ <style jsx global>{`.route-number-marker{border:2px solid #fff;background:#fb6b22;border-radius:50%;box-shadow:0 2px 9px #0005;color:#fff;text-align:center;font-weight:800;line-height:28px} .route-number-marker span{font-size:13px}.route-origin-marker{background:#1d5945;border:2px solid #fff;color:white;border-radius:16px;box-shadow:0 2px 6px #0004;font-size:10px;font-weight:800;text-align:center;line-height:22px}`}</style>
  </div>
 }
 const fmtDistance=(n:number)=>(n/1000).toLocaleString('pt-BR',{maximumFractionDigits:1})+' km';
 const fmtDuration=(n:number)=>Math.round(n/60).toLocaleString('pt-BR')+' min';
 
 export default function DetalheRota(){
- const {id}=useParams<{id:string}>();const [stops,setStops]=useState<Stop[]>([]),[title,setTitle]=useState(''),[error,setError]=useState(''),[routeError,setRouteError]=useState(''),[loading,setLoading]=useState(true),[calculating,setCalculating]=useState(false),[data,setData]=useState<Calculation|null>(null);
+ const {id}=useParams<{id:string}>();const [stops,setStops]=useState<Stop[]>([]),[title,setTitle]=useState(''),[error,setError]=useState(''),[routeError,setRouteError]=useState(''),[loading,setLoading]=useState(true),[calculating,setCalculating]=useState(false),[useGps,setUseGps]=useState(false),[data,setData]=useState<Calculation|null>(null);
  useEffect(()=>{let current=true;fetch('/api/rotas/'+encodeURIComponent(id),{cache:'no-store'})
  .then(async r=>{const d=await r.json();if(!r.ok)throw Error(d.error);if(current){setStops(d.stops||[]);setTitle(d.route.campaign_name)}})
  .catch(e=>{if(current)setError(e instanceof Error?e.message:'Falha ao carregar rota')}).finally(()=>{if(current)setLoading(false)});
  return()=>{current=false}},[id]);
  async function optimize(){
   setCalculating(true);setRouteError('');
-  try{const r=await fetch('/api/rotas/'+encodeURIComponent(id)+'/otimizar',{method:'POST',cache:'no-store'});
+  try{let start: {lat:number;lon:number}|undefined;
+   if(useGps){const point=await new Promise<GeolocationPosition>((resolve,reject)=>{if(!navigator.geolocation)return reject(Error('Este navegador não possui suporte a GPS.'));navigator.geolocation.getCurrentPosition(resolve,reject,{enableHighAccuracy:true,timeout:15000,maximumAge:0})});start={lat:point.coords.latitude,lon:point.coords.longitude}}
+   const r=await fetch('/api/rotas/'+encodeURIComponent(id)+'/otimizar',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({start}),cache:'no-store'});
    const response=await r.json();if(!r.ok)throw Error(response.error||'Falha na otimização');
    setData(response as Calculation);
   }catch(e){setRouteError(e instanceof Error?e.message:'Falha ao calcular o trajeto')}finally{setCalculating(false)}
@@ -73,8 +76,9 @@ export default function DetalheRota(){
  {error&&<p className="error" role="alert">{error}</p>}
  <section className="panel" style={{marginBottom:18}}>
  <div className="panel-title"><div><small>MAPA DO PERCURSO</small><h2>Melhor sequência de visitas</h2></div><MapPinned size={22} color="#ef702c"/></div>
- <p className="muted" style={{lineHeight:1.7}}>Consulte as empresas no próprio mapa. O cálculo usa a malha viária, mantém a primeira parada como início e sugere a ordem das demais, sem considerar trânsito em tempo real.</p>
+ <p className="muted" style={{lineHeight:1.7}}>Consulte as empresas no próprio mapa. O cálculo usa a malha viária, mantém a primeira empresa como início ou utiliza o GPS, caso autorizado, e sugere a ordem das demais, sem considerar trânsito em tempo real.</p>
  <div style={{display:'flex',gap:12,alignItems:'center',flexWrap:'wrap',margin:'18px 0'}}>
+ <label style={{display:'inline-flex',alignItems:'center',gap:8,fontSize:13}}><input type="checkbox" checked={useGps} onChange={e=>setUseGps(e.target.checked)}/> Usar minha localização como início</label>
  <button className="button" disabled={calculating||loading||!stops.length} onClick={()=>void optimize()}>{calculating?<RefreshCw size={16}/>:<RouteIcon size={16}/>} {calculating?'Calculando percurso...':data?'Recalcular melhor trajeto':'Calcular melhor trajeto'}</button>
  {data&&<><span className="pill">{fmtDistance(data.distance_m)}</span><span className="pill">{fmtDuration(data.duration_s)} estimados em movimento</span></>}
  </div>
