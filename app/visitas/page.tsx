@@ -1,24 +1,31 @@
 'use client';
-import {useEffect,useState} from 'react';import {Portal} from '@/components/portal';import {MapPin,Camera} from 'lucide-react';
-type Stop={stop_id:string;legal_name:string;trade_name:string;city:string;street:string;route_date:string;checkin_at:string|null;checkout_at:string|null};
-type Visit={id:string;legal_name:string;result:string;review_status:string;checkin_at:string;checkout_at:string};
-const results=[['located','Empresa localizada'],['closed','Fechada no momento'],['moved','Mudou de endereço'],['not_found','Não localizada'],['out_of_scope','Fora do setor'],['not_completed','Visita não concluída']];
-export default function Visitas(){const [stops,setStops]=useState<Stop[]>([]),[visits,setVisits]=useState<Visit[]>([]),[error,setError]=useState(''),[message,setMessage]=useState(''),[busy,setBusy]=useState(false),[notes,setNotes]=useState<Record<string,string>>({}),[result,setResult]=useState<Record<string,string>>({});
-async function load(){const r=await fetch('/api/visitas',{cache:'no-store'});const d=await r.json();if(!r.ok)throw Error(d.error);setStops(d.stops||[]);setVisits(d.items||[])}
-useEffect(()=>{void load().catch(e=>setError(e.message))},[]);
-async function act(s:Stop,action:'checkin'|'checkout'){setBusy(true);setError('');setMessage('');try{
- let payload:Record<string,unknown>={stop_id:s.stop_id,action};
- if(action==='checkin'){const pos=await new Promise<GeolocationPosition>((resolve,reject)=>{if(!navigator.geolocation)return reject(new Error('Este dispositivo não suporta GPS.'));navigator.geolocation.getCurrentPosition(resolve,reject,{enableHighAccuracy:true,timeout:15000,maximumAge:0})});payload={...payload,lat:pos.coords.latitude,lng:pos.coords.longitude,accuracy:pos.coords.accuracy}}
- else payload={...payload,result:result[s.stop_id]||'located',notes:notes[s.stop_id]||''};
- const r=await fetch('/api/visitas',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});const d=await r.json();if(!r.ok)throw Error(d.error||'Falha na visita');setMessage(action==='checkin'?'Chegada registrada com GPS.':'Visita concluída e enviada para análise.');await load();
- }catch(e){setError(e instanceof Error?e.message:'Erro na operação')}finally{setBusy(false)}}
-return <Portal title="Visitas" subtitle="Registre sua presença e encaminhe resultados para validação.">
-<section className="panel" style={{marginBottom:18}}><div className="panel-title"><div><small>TRABALHO DE CAMPO</small><h2>Paradas atribuídas</h2></div><MapPin size={22}/></div>
-<p className="muted">O check-in registra horário e coordenadas com permissão do dispositivo. Fotos e check-out com GPS ainda dependem da implementação de armazenamento seguro.</p>
-{error&&<p className="error" role="alert">{error}</p>}{message&&<p className="success" role="status">{message}</p>}
-<div style={{display:'grid',gap:12}}>{stops.map(s=><div key={s.stop_id} style={{padding:16,border:'1px solid var(--line)',borderRadius:13}}>
-<div style={{display:'flex',justifyContent:'space-between',gap:10,flexWrap:'wrap'}}><div><strong>{s.trade_name||s.legal_name}</strong><p className="muted" style={{marginTop:5}}>{s.street}, {s.city} · {String(s.route_date).slice(0,10)}</p></div><span className="pill warn">{s.checkout_at?'Concluída':s.checkin_at?'Em andamento':'Pendente'}</span></div>
-{!s.checkin_at&&!s.checkout_at?<button disabled={busy} className="button" onClick={()=>void act(s,'checkin')}><MapPin size={16}/> Fazer check-in</button>:s.checkin_at&&!s.checkout_at?<div className="form-grid"><label>Resultado<select className="field" value={result[s.stop_id]||'located'} onChange={e=>setResult(p=>({...p,[s.stop_id]:e.target.value}))}>{results.map(([id,name])=><option key={id} value={id}>{name}</option>)}</select></label><label>Observações<textarea className="field" style={{width:'100%'}} maxLength={2000} value={notes[s.stop_id]||''} onChange={e=>setNotes(p=>({...p,[s.stop_id]:e.target.value}))}/></label><button className="button" disabled={busy} onClick={()=>void act(s,'checkout')}>Concluir visita</button></div>:<p className="success">Visita registrada</p>}</div>)}
-{!stops.length&&<div className="empty"><div><Camera size={29}/><strong>Nenhuma parada atribuída</strong><p>Crie uma rota em Campanhas &gt; Rotas para começar.</p></div></div>}
-</div></section>
-<section className="panel"><div className="panel-title"><div><small>HISTÓRICO</small><h2>Visitas registradas</h2></div></div><div className="tablewrap"><table><thead><tr><th>Empresa</th><th>Resultado</th><th>Análise</th></tr></thead><tbody>{visits.map(v=><tr key={v.id}><td>{v.legal_name}</td><td>{v.result}</td><td>{v.review_status}</td></tr>)}{!visits.length&&<tr><td colSpan={3}>Nenhuma visita registrada.</td></tr>}</tbody></table></div></section></Portal>}
+import {useEffect,useState} from 'react';import Link from 'next/link';
+import {Portal} from '@/components/portal';import {Navigation,Camera,ClipboardCheck} from 'lucide-react';
+type Route={id:string;campaign_name:string;route_date:string;stops:number;status:string};
+type Visit={id:string;legal_name:string;agent_name:string;result:string;review_status:string;checkout_at:string|null};
+export default function Visitas(){
+ const [agent,setAgent]=useState<boolean|null>(null),[routes,setRoutes]=useState<Route[]>([]),[visits,setVisits]=useState<Visit[]>([]),[error,setError]=useState('');
+ useEffect(()=>{
+  void fetch('/api/me',{cache:'no-store'}).then(async r=>{const j=await r.json();return j.user?.role==='agent'}).then(async role=>{
+   setAgent(role);
+   const endpoint=role?'/api/rotas':'/api/visitas';const r=await fetch(endpoint,{cache:'no-store'});const data=await r.json();
+   if(!r.ok)throw Error(data.error||'Erro ao carregar');
+   if(role)setRoutes(data.items||[]);else setVisits(data.items||[]);
+  }).catch(e=>setError(e instanceof Error?e.message:'Erro ao abrir visitas'));
+ },[]);
+ return <Portal title={agent?'Registrar visita':'Visitas registradas'} subtitle={agent?'Acesse sua jornada e siga o passo a passo com foto e GPS.':'Acompanhe os registros enviados pelas equipes.'}>
+ {error&&<p className="error" role="alert">{error}</p>}
+ {agent===null?<section className="panel">Carregando informações...</section>:agent?
+ <section className="panel"><div className="panel-title"><div><small>SUAS ROTAS</small><h2>Onde você vai trabalhar?</h2></div><Navigation size={22}/></div>
+ <p className="muted" style={{fontSize:17,lineHeight:1.6}}>Escolha a rota. O sistema irá mostrar o caminho, pedir sua confirmação de chegada e orientar a foto e o formulário. Não é necessário preencher várias telas ao mesmo tempo.</p>
+ <div style={{display:'grid',gap:14,marginTop:20}}>{routes.map(r=><div key={r.id} style={{padding:20,border:'1px solid var(--line)',borderRadius:15,display:'grid',gap:12}}>
+ <strong style={{fontSize:21}}>{r.campaign_name}</strong><span style={{fontSize:17}}>{r.stops} empresas · {String(r.route_date).slice(0,10)}</span>
+ <Link className="button" style={{minHeight:60,justifyContent:'center',fontSize:19}} href={'/campo/'+r.id}><Camera size={22}/> Abrir jornada guiada</Link></div>)}
+ {!routes.length&&<div className="empty"><div><Camera size={34}/><strong>Sem rota atribuída</strong><p>Consulte a administração para receber uma rota de campo.</p></div></div>}</div>
+ </section>
+ :<section className="panel"><div className="panel-title"><div><small>HISTÓRICO OPERACIONAL</small><h2>Visitas realizadas</h2></div><ClipboardCheck size={22}/></div>
+ <p className="muted">Novas visitas são registradas exclusivamente pela Jornada Guiada. Para aprovar fotografias e observações, utilize <Link href="/validacoes" className="link-inline">Central de validação</Link>.</p>
+ <div className="tablewrap"><table><thead><tr><th>Empresa</th><th>Agente</th><th>Resultado</th><th>Revisão</th></tr></thead><tbody>
+ {visits.map(x=><tr key={x.id}><td>{x.legal_name}</td><td>{x.agent_name}</td><td>{x.result}</td><td>{x.review_status}</td></tr>)}{!visits.length&&<tr><td colSpan={4}>Nenhum registro ainda.</td></tr>}</tbody></table></div></section>}
+ </Portal>;
+}
