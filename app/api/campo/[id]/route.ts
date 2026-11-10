@@ -3,6 +3,7 @@ import {currentIdentity} from '@/lib/access';import {db} from '@/lib/db';
 export const dynamic='force-dynamic';export const runtime='nodejs';
 export async function GET(_req:Request,{params}:{params:Promise<{id:string}>}){
  const u=await currentIdentity();if(!u)return NextResponse.json({error:'Acesso negado.'},{status:401});
+ if(u.role!=='agent')return NextResponse.json({error:'Esta jornada é exclusiva do agente responsável.'},{status:403});
  const {id}=await params;
  if(!/^[0-9a-f-]{36}$/i.test(id))return NextResponse.json({error:'Rota inválida.'},{status:400});
  const [route]=await db().query(`select r.id,r.agent_id,r.route_date,r.status,c.name as campaign_name
