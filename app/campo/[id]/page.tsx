@@ -100,12 +100,19 @@ export default function CampoGuiado(){
    else if(document.visibilityState==='hidden'&&watch!==undefined){navigator.geolocation.clearWatch(watch);watch=undefined}
   }
   resume();document.addEventListener('visibilitychange',resume);
-  return()=>{document.removeEventListener('visibilitychange',resume);if(watch!==undefined)navigator.geolocation.clearWatch(watch)};
+  // Heartbeat quando o agente está parado: watchPosition pode não emitir novos eventos.
+  const heartbeat=window.setInterval(()=>{
+   const p=positionRef.current;
+   if(document.visibilityState!=='visible'||!p||Date.now()-lastSent.current<18000)return;
+   lastSent.current=Date.now();
+   void post('/api/campo/localizacao',{action:'ping',route_id:id,...p}).catch(e=>setError(e instanceof Error?e.message:'GPS desconectado.'));
+  },25000);
+  return()=>{document.removeEventListener('visibilitychange',resume);window.clearInterval(heartbeat);if(watch!==undefined)navigator.geolocation.clearWatch(watch)};
  },[started,id]);
  useEffect(()=>{
   if(!started)return;
   const leave=()=>{navigator.sendBeacon('/api/campo/localizacao',new Blob([JSON.stringify({action:'stop'})],{type:'application/json'}))};
-  window.addEventListener('pagehide',leave);return()=>window.removeEventListener('pagehide',leave);
+  window.addEventListener('pagehide',leave);return()=>{window.removeEventListener('pagehide',leave);leave()};
  },[started]);
  async function arrive(){
   if(!current)return;setBusy(true);setError('');
