@@ -21,7 +21,7 @@ export default function Localizacoes(){
  <strong style={{fontSize:19}}>{items.length} agente(s) com sinal recente</strong>
  <button className="button secondary" onClick={()=>void refresh()}><RefreshCw size={17}/> Atualizar</button>
  </div>
- {items.length?<><FieldNavigationMap plan={plan} compact/><div style={{display:'grid',gap:12,marginTop:18}}>{items.map((x,i)=><div key={x.agent_id} style={{padding:16,border:'1px solid var(--line)',borderRadius:13,display:'flex',gap:13,alignItems:'start'}}>
+ {items.length?<><FieldNavigationMap plan={plan} compact kind="agent"/><div style={{display:'grid',gap:12,marginTop:18}}>{items.map((x,i)=><div key={x.agent_id} style={{padding:16,border:'1px solid var(--line)',borderRadius:13,display:'flex',gap:13,alignItems:'start'}}>
  <span style={{background:'#ed6c28',borderRadius:'100%',width:38,height:38,color:'white',fontWeight:800,display:'inline-flex',justifyContent:'center',alignItems:'center',flexShrink:0}}>{i+1}</span>
  <div><strong style={{fontSize:18}}>{x.name}</strong><p className="muted" style={{margin:'5px 0'}}>Campanha: {x.campaign}</p><small>Última localização: {new Date(x.last_seen_at).toLocaleTimeString('pt-BR')} · Precisão informada: ±{Math.round(Number(x.accuracy_m))} m</small></div></div>)}</div></>:<div className="empty"><div><MapPin size={35}/><strong>Sem localizações ativas agora</strong><p>Os agentes aparecem aqui somente após iniciarem o GPS na jornada e enquanto os sinais continuarem chegando.</p></div></div>}
  {updated&&<p className="muted" style={{marginTop:14}}>Última atualização da central: {updated}</p>}
