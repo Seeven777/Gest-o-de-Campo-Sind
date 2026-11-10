@@ -49,7 +49,7 @@ export async function POST(_req:Request,{params}:{params:Promise<{id:string}>}){
  }
  if(missing.length)return NextResponse.json({error:'Ainda faltam coordenadas para '+missing.length+' empresas. Confira os endereços e execute o cálculo novamente. É possível localizar até 8 novos endereços por execução.',missing,geocoded},{status:422});
  const coords=stops.map(s=>[Number(s.lon),Number(s.lat)] as Coordinates);
- if(coords.length===1)return NextResponse.json({order:[stops[0].id],geometry:{type:'LineString',coordinates:coords},distance_m:0,duration_s:0,estimated:true,geocoded});
+ if(coords.length===1)return NextResponse.json({order:[stops[0].id],points:stops.map(s=>({id:s.id,lat:Number(s.lat),lon:Number(s.lon)})),geometry:{type:'LineString',coordinates:coords},distance_m:0,duration_s:0,estimated:true,geocoded});
  try{
   // O primeiro endereço é o ponto inicial. Os demais são otimizados pelo serviço VROOM.
   const optimization=await ors('https://api.openrouteservice.org/optimization',{
@@ -65,6 +65,6 @@ export async function POST(_req:Request,{params}:{params:Promise<{id:string}>}){
   const feature=directions?.features?.[0],geometry=feature?.geometry;
   if(!geometry||geometry.type!=='LineString'||!Array.isArray(geometry.coordinates))return fail('Não foi possível desenhar o trajeto pelas ruas.',502);
   const summary=feature.properties?.summary??{};
-  return NextResponse.json({order:indices.map((i:number)=>stops[i].id),geometry,distance_m:Number(summary.distance||0),duration_s:Number(summary.duration||0),estimated:true,geocoded},{headers:{'Cache-Control':'no-store'}});
+  return NextResponse.json({order:indices.map((i:number)=>stops[i].id),points:stops.map(s=>({id:s.id,lat:Number(s.lat),lon:Number(s.lon)})),geometry,distance_m:Number(summary.distance||0),duration_s:Number(summary.duration||0),estimated:true,geocoded},{headers:{'Cache-Control':'no-store'}});
  }catch(e){console.error('[otimizar rota]',e instanceof Error?e.message:e);return fail('Não foi possível calcular a rota. Confira a chave e os limites da API de roteirização.',502)}
 }
