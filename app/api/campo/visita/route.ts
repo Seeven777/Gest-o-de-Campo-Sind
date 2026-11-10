@@ -27,15 +27,17 @@ export async function POST(req:Request){
  const operating=String(data.operating_status||'');
  const signage=String(data.signage_status||'');
  const regularity=String(data.regularity_note||'');
+ const addressMatch=String(data.address_match||'');
+ const petActivity=String(data.pet_activity_match||'');
  const notes=String(data.notes||'').trim();
- if(!['operating','closed','moved','unknown'].includes(operating)||!['yes','no','unknown'].includes(signage)||!['none_observed','attention','not_evaluated'].includes(regularity)||notes.length>2000)return fail('Preencha todas as respostas da visita.');
- const [evidence]=await db().query('select id from visit_evidence where visit_id=$1 and deleted_at is null limit 1',[visit]);
+ if(!['operating','closed','moved','not_found','unknown'].includes(operating)||!['yes','no','unknown'].includes(signage)||!['none_observed','attention','not_evaluated'].includes(regularity)||!['yes','no','unknown'].includes(addressMatch)||!['yes','no','unknown'].includes(petActivity)||notes.length>2000)return fail('Responda às cinco perguntas para enviar a visita.');
+ const [evidence]=await db().query('select id from visit_evidence where visit_id=$1 and deleted_at is null and expires_at>now() limit 1',[visit]);
  if(!evidence)return fail('Antes de finalizar, fotografe a fachada da empresa.',409);
- const result=operating==='operating'?'located':operating==='closed'?'closed':operating==='moved'?'moved':'not_completed';
+ const result=operating==='operating'?'located':operating==='closed'?'closed':operating==='moved'?'moved':operating==='not_found'?'not_found':'not_completed';
  const rows=await db().query(`update visits set checkout_at=now(),result=$4,notes=$5,operating_status=$6,
- signage_status=$7,regularity_note=$8,form_submitted_at=now(),review_status='pending',reviewed_at=null
+ signage_status=$7,regularity_note=$8,address_match=$9,pet_activity_match=$10,form_submitted_at=now(),review_status='pending',reviewed_at=null
  where id=$1 and stop_id=$2 and agent_id=$3 and checkout_at is null and checkin_at is not null
- returning id`,[visit,stop,u.id,result,notes,operating,signage,regularity]);
+ returning id`,[visit,stop,u.id,result,notes,operating,signage,regularity,addressMatch,petActivity]);
  if(!rows.length)return fail('Visita já finalizada ou fora da sua rota.',409);
  await db().query('update route_stops set status=\'visited\' where id=$1',[stop]);
  await db().query('insert into audit_logs(actor_id,action,details) values($1,$2,$3::jsonb)',[u.id,'field.submitted',JSON.stringify({visit_id:visit,result})]);
