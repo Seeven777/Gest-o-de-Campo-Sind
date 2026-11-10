@@ -11,7 +11,7 @@ export function Portal({title,subtitle,children,action}:{title:string;subtitle?:
  const [user,setUser]=useState<User|null>(null),[loading,setLoading]=useState(true),[drawer,setDrawer]=useState(false),[collapsed,setCollapsed]=useState(false);
  const router=useRouter(),pathname=usePathname();
  useEffect(()=>{let live=true;fetch('/api/me',{cache:'no-store'}).then(async r=>{if(!r.ok){if(r.status===401)router.replace('/login');return null}return r.json()}).then(j=>{if(live&&j?.user){setUser(j.user);if(j.user.role==='agent'&&pathname==='/dashboard')router.replace('/agente')}}).catch(()=>{}).finally(()=>{if(live)setLoading(false)});return()=>{live=false}},[router,pathname]);
- const agent=user?.role==='agent';const items=agent?agentMenu:adminMenu;
+ const agent=user?.role==='agent';const items=agent?agentMenu:adminMenu.filter(item=>item.href!=='/limpeza'||user?.role==='admin');
  if(loading)return <div className="loading-screen"><BrandMark size={52}/><p>Preparando seu espaço de trabalho...</p></div>;
  if(!user)return <div className="loading-screen"><BrandMark size={52}/><h2>Acesso restrito</h2><p>Entre na sua conta ou solicite que a administração libere seu perfil.</p><Link className="button" href="/login">Ir para o acesso</Link></div>;
  return <div className={`app-shell ${collapsed?'collapsed':''}`}>
