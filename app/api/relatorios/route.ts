@@ -3,6 +3,7 @@ export const dynamic='force-dynamic';
 export async function GET(req:Request){const u=await currentIdentity();if(!u)return NextResponse.json({error:'Sem acesso'},{status:401});
  const url=new URL(req.url);const csv=url.searchParams.get('format')==='csv';
  const admin=u.role!=='agent';
+ // Marketing recebe apenas métricas agregadas, sem detalhes financeiros sensíveis.
  const rows=await db().query(`select c.name campaign,c.start_date,c.end_date,count(distinct r.id)::int routes,
  count(distinct s.id)::int planned_visits,count(distinct v.id)::int completed_visits,
  coalesce((select sum(x.amount) from expenses x where x.campaign_id=c.id and x.approval_status in ('approved','paid')),0) costs
