@@ -2,9 +2,9 @@
 import {useEffect,useState} from 'react';
 import {Portal} from '@/components/portal';
 import {ClipboardCheck,Camera,Check,RotateCcw,XCircle,ShieldCheck} from 'lucide-react';
-type Row={id:string;legal_name:string;cnpj:string;city:string;agent_name:string;result:string;notes:string|null;review_status:string;operating_status:string|null;signage_status:string|null;regularity_note:string|null;accuracy_m:number|null;distance_m:number|null;evidence_id:string|null};
+type Row={id:string;legal_name:string;cnpj:string;city:string;agent_name:string;result:string;notes:string|null;review_status:string;operating_status:string|null;signage_status:string|null;regularity_note:string|null;address_match:string|null;pet_activity_match:string|null;accuracy_m:number|null;distance_m:number|null;evidence_id:string|null};
 const operating:Record<string,string>={operating:'Funcionando',closed:'Fechada',moved:'Mudou de endereço',unknown:'Não confirmado'};
-const regularity:Record<string,string>={none_observed:'Sem situação aparente',attention:'Atenção necessária',not_evaluated:'Não avaliada'};
+const regularity:Record<string,string>={none_observed:'Nenhuma situação preocupante aparente',attention:'Situação que exige atenção',not_evaluated:'Não foi possível avaliar'};
 export default function Validacoes(){
  const [rows,setRows]=useState<Row[]>([]),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(''),[reasons,setReasons]=useState<Record<string,string>>({});
  async function load(){const r=await fetch('/api/validacoes',{cache:'no-store'});const d=await r.json();if(!r.ok)throw Error(d.error||'Falha na consulta.');setRows(d.items||[])}
@@ -36,7 +36,9 @@ export default function Validacoes(){
   <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fit,minmax(210px,1fr))',gap:11}}>
    <div><small className="muted">Funcionamento</small><div style={{fontSize:17,fontWeight:700}}>{operating[x.operating_status||'']||x.result||'Não informado'}</div></div>
    <div><small className="muted">Identificação visível</small><div style={{fontSize:17,fontWeight:700}}>{x.signage_status==='yes'?'Sim':x.signage_status==='no'?'Não':'Não informado'}</div></div>
-   <div><small className="muted">Regularidade aparente</small><div style={{fontSize:17,fontWeight:700}}>{regularity[x.regularity_note||'']||'Não informada'}</div></div>
+   <div><small className="muted">Endereço corresponde ao cadastro?</small><div style={{fontSize:17,fontWeight:700}}>{x.address_match==='yes'?'Sim':x.address_match==='no'?'Não':x.address_match==='unknown'?'Não foi possível verificar':'Não informado'}</div></div>
+   <div><small className="muted">Atividade ligada ao setor pet?</small><div style={{fontSize:17,fontWeight:700}}>{x.pet_activity_match==='yes'?'Sim':x.pet_activity_match==='no'?'Não':x.pet_activity_match==='unknown'?'Não foi possível verificar':'Não informado'}</div></div>
+   <div><small className="muted">Condições observadas</small><div style={{fontSize:17,fontWeight:700}}>{regularity[x.regularity_note||'']||'Não informadas'}</div></div>
   </div>
   {x.notes&&<div><strong>Observações do agente</strong><p style={{fontSize:16,marginTop:8,whiteSpace:'pre-wrap'}}>{x.notes}</p></div>}
   {x.distance_m!==null?<div style={{fontSize:15,color:x.distance_m>500?'#a25320':'#315e4b'}}>
