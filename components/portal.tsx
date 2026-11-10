@@ -4,22 +4,22 @@ import Link from 'next/link';
 import {usePathname,useRouter} from 'next/navigation';
 import {ArrowUpRight,Bell,ChevronRight,LogOut,Menu,PanelLeftClose,X} from 'lucide-react';
 import {BrandMark} from '@/components/brand-mark';
-import {adminMenu,agentMenu} from '@/lib/menu';
+import {adminMenu,agentMenu,marketingMenu} from '@/lib/menu';
 import {authClient} from '@/lib/auth/client';
-type User={id:string;name:string;email:string;role:'admin'|'supervisor'|'agent'};
+type User={id:string;name:string;email:string;role:'admin'|'supervisor'|'agent'|'marketing'};
 export function Portal({title,subtitle,children,action}:{title:string;subtitle?:string;children:React.ReactNode;action?:React.ReactNode}){
  const [user,setUser]=useState<User|null>(null),[loading,setLoading]=useState(true),[drawer,setDrawer]=useState(false),[collapsed,setCollapsed]=useState(false);
  const router=useRouter(),pathname=usePathname();
  useEffect(()=>{let live=true;fetch('/api/me',{cache:'no-store'}).then(async r=>{if(!r.ok){if(r.status===401)router.replace('/login');return null}return r.json()}).then(j=>{if(live&&j?.user){setUser(j.user);if(j.user.role==='agent'&&pathname==='/dashboard')router.replace('/agente')}}).catch(()=>{}).finally(()=>{if(live)setLoading(false)});return()=>{live=false}},[router,pathname]);
- const agent=user?.role==='agent';const items=agent?agentMenu:adminMenu;
+ const agent=user?.role==='agent';const items=agent?agentMenu:user?.role==='marketing'?marketingMenu:adminMenu;
  if(loading)return <div className="loading-screen"><BrandMark size={52}/><p>Preparando seu espaço de trabalho...</p></div>;
  if(!user)return <div className="loading-screen"><BrandMark size={52}/><h2>Acesso restrito</h2><p>Entre na sua conta ou solicite que a administração libere seu perfil.</p><Link className="button" href="/login">Ir para o acesso</Link></div>;
  return <div className={`app-shell ${collapsed?'collapsed':''}`}>
   <aside className={`side ${drawer?'shown':''}`}>
     <div className="side-head"><Link href="/dashboard" className="brand"><BrandMark size={42}/><div><strong>SindPetshop<span>-SP</span></strong><small>Campo & Território</small></div></Link><button className="icon-btn side-close" aria-label="Fechar" onClick={()=>setDrawer(false)}><X size={19}/></button></div>
-    <div className="side-scroll"><div className="side-unit"><span className="eyebrow">{agent?'ESPAÇO DO AGENTE':'CENTRAL DE OPERAÇÕES'}</span><strong>{agent?'Sua jornada de campo':'Onde a presença vira resultado.'}</strong></div>
+    <div className="side-scroll"><div className="side-unit"><span className="eyebrow">{agent?'ESPAÇO DO AGENTE':user?.role==='marketing'?'INTELIGÊNCIA & COMUNICAÇÃO':'CENTRAL DE OPERAÇÕES'}</span><strong>{agent?'Sua jornada de campo':user?.role==='marketing'?'Território, dados e campanhas.':'Onde a presença vira resultado.'}</strong></div>
     <nav aria-label="Navegação principal">{['principal','operacao','inteligencia','sistema'].map(g=>{const subset=items.filter(i=>i.group===g);return subset.length?<div className="nav-section" key={g}><span className="nav-caption">{{principal:'Área de trabalho',operacao:'Trabalho de campo',inteligencia:'Inteligência',sistema:'Sistema'}[g]}</span>{subset.map(({href,label,icon:Icon})=><Link key={href} href={href} title={label} onClick={()=>setDrawer(false)} className={`side-link ${pathname===href?'active':''}`}><Icon size={19} strokeWidth={1.9}/><span>{label}</span>{pathname===href&&<span className="active-pin"/>}</Link>)}</div>:null})}</nav></div>
-    <div className="side-footer"><div className="avatar">{user.name.charAt(0).toUpperCase()}</div><div className="user-info"><strong>{user.name}</strong><small>{user.role==='admin'?'Administração':user.role==='supervisor'?'Supervisão':'Agente de campo'}</small></div><button aria-label="Sair" className="icon-btn" onClick={async()=>{await authClient.signOut();router.replace('/login')}}><LogOut size={18}/></button></div>
+    <div className="side-footer"><div className="avatar">{user.name.charAt(0).toUpperCase()}</div><div className="user-info"><strong>{user.name}</strong><small>{user.role==='admin'?'Administração':user.role==='supervisor'?'Supervisão':user.role==='marketing'?'Marketing':'Agente de campo'}</small></div><button aria-label="Sair" className="icon-btn" onClick={async()=>{await authClient.signOut();router.replace('/login')}}><LogOut size={18}/></button></div>
   </aside>
   {drawer&&<button aria-label="Fechar menu" className="scrim" onClick={()=>setDrawer(false)}/>}
   <div className="workspace"><header className="topbar"><div className="topbar-left"><button aria-label="Abrir menu" className="icon-btn menu-mobile" onClick={()=>setDrawer(true)}><Menu size={21}/></button><button aria-label="Recolher menu" className="icon-btn menu-desktop" onClick={()=>setCollapsed(x=>!x)}><PanelLeftClose size={20}/></button><span className="breadcrumbs">SindPetshop-SP <ChevronRight size={14}/> <b>{title}</b></span></div><div className="topbar-right"><span className="env-pill"><span/> Operação interna</span><button className="icon-btn" aria-label="Notificações ainda não implementadas" title="Notificações na próxima etapa" disabled><Bell size={19}/></button><div className="avatar small">{user.name.charAt(0).toUpperCase()}</div></div></header>
