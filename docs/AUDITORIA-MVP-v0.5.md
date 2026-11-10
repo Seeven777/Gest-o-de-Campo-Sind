@@ -35,7 +35,7 @@ Auditoria de código realizada em 10/11/2026, **sem executar testes autenticados
 - GPS é dado pessoal: informar finalidade, evitar coleta contínua, aplicar retenção e permissões por papel.
 - Nenhuma foto é recebida; o comprovante físico deve ser mantido até armazenamento privado ser implantado.
 - Não configurar túnel ngrok nem conectar banco externo nesta rodada.
-- O código experimental do catálogo externo está oculto no menu e sem variável de conexão — fica desativado.
+- O catálogo externo/ngrok foi retirado deste PR; nenhum endpoint ou variável de integração externa foi adicionado.
 - Despesas `paid` são marcações administrativas, não integração bancária.
 - Roteirização significa ordenação manual e links de navegação nesta fase, não algoritmo de caminho ótimo.
 
