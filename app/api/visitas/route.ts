@@ -27,7 +27,7 @@ export async function POST(req:Request){
   const lat=Number(data.lat),lng=Number(data.lng),accuracy=Number(data.accuracy);
   if(!Number.isFinite(lat)||!Number.isFinite(lng)||Math.abs(lat)>90||Math.abs(lng)>180||!Number.isFinite(accuracy)||accuracy<0||accuracy>10000)return fail('GPS inválido. Autorize a localização e tente novamente.');
   const rows=await db().query(`insert into visits(stop_id,agent_id,checkin_at,checkin_position,accuracy_m)
- select $1,$2,now(),ST_SetSRID(ST_MakePoint($4,$3),4326)::geography where not exists
+ select $1,$2,now(),ST_SetSRID(ST_MakePoint($4,$3),4326)::geography,$5 where not exists
  (select 1 from visits where stop_id=$1 and checkout_at is null)
  returning id`,[stop,agent,lat,lng,accuracy]);
   if(!rows.length)return fail('Já existe uma visita em andamento para esta parada.',409);
