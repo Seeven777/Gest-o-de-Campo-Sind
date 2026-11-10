@@ -3,7 +3,7 @@ export const dynamic='force-dynamic';
 const fail=(error:string,status=400)=>NextResponse.json({error},{status});
 export async function GET(){
  const user=await currentIdentity();if(!user)return fail('Acesso não autorizado',401);
- const scope=user.role==='agent'?'where r.agent_id=$1':'';const params=user.role==='agent'?[user.id]:[];
+ const scope=user.role==='agent'?"where r.agent_id=$1 and r.status in ('published','in_progress','completed')":'';const params=user.role==='agent'?[user.id]:[];
  const items=await db().query(`select r.id,r.route_date,r.status,c.name as campaign_name,p.full_name as agent_name,
  (select count(*)::int from route_stops where route_id=r.id) as stops
  from routes r join campaigns c on c.id=r.campaign_id join app_profiles p on p.auth_user_id=r.agent_id
@@ -27,4 +27,14 @@ export async function POST(req:Request){
  for(let i=0;i<stops.length;i++)await db().query('insert into route_stops(route_id,establishment_id,position_order) values($1,$2,$3)',[route.id,stops[i],i+1]);
  await db().query('insert into audit_logs(actor_id,action,details) values($1,$2,$3::jsonb)',[user.id,'route.created',JSON.stringify({id:route.id,count:stops.length})]);
  return NextResponse.json({id:route.id,count:stops.length});
+}
+
+export async function PATCH(req:Request){
+ const u=await currentIdentity();if(!u||u.role==='agent')return fail('Apenas administração e supervisão.',403);
+ const data=await req.json().catch(()=>({}));const id=String(data.id||'');
+ if(!/^[0-9a-f-]{36}$/i.test(id))return fail('Rota inválida.');
+ const rows=await db().query("update routes set status='published' where id=$1 and status='draft' and exists(select 1 from route_stops where route_id=$1) returning id",[id]);
+ if(!rows.length)return fail('A rota deve existir, possuir paradas e estar em rascunho.',409);
+ await db().query('insert into audit_logs(actor_id,action,details) values($1,$2,$3::jsonb)',[u.id,'route.published',JSON.stringify({route_id:id})]);
+ return NextResponse.json({ok:true});
 }
