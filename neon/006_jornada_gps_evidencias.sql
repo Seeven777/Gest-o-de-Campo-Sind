@@ -18,6 +18,7 @@ alter table visits add column if not exists operating_status text;
 alter table visits add column if not exists signage_status text;
 alter table visits add column if not exists regularity_note text;
 alter table visits add column if not exists form_submitted_at timestamptz;
+alter table visits add column if not exists review_notes text;
 alter table visit_evidence add column if not exists expires_at timestamptz not null default (now() + interval '14 days');
 alter table visit_evidence add column if not exists deleted_at timestamptz;
 create index if not exists ix_visit_evidence_cleanup on visit_evidence(expires_at) where deleted_at is null;
