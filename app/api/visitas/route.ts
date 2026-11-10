@@ -14,31 +14,8 @@ export async function GET(){
  where ($1::bool=false or r.agent_id=$2) and r.status in ('published','in_progress','completed') order by r.route_date desc,s.position_order limit 100`,[user.role==='agent',user.id]);
  return NextResponse.json({items:rows,stops});
 }
-export async function POST(req:Request){
- const user=await currentIdentity();if(!user)return fail('Sem sessão',401);
- const data=await req.json().catch(()=>({}));const stop=String(data.stop_id||'');const action=String(data.action||'');
- if(!/^[0-9a-f-]{36}$/i.test(stop)||!['checkin','checkout'].includes(action))return fail('Parada ou operação inválida');
- const [assigned]=await db().query('select r.agent_id,s.id,r.status from route_stops s join routes r on r.id=s.route_id where s.id=$1',[stop]);
- if(!assigned)return fail('Parada não encontrada',404);
- if(!['published','in_progress'].includes(assigned.status))return fail('A rota ainda não foi publicada ou está encerrada.',409);
- if(user.role==='agent'&&assigned.agent_id!==user.id)return fail('Parada não atribuída a você',403);
- const agent=String(assigned.agent_id);
- if(action==='checkin'){
-  const lat=Number(data.lat),lng=Number(data.lng),accuracy=Number(data.accuracy);
-  if(!Number.isFinite(lat)||!Number.isFinite(lng)||Math.abs(lat)>90||Math.abs(lng)>180||!Number.isFinite(accuracy)||accuracy<0||accuracy>10000)return fail('GPS inválido. Autorize a localização e tente novamente.');
-  const rows=await db().query(`insert into visits(stop_id,agent_id,checkin_at,checkin_position,accuracy_m)
- select $1,$2,now(),ST_SetSRID(ST_MakePoint($4,$3),4326)::geography,$5 where not exists
- (select 1 from visits where stop_id=$1 and checkout_at is null)
- returning id`,[stop,agent,lat,lng,accuracy]);
-  if(!rows.length)return fail('Já existe uma visita em andamento para esta parada.',409);
-  return NextResponse.json({id:rows[0].id});
- }
- const result=String(data.result||'');const notes=String(data.notes||'').slice(0,2000);
- const allowed=['located','closed','moved','not_found','out_of_scope','not_completed'];
- if(!allowed.includes(result))return fail('Selecione o resultado da visita.');
- const rows=await db().query(`update visits set checkout_at=now(),result=$3,notes=$4
- where stop_id=$1 and agent_id=$2 and checkout_at is null returning id`,[stop,agent,result,notes]);
- if(!rows.length)return fail('Faça o check-in antes de concluir.',409);
- await db().query('insert into audit_logs(actor_id,action,details) values($1,$2,$3::jsonb)',[user.id,'visit.completed',JSON.stringify({stop,result})]);
- return NextResponse.json({id:rows[0].id});
+// A entrada legada não pode contornar a fotografia e as respostas obrigatórias.
+export async function POST(_req:Request){
+ const user=await currentIdentity();if(!user)return fail('Faça login.',401);
+ return fail('Use a Jornada Guiada da rota para confirmar chegada, fotografar e enviar a visita.',410);
 }
