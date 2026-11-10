@@ -5,12 +5,12 @@ import {Search,Database,CheckCircle2,ArrowDownToLine} from 'lucide-react';
 type Company={cnpj:string;legal_name:string;trade_name:string;city:string;state:string;main_cnae:string;type:string;already_in_field:boolean;field_status?:string};
 export default function Catalogo(){
  const [cnae,setCnae]=useState(''),[city,setCity]=useState(''),[state,setState]=useState('SP'),[type,setType]=useState(''),[q,setQ]=useState('');
- const [items,setItems]=useState<Company[]>([]),[selected,setSelected]=useState<string[]>([]),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
+ const [items,setItems]=useState<Company[]>([]),[lastFilters,setLastFilters]=useState<Record<string,string>>({}),[selected,setSelected]=useState<string[]>([]),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
  async function search(e:FormEvent){e.preventDefault();setBusy(true);setError('');setNotice('');setSelected([]);
- try{const p=new URLSearchParams({cnae,city,state,type,q});const r=await fetch('/api/catalogo?'+p.toString(),{cache:'no-store'});const d=await r.json();if(!r.ok||!d.configured)throw Error(d.error||'Catálogo não configurado');setItems(d.items||[])}
+ try{const p=new URLSearchParams({cnae,city,state,type,q});const r=await fetch('/api/catalogo?'+p.toString(),{cache:'no-store'});const d=await r.json();if(!r.ok||!d.configured)throw Error(d.error||'Catálogo não configurado');setItems(d.items||[]);setLastFilters({cnae,city,state,type,q})}
  catch(e){setError(e instanceof Error?e.message:'Erro na consulta')}finally{setBusy(false)}}
  async function add(){setBusy(true);setError('');setNotice('');
- try{const r=await fetch('/api/catalogo',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({items:items.filter(x=>selected.includes(x.cnpj))})});const d=await r.json();if(!r.ok)throw Error(d.error);setNotice(`${d.added} empresas incluídas na operação; ${d.existing} já existiam; ${d.invalid} inválidas.`);setSelected([]);setItems(prev=>prev.map(x=>({...x,already_in_field:x.already_in_field||selected.includes(x.cnpj)})))}catch(e){setError(e instanceof Error?e.message:'Falha na seleção')}finally{setBusy(false)}}
+ try{const r=await fetch('/api/catalogo',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({cnpjs:selected,filters:lastFilters})});const d=await r.json();if(!r.ok)throw Error(d.error);setNotice(`${d.added} empresas incluídas na operação; ${d.existing} já existiam; ${d.invalid} inválidas.`);setSelected([]);setItems(prev=>prev.map(x=>({...x,already_in_field:x.already_in_field||selected.includes(x.cnpj)})))}catch(e){setError(e instanceof Error?e.message:'Falha na seleção')}finally{setBusy(false)}}
  const fresh=items.filter(x=>!x.already_in_field);
  return <Portal title="Catálogo de empresas" subtitle="Pesquise na ferramenta externa e selecione somente o que entrará no trabalho de campo.">
  <section className="panel"><div className="panel-title"><div><small>FONTE EXTERNA</small><h2>Buscar oportunidades por território e atividade</h2></div><Database size={21}/></div>
