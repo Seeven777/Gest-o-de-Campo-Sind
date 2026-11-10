@@ -1,7 +1,7 @@
 import { db } from '@/lib/db';
 import { withRole } from '@/lib/api';
 export const dynamic='force-dynamic';
-export async function GET(req:Request){return withRole(['admin','supervisor','agent'], async(user)=>{
+export async function GET(req:Request){return withRole(['admin','supervisor','agent','marketing'], async(user)=>{
  const url=new URL(req.url);const term=(url.searchParams.get('q')||'').slice(0,120).trim();const page=Math.max(1,Math.min(10000,Number(url.searchParams.get('page'))||1));
  const city=(url.searchParams.get('city')||'').slice(0,120).trim();const cnae=(url.searchParams.get('cnae')||'').replace(/\D/g,'').slice(0,7);const status=(url.searchParams.get('status')||'').trim();
  if(status&&!['pending','validated','review','invalid'].includes(status))return {error:'Filtro de situação inválido'};
