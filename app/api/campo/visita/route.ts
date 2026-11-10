@@ -33,7 +33,7 @@ export async function POST(req:Request){
  if(!evidence)return fail('Antes de finalizar, fotografe a fachada da empresa.',409);
  const result=operating==='operating'?'located':operating==='closed'?'closed':operating==='moved'?'moved':'not_completed';
  const rows=await db().query(`update visits set checkout_at=now(),result=$4,notes=$5,operating_status=$6,
- signage_status=$7,regularity_note=$8,form_submitted_at=now()
+ signage_status=$7,regularity_note=$8,form_submitted_at=now(),review_status='pending',reviewed_at=null
  where id=$1 and stop_id=$2 and agent_id=$3 and checkout_at is null and checkin_at is not null
  returning id`,[visit,stop,u.id,result,notes,operating,signage,regularity]);
  if(!rows.length)return fail('Visita já finalizada ou fora da sua rota.',409);
