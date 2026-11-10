@@ -55,6 +55,11 @@ export default function CampoGuiado(){
  const index=current?ordered.indexOf(current)+1:ordered.length;
  const stage=!plan?'prepare':!started?'ready':!current?'done':!current.checkin_at?'travel':!current.has_photo?'photo':'form';
  const targetPoint=plan?.points.find(x=>x.id===current?.id);
+ const distanceToTarget=position&&targetPoint?(2*6371000*Math.asin(Math.min(1,Math.sqrt(
+ Math.sin(((targetPoint.lat-position.lat)*Math.PI/180)/2)**2+
+ Math.cos(position.lat*Math.PI/180)*Math.cos(targetPoint.lat*Math.PI/180)*
+ Math.sin(((targetPoint.lon-position.lon)*Math.PI/180)/2)**2
+ )))):null;
  async function calculate(){
   setBusy(true);setError('');setMessage('');
   try{
@@ -163,7 +168,7 @@ export default function CampoGuiado(){
  <div className="field-step">EMPRESA {index} DE {ordered.length}</div>
  <h2>{stage==='travel'?'Siga até esta empresa':stage==='photo'?'Você chegou!':'Conclua sua visita'}</h2>
  <div className="field-target"><strong>{current.trade_name||current.legal_name}</strong><span>{[current.street,current.street_number,current.city,current.state].filter(Boolean).join(', ')}</span><small>CNPJ {current.cnpj}</small></div>
- {plan&&stage==='travel'&&<><FieldNavigationMap plan={plan} current={position} follow={follow} targetId={current.id}/>
+ {plan&&stage==='travel'&&<>{distanceToTarget!==null&&<p style={{fontSize:19,fontWeight:800,color:'#205a43'}}>Distância aproximada em linha reta: {distanceToTarget<1000?Math.round(distanceToTarget)+' m':(distanceToTarget/1000).toFixed(1).replace('.',',')+' km'}</p>}<FieldNavigationMap plan={plan} current={position} follow={follow} targetId={current.id}/>
  <label className="field-follow"><input type="checkbox" checked={follow} onChange={e=>setFollow(e.target.checked)}/><LocateFixed size={20}/> Acompanhar meu GPS no mapa</label>
  {plan.route_warning&&<p className="field-warning">O mapa está mostrando os endereços, mas o cálculo completo pelas ruas não está disponível.</p>}
  {(!targetPoint||plan.partial&&plan.missing?.some(x=>x.id===current.id))&&<p className="field-warning">Este endereço ainda não possui localização confirmada no mapa. Confira a fachada antes de registrar a visita.</p>}
