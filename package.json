@@ -19,7 +19,8 @@
     "@neondatabase/auth": "0.7.0-beta",
     "@neondatabase/serverless": "1.2.0",
     "lucide-react": "^0.468.0",
-    "papaparse": "^5.5.0"
+    "papaparse": "^5.5.0",
+    "@vercel/blob": "^2.3.0"
   },
   "devDependencies": {
     "typescript": "^5.8.0",

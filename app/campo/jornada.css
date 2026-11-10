@@ -1,0 +1,65 @@
+/* Modo guiado: uma ação por vez, tipografia legível e alvos de toque amplos. */
+.field-guide{max-width:900px;margin-inline:auto;color:#162d25;font-size:17px;line-height:1.55}
+.field-guide button,.field-guide input,.field-guide textarea{font:inherit}
+.field-progress-top{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;margin-bottom:12px}
+.field-progress-top strong{display:block;font-size:22px;line-height:1.3}
+.field-kicker,.field-step{display:block;letter-spacing:.1em;color:#a24e1f;font-size:13px;font-weight:800;margin-bottom:9px}
+.field-progress-tag{background:#e7efe9;color:#205841;padding:9px 13px;border-radius:999px;font-size:14px;font-weight:700}
+.field-progress-track{height:10px;border-radius:10px;background:#dbe4de;overflow:hidden;margin-bottom:20px}
+.field-progress-track div{height:100%;background:#f36a21;transition:width .3s}
+.field-stage{background:#fff;border:1px solid #dbe4dc;border-radius:22px;padding:28px;box-shadow:0 9px 30px #234c3a10;margin-bottom:16px}
+.field-stage h2{font-size:clamp(25px,4vw,37px);letter-spacing:-.035em;line-height:1.2;margin:0 0 12px;color:#142a23}
+.field-stage h3{font-size:24px;line-height:1.3;margin:0 0 8px}
+.field-stage p{font-size:17px;line-height:1.6;margin:0 0 19px}
+.field-big-number{font-size:58px;font-weight:850;line-height:1.2;color:#235a43;margin:24px 0}
+.field-big-number span{font-size:18px;font-weight:600;vertical-align:middle}
+.field-primary{display:flex;align-items:center;justify-content:center;gap:12px;width:100%;min-height:64px;padding:14px 20px;border:0;border-radius:16px;background:#f36b20;color:#fff!important;font-size:20px!important;font-weight:800!important;cursor:pointer;box-shadow:0 3px 0 #d05118}
+.field-primary svg:last-child{margin-left:auto}.field-primary:disabled{background:#afaaa7;box-shadow:none;cursor:not-allowed}
+.field-primary:focus-visible,.field-option:focus-within,.field-photo-button:focus-within,.arrival-confirm input:focus-visible,.field-guide a:focus-visible,.field-guide button:focus-visible{outline:4px solid #205f9b;outline-offset:4px}
+.field-minor{display:inline-flex;align-items:center;justify-content:center;min-height:50px;padding:12px 16px;color:#235a43!important;background:transparent;border:0;font-weight:700;font-size:16px;cursor:pointer;text-decoration:underline}
+.field-footer-actions{display:flex;justify-content:space-between;gap:14px;flex-wrap:wrap;align-items:center;margin:10px 0 26px}
+.field-stop{min-height:52px;padding:10px 14px;border:1px solid #b8cdc1;border-radius:13px;background:#fff;color:#205a46;font-weight:750;display:inline-flex;gap:8px;align-items:center;cursor:pointer}
+.field-target{border-radius:16px;background:#f2f6f1;border-left:6px solid #f36b21;padding:20px;display:flex;flex-direction:column;gap:7px;margin:18px 0 22px}
+.field-target strong{font-size:24px;line-height:1.3}
+.field-target span{font-size:19px}.field-target small{font-size:14px;color:#5f756c}
+.field-map-wrap{position:relative;margin:14px 0}.field-map{height:min(53vh,550px);min-height:330px;width:100%;border-radius:18px;overflow:hidden;background:#e7efe8}.field-map-compact{height:350px;min-height:270px}
+.field-follow{display:flex;align-items:center;gap:12px;font-size:16px;font-weight:700;margin:14px 0 20px}
+.field-follow input{width:23px;height:23px;accent-color:#e85f1b}
+.field-privacy{display:flex;align-items:flex-start;gap:12px;padding:16px;margin:14px 0 20px;background:#eef6ef;border-radius:14px;color:#285943;font-size:16px}
+.field-privacy svg{flex-shrink:0}
+.arrival-confirm{background:#eef5f0;border:2px solid #bed3c5;border-radius:18px;padding:20px;margin:24px 0}
+.arrival-confirm label{display:block;font-weight:800;font-size:21px;margin-bottom:18px}
+.arrival-confirm input[type=range]{display:block;width:100%;height:56px;cursor:ew-resize;accent-color:#f26923}
+.arrival-hint{display:flex;justify-content:space-between;font-size:14px;color:#386651;margin-top:7px}
+.field-link-button{color:#194f3b;text-decoration:underline;background:transparent;border:0;cursor:pointer;min-height:48px;text-align:left;margin-top:10px;padding:8px 0;font-size:16px}
+.field-camera{text-align:center;display:flex;flex-direction:column;align-items:center;padding:20px 0}
+.field-camera>svg{color:#ee6720;margin-bottom:15px}
+.field-camera p{max-width:540px}
+.field-photo-button{display:flex;align-items:center;justify-content:center;gap:13px;position:relative;background:#f36a21;color:white;min-height:68px;border-radius:15px;padding:16px 22px;font-size:20px;font-weight:800;cursor:pointer;width:100%;max-width:520px;text-align:center}
+.field-photo-button input{opacity:0;position:absolute;inset:0;cursor:pointer;width:100%;height:100%}
+.field-photo-button.busy{opacity:.6;pointer-events:none}
+.field-muted{font-size:14px!important;color:#5d7569;line-height:1.5}
+.field-choice{border:0;padding:0;margin:24px 0}.field-choice legend{font-size:20px;font-weight:800;line-height:1.4;margin-bottom:13px;padding:0}
+.field-option{display:flex;align-items:center;gap:13px;border:2px solid #d4e0d8;background:white;border-radius:15px;padding:14px 17px;min-height:64px;cursor:pointer;margin-bottom:10px;font-size:17px;font-weight:650}
+.field-option input{width:24px;height:24px;flex-shrink:0;accent-color:#247a56}
+.field-option span{flex:1}.field-option svg{color:#247a56;flex-shrink:0}
+.field-option.selected{background:#eef7ed;border-color:#247a56}
+.field-note{display:flex;flex-direction:column;font-size:20px;font-weight:800;gap:11px;margin:22px 0}
+.field-note textarea{width:100%;font-size:17px;line-height:1.5;border:2px solid #bdcec3;border-radius:12px;padding:16px;resize:vertical;color:#183c2b}
+.field-confirm-photo{display:flex;gap:12px;align-items:center;background:#e8f4eb;color:#246342;padding:16px;border-radius:12px;font-weight:700}
+.field-error,.field-warning,.field-success{padding:16px;border-radius:13px;font-size:16px;line-height:1.5;margin-bottom:16px}
+.field-error{border:1px solid #d9a9a1;color:#8b2e27;background:#fff1ef}
+.field-warning{border:1px solid #e9ce91;color:#80561c;background:#fffbeb}
+.field-success{border:1px solid #b2d6bd;color:#266342;background:#edf8ee}
+@media (max-width:700px){
+ .field-guide{font-size:17px}
+ .field-stage{padding:19px;border-radius:18px}
+ .field-progress-top strong{font-size:20px}
+ .field-target{padding:16px}.field-target strong{font-size:21px}
+ .field-stage h2{font-size:28px}
+ .field-primary{font-size:19px!important}
+ .field-map{height:47vh;min-height:300px}
+ .field-map-compact{height:280px;min-height:280px}
+ .field-footer-actions{flex-direction:column}.field-footer-actions>*{width:100%;justify-content:center}
+}
+@media(prefers-reduced-motion:reduce){.field-progress-track div{transition:none}}
