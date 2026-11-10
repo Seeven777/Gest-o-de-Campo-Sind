@@ -1,7 +1,8 @@
-import { LayoutDashboard, Building2, CalendarDays, Route, ClipboardCheck, CheckCheck, Receipt, Map, Users, ChartNoAxesCombined, FileUp, Settings, Camera, Navigation, Wallet, UserRound } from 'lucide-react';
+import { LayoutDashboard, Database, Building2, CalendarDays, Route, ClipboardCheck, CheckCheck, Receipt, Map, Users, ChartNoAxesCombined, FileUp, Settings, Camera, Navigation, Wallet, UserRound } from 'lucide-react';
 export const adminMenu = [
  {label:'Visão geral',href:'/dashboard',icon:LayoutDashboard,group:'principal'},
  {label:'Empresas',href:'/empresas',icon:Building2,group:'principal'},
+ {label:'Catálogo externo',href:'/catalogo',icon:Database,group:'principal'},
  {label:'Campanhas',href:'/campanhas',icon:CalendarDays,group:'principal'},
  {label:'Rotas',href:'/rotas',icon:Route,group:'principal'},
  {label:'Visitas',href:'/visitas',icon:ClipboardCheck,group:'operacao'},
