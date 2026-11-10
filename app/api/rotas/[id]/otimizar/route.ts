@@ -28,6 +28,7 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
  from route_stops s join establishments e on e.id=s.establishment_id where s.route_id=$1 order by s.position_order`,[id]);
  const stops=raw as Point[];
  if(!stops.length)return fail('A rota ainda não possui paradas.');
+ if(stops.length>49)return fail('Esta versão permite até 49 empresas por rota. Divida o percurso em duas jornadas.',422);
  const body=await req.json().catch(()=>({}));
  const start=body.start;
  const origin=(start&&Number.isFinite(start.lat)&&Number.isFinite(start.lon)&&Math.abs(start.lat)<=90&&Math.abs(start.lon)<=180)?[Number(start.lon),Number(start.lat)] as Coordinates:null;
@@ -35,13 +36,15 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
  if(!token)return fail('O mapa otimizado precisa da variável OPENROUTESERVICE_API_KEY na Vercel.',503);
  // Geocodificação pontual e sob demanda, limitada para evitar consumo excessivo de créditos.
  let geocoded=0;
+ let attempts=0;
  const missing:string[]=[];
  for(const stop of stops){
   if(stop.lat!==null&&stop.lon!==null&&Number.isFinite(Number(stop.lat))&&Number.isFinite(Number(stop.lon)))continue;
-  if(geocoded>=8){missing.push(stop.legal_name);continue}
+  if(attempts>=6){missing.push(stop.legal_name);continue}
   const query=[stop.street,stop.street_number,stop.city,stop.state,stop.postal_code,'Brasil'].filter(Boolean).join(', ');
   if(!stop.street||!stop.city){missing.push(stop.legal_name);continue}
   try{
+   attempts++;
    const url='https://api.openrouteservice.org/geocode/search?'+new URLSearchParams({text:query,size:'1','boundary.country':'BRA'});
    const result=await ors(url,{},token);
    const coords=result?.features?.[0]?.geometry?.coordinates as number[]|undefined;
@@ -51,7 +54,7 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
    await db().query('update establishments set position=ST_SetSRID(ST_MakePoint($2,$3),4326)::geography where id=(select establishment_id from route_stops where id=$1) and position is null',[stop.id,stop.lon,stop.lat]);
   }catch{missing.push(stop.legal_name)}
  }
- if(missing.length)return NextResponse.json({error:'Ainda faltam coordenadas para '+missing.length+' empresas. Confira os endereços e execute o cálculo novamente. É possível localizar até 8 novos endereços por execução.',missing,geocoded},{status:422});
+ if(missing.length)return NextResponse.json({error:'Ainda faltam coordenadas para '+missing.length+' empresas. Confira os endereços se o processo não avançar.',missing,geocoded,remaining:missing.length,retryable:geocoded>0},{status:422});
  const coords=stops.map(s=>[Number(s.lon),Number(s.lat)] as Coordinates);
  if(coords.length===1&&!origin)return NextResponse.json({order:[stops[0].id],points:stops.map(s=>({id:s.id,lat:Number(s.lat),lon:Number(s.lon)})),geometry:{type:'LineString',coordinates:coords},distance_m:0,duration_s:0,estimated:true,geocoded});
  try{
