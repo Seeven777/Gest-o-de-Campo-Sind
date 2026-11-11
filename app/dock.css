@@ -76,3 +76,27 @@
  .dock-more-link-icon{width:31px;height:31px}
 }
 @media(prefers-reduced-motion:reduce){.role-dock-item{transition:none}}
+
+
+/* Paleta da identidade aprovada: laranja, preto e branco; vidro discreto como acabamento. */
+.role-dock{background:rgba(12,14,13,.89);border-color:rgba(255,255,255,.2);box-shadow:0 17px 45px #09140e55,inset 0 1px #ffffff26}
+.role-dock-item{color:#d7ddd8}
+.role-dock-item:hover{background:#ffffff17;color:#fff}
+.role-dock-item.is-active{background:#ff790024;color:#ff963d}
+.role-dock-item.is-active .role-dock-icon{color:#ff963d}
+.role-dock-item.is-featured .role-dock-icon{background:#ff7900;color:white;box-shadow:0 5px 15px #ff790055}
+.role-dock-item.is-featured.is-active{background:#ff790025;color:#ff963d}
+.role-dock-item.is-featured.is-active .role-dock-icon{background:#ff7900;color:white}
+.dock-more-sheet{background:#111513;border-color:#303832;color:#fff}
+.dock-more-handle{background:#505c52}
+.dock-more-heading span{color:#ff9a45}
+.dock-more-heading h2{color:#fff}
+.dock-more-close{background:#252c27;color:#e9f1eb}
+.dock-more-group h3{color:#9eaca0}
+.dock-more-link{background:#1a211d;border-color:#313a33;color:#eef2ed}
+.dock-more-link:hover{background:#263128;border-color:#92613d}
+.dock-more-link.active{background:#ff790024;color:#ff9b4a;border-color:#a65b24}
+.dock-more-link-icon{background:#303d32;color:#f7e7d7}
+.dock-more-profile{border-color:#303832}
+.dock-more-profile span{color:#9bac9d}
+.dock-more-profile button{background:#3e2b21;color:#ffae71}
