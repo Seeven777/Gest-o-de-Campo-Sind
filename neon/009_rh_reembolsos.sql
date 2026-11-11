@@ -34,6 +34,7 @@ ALTER TABLE public.expenses
  ADD COLUMN IF NOT EXISTS payment_method text,
  ADD COLUMN IF NOT EXISTS paid_amount numeric(12,2),
  ADD COLUMN IF NOT EXISTS paid_at timestamptz,
+ ADD COLUMN IF NOT EXISTS payment_date date,
  ADD COLUMN IF NOT EXISTS paid_by text REFERENCES public.app_profiles(auth_user_id),
  ADD COLUMN IF NOT EXISTS receipt_acknowledged_at timestamptz,
  ADD COLUMN IF NOT EXISTS receipt_disputed_at timestamptz,
