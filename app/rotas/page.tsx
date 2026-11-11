@@ -2,7 +2,7 @@
 import {useEffect,useMemo,useState} from 'react';
 import Link from 'next/link';
 import {Portal} from '@/components/portal';
-import {Route as RouteIcon,Plus,Search,ChevronRight,CalendarDays,UserRound,CheckCircle2,MapPin,ArrowRight,Layers,Send} from 'lucide-react';
+import {Route as RouteIcon,Plus,Search,ChevronLeft,ChevronRight,CalendarDays,UserRound,MapPin,ArrowRight,Layers,Send} from 'lucide-react';
 import './rotas.css';
 type RouteRow={id:string;route_date:string;campaign_name:string;agent_name:string;status:string;stops:number};
 type Pick={id:string;name:string};
