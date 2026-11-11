@@ -3,9 +3,10 @@
 import Link from 'next/link';
 import {Building2,Camera,CheckCheck,House,MoreHorizontal,Route,ChartNoAxesCombined,Wallet, type LucideIcon} from 'lucide-react';
 
-export type DockRole='admin'|'supervisor'|'agent'|'cadastro';
+export type DockRole='admin'|'supervisor'|'agent'|'cadastro'|'rh';
 type NavItem={href:string;label:string;icon:LucideIcon;featured?:boolean};
 const destinations:Record<DockRole,NavItem[]>={
+ rh:[{href:'/reembolsos',label:'Reembolsos',icon:Wallet,featured:true},{href:'/configuracoes',label:'Perfil',icon:House}],
  cadastro:[
   {href:'/cadastros',label:'Cadastros',icon:CheckCheck,featured:true},
   {href:'/configuracoes',label:'Meu perfil',icon:House}
