@@ -4,7 +4,7 @@ import Link from 'next/link';
 import {useParams} from 'next/navigation';
 import {Portal} from '@/components/portal';
 import {FieldNavigationMap,type ActiveLeg,type CurrentPosition,type FieldPlan} from '@/components/field-navigation-map';
-import {ArrowLeft,ArrowRight,Camera,Check,CheckCircle2,ChevronRight,ClipboardCheck,Flag,LocateFixed,MapPin,MapPinned,Navigation,PauseCircle,Play,Route as RouteIcon,ShieldCheck,X,ZoomIn,ZoomOut,RefreshCw,Maximize2,RotateCcw,CornerUpLeft,CornerUpRight,MoveUp} from 'lucide-react';
+import {ArrowLeft,ArrowRight,Camera,Check,CheckCircle2,ChevronRight,ClipboardCheck,Flag,LocateFixed,MapPin,MapPinned,Navigation,PauseCircle,Play,Route as RouteIcon,ShieldCheck,X,ZoomIn,ZoomOut,RefreshCw,Maximize2,RotateCcw,CornerUpLeft,CornerUpRight,MoveUp,MoreHorizontal,ChevronDown,ChevronUp} from 'lucide-react';
 import '../jornada.css';
 
 type Stop={
@@ -137,7 +137,7 @@ export default function CampoGuiado(){
  const [arrivalPhase,setArrivalPhase]=useState<ArrivalPhase>(null);
  const [leg,setLeg]=useState<ActiveLeg|null>(null),[legBusy,setLegBusy]=useState(false),[legError,setLegError]=useState('');
  const [rerouteToken,setRerouteToken]=useState(0),[fitToken,setFitToken]=useState(0),[zoomCommand,setZoomCommand]=useState<{id:number;delta:1|-1}|undefined>(undefined);
- const [showGuide,setShowGuide]=useState(true),[mapToolsOpen,setMapToolsOpen]=useState(false);
+ const [showGuide,setShowGuide]=useState(true),[mapToolsOpen,setMapToolsOpen]=useState(false),[mobileDetailsOpen,setMobileDetailsOpen]=useState(false);
  const sentAt=useRef(0),positionRef=useRef<CurrentPosition|null>(null),positionUpdatedAt=useRef(0);
  const cacheKey='sind-jornada-plan:'+id;
  async function reload(){
@@ -300,7 +300,7 @@ export default function CampoGuiado(){
  async function arrive(){
   if(!current||busy)return;
   const stopId=current.id;
-  setArrivalDialog(false);setBusy(true);setArrivalPhase('locating');setError('');setNotice('');
+  setArrivalDialog(false);setMapToolsOpen(false);setBusy(true);setArrivalPhase('locating');setError('');setNotice('');
   try{
    // Acompanhamento GPS já ativo: evite aguardar outra aquisição de até 18 segundos
    // quando existe uma medição recente e suficientemente precisa.
@@ -349,7 +349,7 @@ export default function CampoGuiado(){
     stop.id===stopId?{...stop,checkout_at:new Date().toISOString(),review_status:'pending'}:stop
    )}:previous);
    setQuestionIndex(0);setAnswers(blankAnswers());setNotes('');
-   setFollow(true);setRecenterToken(n=>n+1);setShowStops(false);setShowGuide(true);setMapToolsOpen(false);
+   setFollow(true);setRecenterToken(n=>n+1);setShowStops(false);setShowGuide(true);setMapToolsOpen(false);setMobileDetailsOpen(false);
    if(isLast){
     setNotice('Todas as visitas foram enviadas à central.');
     try{
@@ -364,7 +364,13 @@ export default function CampoGuiado(){
  }
  const answer=(key:AnswerKey,value:string)=>setAnswers(old=>({...old,[key]:value}));
  return <Portal title="Minha jornada" subtitle="Navegação e confirmação de visitas" immersive>
- <div className="navigator-root">
+ <div className={'navigator-root'+((stage==='photo'||stage==='questions')?' navigator-form-mode':'')}>
+   <div className="navigator-mobile-top">
+    <Link href="/agente" className="navigator-mobile-back" aria-label="Voltar para Meu dia"><ArrowLeft size={22}/></Link>
+    <div className="navigator-mobile-top-copy"><strong>Minha jornada</strong>
+     <span>{current?'Parada '+activeIndex+' de '+ordered.length:stage==='done'?'Concluída':'Organizar percurso'}</span></div>
+    <span className={'navigator-mobile-gps'+(gpsActive?' active':'')}><span/>{gpsActive?'GPS ativo':'GPS parado'}</span>
+   </div>
   <div className="navigator-map-frame">
    {plan?<FieldNavigationMap plan={plan} targetId={current?.id} current={position} follow={follow}
     immersive completedIds={ordered.filter(s=>!!s.checkout_at).map(s=>s.id)} recenterToken={recenterToken}
@@ -384,6 +390,11 @@ export default function CampoGuiado(){
    </div>
   </div>}
   <header className="navigator-top-panel">
+    <div className="navigator-mobile-top-panel">
+     <span><Flag size={16}/> {complete}/{ordered.length||0} visitas</span>
+     {leg&&started&&stage==='travel'?<span>{fmtDistance(leg.distance_m)} · {Math.max(1,Math.round(leg.duration_s/60))} min*</span>:
+      <span>{current?'Destino '+activeIndex:'Percurso'}</span>}
+    </div>
    <div className="navigator-top-line"><span className="navigator-kicker"><RouteIcon size={16}/> ROTA EM CAMPO</span>
     <span className={'navigator-live-tag'+(gpsActive?' on':'')}><span/>{gpsActive?'GPS ativo':'GPS parado'}</span></div>
    <strong className="navigator-top-title">{current?.trade_name||current?.legal_name||data?.route.campaign_name||'Sua jornada'}</strong>
@@ -471,7 +482,8 @@ export default function CampoGuiado(){
   </section>}
   {(stage==='photo'||stage==='questions')&&<section key={current?.id+'-'+stage} className="navigator-form-sheet navigator-sheet-enter" aria-label="Registro da visita">
    <div className="navigator-sheet-grip" aria-hidden="true"/>
-   <div className="navigator-form-header">
+   <div className="navigator-mobile-form-back"><Link href="/agente"><ArrowLeft size={19}/> Meu dia</Link><span>Visita {activeIndex}/{ordered.length}</span></div>
+    <div className="navigator-form-header">
     <span><ClipboardCheck size={18}/> VISITA À EMPRESA · {activeIndex}/{ordered.length}</span>
     <strong>{current?.trade_name||current?.legal_name}</strong>
    </div>
