@@ -150,7 +150,7 @@ export default function CampoGuiado(){
 }
 function CampoGuiadoSession({id}:{id:string}){
  const [data,setData]=useState<RouteData|null>(null),[plan,setPlan]=useState<FieldPlan|null>(null);
- const [started,setStarted]=useState(false),[position,setPosition]=useState<CurrentPosition|null>(null),[follow,setFollow]=useState(true),[gpsRestart,setGpsRestart]=useState(0);
+ const [started,setStarted]=useState(false),[position,setPosition]=useState<CurrentPosition|null>(null),[follow,setFollow]=useState(true),[gpsRestart,setGpsRestart]=useState(0),[gpsIssue,setGpsIssue]=useState(false);
  const [busy,setBusy]=useState(false),[photoBusy,setPhotoBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[progress,setProgress]=useState(''),[retryCount,setRetryCount]=useState(0);
  const [showStops,setShowStops]=useState(false),[arrivalDialog,setArrivalDialog]=useState(false),[recenterToken,setRecenterToken]=useState(0);
  const [questionIndex,setQuestionIndex]=useState(0),[answers,setAnswers]=useState<Answers>(blankAnswers),[notes,setNotes]=useState('');
@@ -198,7 +198,8 @@ function CampoGuiadoSession({id}:{id:string}){
  const distance=straightDistance(position,target);
  const questionnaireEnd=questionIndex===questions.length;
  const nextQuestion=questions[questionIndex];
- const gpsActive=started&&!!position;
+ const gpsActive=started&&!!position&&!gpsIssue;
+ const gpsLabel=!started?'GPS parado':gpsIssue?'Sinal GPS instável':position?'GPS ativo':'Buscando GPS';
  const remaining=ordered.length-complete;
  const currentStopId=current?.id;
  const havePosition=!!position;
@@ -275,16 +276,16 @@ function CampoGuiadoSession({id}:{id:string}){
    const p=await gpsForNavigation(positionRef.current,positionUpdatedAt.current,forceFresh);
    positionRef.current=p;positionUpdatedAt.current=Date.now();setPosition(p);rememberGps(p);
    await send('/api/campo/localizacao',{action:'start',route_id:id,consent:true,...p});
-   sentAt.current=Date.now();setStarted(true);setGpsRestart(n=>n+1);setRerouteToken(n=>n+1);setNotice('Localização iniciada. Siga o mapa e pare o veículo antes de confirmar a chegada.');
-  }catch(e){setError(e instanceof Error?e.message:'Não foi possível iniciar a localização.')}
+   sentAt.current=Date.now();setStarted(true);setGpsIssue(false);setGpsRestart(n=>n+1);setRerouteToken(n=>n+1);setNotice('Localização iniciada. Siga o mapa e pare o veículo antes de confirmar a chegada.');
+  }catch(e){if((e as GpsFailure)?.geoCode!==undefined)setGpsIssue(true);setError(e instanceof Error?e.message:'Não foi possível iniciar a localização.')}
   finally{setBusy(false)}
  }
  useEffect(()=>{
   if(!started||!navigator.geolocation)return;
   let watch:number|undefined,alive=true;
   const ping=(p:CurrentPosition)=>{
-   positionRef.current=p;positionUpdatedAt.current=Date.now();rememberGps(p);setPosition(p);
-   setError(old=>old.includes('GPS')||old.includes('localização')||old.includes('navegador')?'':old);
+   positionRef.current=p;positionUpdatedAt.current=Date.now();rememberGps(p);setPosition(p);setGpsIssue(false);
+   setError(old=>/GPS|localizaç|permissão|navegador/i.test(old)?'':old);
    if(Date.now()-sentAt.current<20000)return;
    sentAt.current=Date.now();
    void send('/api/campo/localizacao',{action:'ping',route_id:id,...p}).catch(e=>setError(e instanceof Error?e.message:'GPS desconectado.'));
@@ -296,6 +297,7 @@ function CampoGuiadoSession({id}:{id:string}){
      e=>{void (async()=>{
        const state=e.code===1?await permissionState():null;
        if(!alive)return;
+       setGpsIssue(true);
        if(e.code===1&&state==='denied'){
         setStarted(false);setPosition(null);positionRef.current=null;
         void send('/api/campo/localizacao',{action:'stop',route_id:id}).catch(()=>{});
@@ -349,7 +351,7 @@ function CampoGuiadoSession({id}:{id:string}){
     stop.id===stopId?{...stop,visit_id:visitId,checkin_at:new Date().toISOString(),has_photo:false}:stop
    )}:previous);
    setNotice('Chegada registrada! Agora tire uma foto da fachada.');
-  }catch(e){setError(e instanceof Error?e.message:'Não foi possível registrar a chegada.')}
+  }catch(e){if((e as GpsFailure)?.geoCode!==undefined)setGpsIssue(true);setError(e instanceof Error?e.message:'Não foi possível registrar a chegada.')}
   finally{setArrivalPhase(null);setBusy(false)}
  }
  async function uploadPhoto(file:File|undefined){
@@ -400,7 +402,7 @@ function CampoGuiadoSession({id}:{id:string}){
     <Link href="/agente" className="navigator-mobile-back" aria-label="Voltar para Meu dia"><ArrowLeft size={22}/></Link>
     <div className="navigator-mobile-top-copy"><strong>Minha jornada</strong>
      <span>{current?'Parada '+activeIndex+' de '+ordered.length:stage==='done'?'Concluída':'Organizar percurso'}</span></div>
-    <span className={'navigator-mobile-gps'+(gpsActive?' active':'')}><span/>{gpsActive?'GPS ativo':'GPS parado'}</span>
+    <span className={'navigator-mobile-gps'+(gpsActive?' active':'')}><span/>{gpsLabel}</span>
    </div>
   <div className="navigator-map-frame">
    {plan?<FieldNavigationMap plan={plan} targetId={current?.id} current={position} follow={follow}
@@ -422,7 +424,7 @@ function CampoGuiadoSession({id}:{id:string}){
   </div>}
   <header className="navigator-top-panel">
    <div className="navigator-top-line"><span className="navigator-kicker"><RouteIcon size={16}/> ROTA EM CAMPO</span>
-    <span className={'navigator-live-tag'+(gpsActive?' on':'')}><span/>{gpsActive?'GPS ativo':'GPS parado'}</span></div>
+    <span className={'navigator-live-tag'+(gpsActive?' on':'')}><span/>{gpsLabel}</span></div>
    <strong className="navigator-top-title">{current?.trade_name||current?.legal_name||data?.route.campaign_name||'Sua jornada'}</strong>
    <span className="navigator-address">{current?[current.street,current.street_number,current.city].filter(Boolean).join(', '):stage==='done'?'Todas as visitas registradas':'Preparando o percurso'}</span>
    <div className="navigator-progress-line">
@@ -494,7 +496,7 @@ function CampoGuiadoSession({id}:{id:string}){
   {(stage==='prepare'||stage==='loading'||stage==='ready'||stage==='travel'||stage==='done')&&
   <section key={current?.id+'-'+stage} className={'navigator-sheet navigator-sheet-enter'+(stage==='travel'?' navigator-travel-sheet':'')} aria-label="Próxima ação da jornada">
    <div className="navigator-sheet-grip" aria-hidden="true"/>
-   {error&&<p className="navigator-error" role="alert">{error}</p>}
+   {error&&stage!=='travel'&&<p className="navigator-error" role="alert">{error}</p>}
    {notice&&<p className="navigator-notice" role="status">{notice}</p>}
    {stage==='loading'&&<><h2>{error?'Não foi possível abrir a jornada':'Preparando sua jornada...'}</h2>
     <p>{error?'A conexão com o servidor falhou. Você pode tentar carregar novamente sem perder sua rota.':'Consultando suas empresas e a rota atribuída.'}</p>
@@ -524,7 +526,7 @@ function CampoGuiadoSession({id}:{id:string}){
      <MapPin size={20}/> Cheguei
     </button>
     {!target&&<p className="navigator-driving-alert">Local sem coordenadas precisas. Confirme o endereço antes de registrar a chegada.</p>}
-    {error&&<div className="navigator-gps-recovery" role="alert"><p>{error}</p><button type="button" disabled={busy} onClick={()=>void begin(true)}><LocateFixed size={16}/>{busy?'Localizando...':'Reativar GPS'}</button><small>Faça isso somente com o veículo parado.</small></div>}
+    {error&&(gpsIssue?<div className="navigator-gps-recovery" role="alert"><p>{error}</p><button type="button" disabled={busy} onClick={()=>void begin(true)}><LocateFixed size={16}/>{busy?'Localizando...':'Reativar GPS'}</button><small>Faça isso somente com o veículo parado.</small></div>:<p className="navigator-driving-alert" role="alert">{error}</p>)}
     {legError&&<p className="navigator-driving-alert" role="status">Percurso viário indisponível. Confira o endereço.</p>}
    </div>}
    {stage==='done'&&<div className="navigator-finished"><CheckCircle2 size={54}/>
