@@ -81,7 +81,7 @@ export default function Login(){
  return <AuthShell
   eyebrow={mode==='login'?'ACESSO À ÁREA INTERNA':mode==='register'?'SOLICITAÇÃO DE ACESSO':'SEGURANÇA DA CONTA'}
   title={title[mode]} description={description[mode]}
-  footer={<p className="auth-help-note"><ShieldCheck size={16} aria-hidden="true"/> Somente usuários aprovados podem acessar os dados internos.</p>}
+  footer={<p className="auth-help-note"><ShieldCheck size={16} aria-hidden="true"/> Somente usuários aprovados podem utilizar o sistema.</p>}
  >
   <form className="auth-form" onSubmit={submit} aria-busy={busy}>
    {mode==='register'&&<div className="auth-form-group">
@@ -100,10 +100,7 @@ export default function Login(){
     </div>
    </div>
    {mode!=='recover'&&<div className="auth-form-group">
-    <div className="auth-label-row">
-     <label htmlFor="auth-password">Senha</label>
-     {mode==='login'&&<button type="button" className="auth-small-link" onClick={()=>switchMode('recover')}>Esqueci minha senha</button>}
-    </div>
+    <label htmlFor="auth-password">Senha</label>
     <div className="auth-input-wrap"><LockKeyhole size={20} aria-hidden="true"/>
      <input id="auth-password" type={visible?'text':'password'} value={password}
       onChange={e=>setPassword(e.target.value)} autoComplete={mode==='login'?'current-password':'new-password'}
@@ -135,10 +132,13 @@ export default function Login(){
    </button>
   </form>
   {mode==='login'?
-   <div className="auth-links">
-    <button type="button" onClick={()=>switchMode('register')} className="auth-secondary-action"><UserPlus size={18}/> Criar conta</button>
-    <Link href="/aguardando" className="auth-secondary-action"><ShieldCheck size={18}/> Consultar solicitação</Link>
-   </div>:
+   <>
+    <div className="auth-links">
+     <button type="button" onClick={()=>switchMode('register')} className="auth-secondary-action">Criar conta</button>
+     <button type="button" onClick={()=>switchMode('recover')} className="auth-secondary-action">Esqueci minha senha</button>
+    </div>
+    <Link href="/aguardando" className="auth-access-check">Consultar solicitações de acesso</Link>
+   </>:
    <>
     {mode==='register'&&<div className="auth-approval-note"><ShieldCheck size={20}/>
       <span>Seu acesso ficará <strong>aguardando aprovação</strong>. A administração definirá as permissões do seu perfil.</span>
