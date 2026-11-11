@@ -135,6 +135,7 @@ export async function PATCH(req:Request){
    const issuer=normalCnpj(d.invoice_issuer_cnpj),accessKey=normalCnpj(d.invoice_access_key);
    const archive=textValue(d.archive_reference,200);
    const expected=normalCnpj(process.env.SINDPETSHOP_CNPJ||'');
+   if(process.env.SINDPETSHOP_CNPJ&&expected.length!==14)return fail('SINDPETSHOP_CNPJ mal configurado: o valor deve ter 14 caracteres.',503);
    if(reference.length<3||reference.length>100||recipient.length!==14||issuer.length!==14||accessKey&&accessKey.length!==44||archive.length<3||archive.length>200||d.recipient_checked!==true)
     return fail('O RH deve conferir nota original, CNPJ destinatário e informar referência física de arquivamento.');
    if(expected.length===14&&recipient!==expected)return fail('CNPJ da nota diferente do CNPJ sindical configurado.',409);
