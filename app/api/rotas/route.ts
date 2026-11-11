@@ -1,3 +1,4 @@
+import {validISODate} from '@/lib/iso-date';
 import {NextResponse} from 'next/server';import {currentIdentity} from '@/lib/access';import {db} from '@/lib/db';
 export const dynamic='force-dynamic';
 const fail=(error:string,status=400)=>NextResponse.json({error},{status});
@@ -16,7 +17,7 @@ export async function POST(req:Request){
  const data=await req.json().catch(()=>({}));
  const campaign=String(data.campaign_id||''),agent=String(data.agent_id||''),date=String(data.date||'');
  const stops=Array.isArray(data.establishment_ids)?data.establishment_ids.map(String):[];
- if(campaign&&!/^[0-9a-f-]{36}$/i.test(campaign)||!agent||!/^\d{4}-\d{2}-\d{2}$/.test(date)||stops.length<1||stops.length>49||new Set(stops).size!==stops.length||stops.some((x:string)=>!/^[0-9a-f-]{36}$/i.test(x)))return fail('Informe responsável, data e de 1 a 49 empresas únicas.');
+ if(campaign&&!/^[0-9a-f-]{36}$/i.test(campaign)||!agent||!validISODate(date)||stops.length<1||stops.length>49||new Set(stops).size!==stops.length||stops.some((x:string)=>!/^[0-9a-f-]{36}$/i.test(x)))return fail('Informe responsável, data e de 1 a 49 empresas únicas.');
  const [c]=campaign?await db().query('select id from campaigns where id=$1 and $2::date between start_date and end_date and status<>\'cancelled\'',[campaign,date]):[{id:'automatic'}];
  const [a]=await db().query('select auth_user_id from app_profiles where auth_user_id=$1 and role=\'agent\' and is_active=true',[agent]);
  if(!c||!a)return fail('Rota fora do período configurado ou agente não encontrado.');
