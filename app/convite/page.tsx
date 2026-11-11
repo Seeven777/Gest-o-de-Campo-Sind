@@ -28,7 +28,7 @@ export default function Convite(){
  async function activate(){
    const result=await fetch('/api/access-invitations/redeem',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token})});
    const body=await result.json();
-   if(result.ok){const me=await fetch('/api/me',{cache:'no-store'});const profile=me.ok?await me.json().catch(()=>null):null;router.replace(profile?.user?.role==='cadastro'?'/cadastros':profile?.user?.role==='agent'?'/agente':'/dashboard');router.refresh();return true;}
+   if(result.ok){const me=await fetch('/api/me',{cache:'no-store'});const profile=me.ok?await me.json().catch(()=>null):null;router.replace(profile?.user?.role==='cadastro'?'/cadastros':profile?.user?.role==='rh'?'/reembolsos':profile?.user?.role==='agent'?'/agente':'/dashboard');router.refresh();return true;}
    if(result.status===401){setMode('existing');setMessage('Conta registrada. Entre com seu e-mail e senha para concluir a ativação.');return false;}
    throw Error(body.error||'Não foi possível liberar o acesso.');
  }

@@ -1,7 +1,7 @@
 import {NextResponse} from 'next/server';import {currentIdentity} from '@/lib/access';import {db} from '@/lib/db';
 export const dynamic='force-dynamic';
 export async function GET(req:Request){const u=await currentIdentity();if(!u)return NextResponse.json({error:'Sem acesso'},{status:401});
- if(u.role==='cadastro')return NextResponse.json({error:'Relatórios de campo não autorizados para Cadastro.'},{status:403});
+ if(['cadastro','rh'].includes(u.role))return NextResponse.json({error:'Relatórios de campo não autorizados para Cadastro.'},{status:403});
  const url=new URL(req.url);const csv=url.searchParams.get('format')==='csv';
  const admin=u.role!=='agent';
  const rows=await db().query(`select c.name campaign,c.start_date,c.end_date,count(distinct r.id)::int routes,

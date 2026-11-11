@@ -15,6 +15,10 @@ export const adminMenu = [
  {label:'Configurações',href:'/configuracoes',icon:Settings,group:'sistema'},
  {label:'Limpeza de testes',href:'/limpeza',icon:Trash2,group:'sistema'},
 ];
+export const rhMenu = [
+ {label:'Conferir reembolsos',href:'/reembolsos',icon:Receipt,group:'principal'},
+ {label:'Meu perfil',href:'/configuracoes',icon:UserRound,group:'sistema'},
+];
 export const cadastroMenu = [
  {label:'Conferir cadastros',href:'/cadastros',icon:ClipboardCheck,group:'principal'},
  {label:'Meu perfil',href:'/configuracoes',icon:UserRound,group:'sistema'},

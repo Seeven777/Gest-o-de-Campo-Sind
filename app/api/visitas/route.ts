@@ -3,7 +3,7 @@ export const dynamic='force-dynamic';
 const fail=(error:string,status=400)=>NextResponse.json({error},{status});
 export async function GET(){
  const user=await currentIdentity();if(!user)return fail('Sem sessão',401);
- if(user.role==='cadastro')return fail('Visitas de campo não autorizadas para Cadastro.',403);
+ if(!['admin','supervisor','agent'].includes(user.role))return fail('Visitas de campo não autorizadas para Cadastro.',403);
  const rows=await db().query(`select v.id,v.stop_id,v.agent_id,v.checkin_at,v.checkout_at,v.result,v.notes,v.review_status,e.legal_name,e.city,p.full_name as agent_name
  from visits v join route_stops s on s.id=v.stop_id join establishments e on e.id=s.establishment_id
  join app_profiles p on p.auth_user_id=v.agent_id

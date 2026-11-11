@@ -2,7 +2,7 @@ import {NextResponse} from 'next/server';import {currentIdentity} from '@/lib/ac
 export const dynamic='force-dynamic';
 export async function GET(_req:Request,{params}:{params:Promise<{id:string}>}){
  const user=await currentIdentity();if(!user)return NextResponse.json({error:'Entre em sua conta'},{status:401});
- if(user.role==='cadastro')return NextResponse.json({error:'Rota restrita à equipe operacional.'},{status:403});
+ if(!['admin','supervisor','agent'].includes(user.role))return NextResponse.json({error:'Rota restrita à equipe operacional.'},{status:403});
  const {id}=await params;if(!/^[0-9a-f-]{36}$/i.test(id))return NextResponse.json({error:'Rota inválida'},{status:400});
  const [route]=await db().query('select r.id,r.agent_id,r.route_date,r.status,c.name campaign_name from routes r join campaigns c on c.id=r.campaign_id where r.id=$1',[id]);
  if(!route||(user.role==='agent'&&(route.agent_id!==user.id||!['published','in_progress','completed'].includes(route.status))))return NextResponse.json({error:'Rota não encontrada'},{status:404});
