@@ -252,7 +252,7 @@ function CampoGuiadoSession({id}:{id:string}){
    if(document.visibilityState==='visible'&&watch===undefined){
     watch=navigator.geolocation.watchPosition(
      p=>ping({lat:p.coords.latitude,lon:p.coords.longitude,accuracy:p.coords.accuracy,heading:p.coords.heading,speed:p.coords.speed}),
-     e=>{if(e.code===1){setStarted(false);setPosition(null);positionRef.current=null;void send('/api/campo/localizacao',{action:'stop'}).catch(()=>{});setError('GPS bloqueado pelo navegador. Autorize a localização e toque em Iniciar navegação novamente.');}else setError('Sinal de GPS indisponível. Verifique as permissões e tente novamente.');},
+     e=>{if(e.code===1){setStarted(false);setPosition(null);positionRef.current=null;void send('/api/campo/localizacao',{action:'stop',route_id:id}).catch(()=>{});setError('GPS bloqueado pelo navegador. Autorize a localização e toque em Iniciar navegação novamente.');}else setError('Sinal de GPS indisponível. Verifique as permissões e tente novamente.');},
      {enableHighAccuracy:true,maximumAge:10000,timeout:18000});
    }else if(document.visibilityState==='hidden'&&watch!==undefined){
     navigator.geolocation.clearWatch(watch);watch=undefined;
@@ -268,9 +268,9 @@ function CampoGuiadoSession({id}:{id:string}){
  },[started,id]);
  useEffect(()=>{
   if(!started)return;
-  const leave=()=>{try{navigator.sendBeacon('/api/campo/localizacao',new Blob([JSON.stringify({action:'stop'})],{type:'application/json'}))}catch{}};
+  const leave=()=>{try{navigator.sendBeacon('/api/campo/localizacao',new Blob([JSON.stringify({action:'stop',route_id:id})],{type:'application/json'}))}catch{}};
   window.addEventListener('pagehide',leave);
-  return()=>{window.removeEventListener('pagehide',leave)};
+  return()=>{window.removeEventListener('pagehide',leave);leave()};
  },[started]);
  async function arrive(){
   if(!current||busy)return;
@@ -328,7 +328,7 @@ function CampoGuiadoSession({id}:{id:string}){
    if(isLast){
     setNotice('Todas as visitas foram enviadas à central.');
     try{
-     await send('/api/campo/localizacao',{action:'stop'});
+     await send('/api/campo/localizacao',{action:'stop',route_id:id});
      setStarted(false);positionRef.current=null;setPosition(null);setNotice('Jornada concluída e GPS encerrado automaticamente.');
     }catch{
      setError('Visitas salvas. Não foi possível confirmar o encerramento do GPS; a central desativa o sinal após expirar.');
