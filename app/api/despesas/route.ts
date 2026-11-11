@@ -105,6 +105,7 @@ export async function PATCH(req:Request){
  if(!expense)return fail('Despesa não encontrada.',404);
  const isAgent=user.role==='agent';
  if(isAgent&&expense.agent_id!==user.id)return fail('Você não pode alterar despesas de outro agente.',403);
+ if(!isAgent&&expense.agent_id===user.id)return fail('Impedida a aprovação de despesa própria após mudança de cargo para RH.',403);
  const from=String(expense.approval_status);
  let next=from;
  let updates:Change[]=[],details:Record<string,unknown>={},guard='';
