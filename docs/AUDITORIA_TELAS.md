@@ -183,3 +183,10 @@ flowchart TD
 - No recebimento da nota física, RH registra CNPJ do **emitente**, CNPJ do **destinatário** (sindicato), referência da nota e, quando disponível, **chave fiscal de 44 caracteres**. O banco impede usar a mesma chave fiscal em duas despesas ativas. Sem chave, continuam obrigatórias a conferência humana e a política de controle de duplicatas da contabilidade.
 - Não consultar chave fiscal automaticamente em portais com CAPTCHA ou sistemas externos sem integração autorizada; o campo registra evidência declarada e requer conferência manual.
 - A variável `SINDPETSHOP_CNPJ` é opcional: quando configurada no servidor, além da declaração do RH, ocorre checagem de igualdade do destinatário. Sem ela, o código não promete validação automática.
+
+### Controles adicionais do fluxo RH
+- **Idempotência de solicitações**: aplicativo envia UUID por tentativa lógica de despesa; falha de internet e reenviar a mesma solicitação não criam registros duplicados (índice único `expenses.client_request_id`, retorno do ID original).
+- **Segregação de funções**: um ex-agente que receba o cargo RH não pode movimentar/aprovar suas próprias despesas históricas (403 no servidor, botões ocultos).
+- **Pagamentos legados**: marcações antigas de `paid` sem data ou referência de transferência não podem ser reconhecidas como recebidas pelo funcionário; precisam de conciliação externa.
+- **Datas**: despesa futura e pagamento bancário informado como futuro são recusados; data do pagamento real é independente da data em que o RH registrou o lançamento.
+- **Controle de duplicidade fiscal**: chave fiscal (quando fornecida) tem índice único enquanto a despesa estiver ativa; sem chave, a contabilidade/RH ainda precisa verificar fisicamente.
