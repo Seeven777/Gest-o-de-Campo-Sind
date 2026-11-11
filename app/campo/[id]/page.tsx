@@ -390,11 +390,6 @@ export default function CampoGuiado(){
    </div>
   </div>}
   <header className="navigator-top-panel">
-    <div className="navigator-mobile-top-panel">
-     <span><Flag size={16}/> {complete}/{ordered.length||0} visitas</span>
-     {leg&&started&&stage==='travel'?<span>{fmtDistance(leg.distance_m)} · {Math.max(1,Math.round(leg.duration_s/60))} min*</span>:
-      <span>{current?'Destino '+activeIndex:'Percurso'}</span>}
-    </div>
    <div className="navigator-top-line"><span className="navigator-kicker"><RouteIcon size={16}/> ROTA EM CAMPO</span>
     <span className={'navigator-live-tag'+(gpsActive?' on':'')}><span/>{gpsActive?'GPS ativo':'GPS parado'}</span></div>
    <strong className="navigator-top-title">{current?.trade_name||current?.legal_name||data?.route.campaign_name||'Sua jornada'}</strong>
@@ -467,7 +462,7 @@ export default function CampoGuiado(){
    </li>)}</ol>
   </aside></>}
   {(stage==='prepare'||stage==='loading'||stage==='ready'||stage==='travel'||stage==='done')&&
-  <section key={current?.id+'-'+stage} className="navigator-sheet navigator-sheet-enter" aria-label="Próxima ação da jornada">
+  <section key={current?.id+'-'+stage} className={'navigator-sheet navigator-sheet-enter'+(stage==='travel'?' navigator-travel-sheet':'')} aria-label="Próxima ação da jornada">
    <div className="navigator-sheet-grip" aria-hidden="true"/>
    {error&&<p className="navigator-error" role="alert">{error}</p>}
    {notice&&<p className="navigator-notice" role="status">{notice}</p>}
@@ -512,7 +507,7 @@ export default function CampoGuiado(){
      {plan?.route_warning&&!leg&&<p className="navigator-warning">O mapa pode mostrar apenas os pontos cadastrados.</p>}
     </div>}
    </div>
-    {!target&&<p className="navigator-warning">Endereço sem posição exata no mapa. Confira cuidadosamente o local antes de registrar a chegada.</p>}
+    {!target&&<p className="navigator-warning navigator-map-target-warning">Endereço sem posição exata no mapa. Confira cuidadosamente o local antes de registrar a chegada.</p>}
     {legError&&<p className="navigator-warning" role="status">{legError} O mapa de paradas permanece disponível.</p>}
     {plan?.route_warning&&!leg&&<p className="navigator-warning">O trajeto nas ruas não foi calculado. Os pontos no mapa são apenas referências.</p>}
     <ArrivalSlider disabled={busy} onConfirm={()=>setArrivalDialog(true)}/>
