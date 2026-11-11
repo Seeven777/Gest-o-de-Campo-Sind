@@ -39,8 +39,7 @@ export default function Aguardando(){
  const heading=loading?'Verificando sua conta...':!signedIn?'Entre para consultar':status==='rejected'?'Solicitação não aprovada.':error?'Não foi possível consultar.':'Aguardando aprovação.';
  const desc=loading?'Estamos verificando a situação do seu cadastro.':!signedIn?'Entre com o e-mail e a senha utilizados no cadastro para acompanhar sua solicitação.':status==='rejected'?'A administração não autorizou este acesso. Procure um administrador para orientação.':error||'Recebemos sua solicitação. Você terá acesso às ferramentas após a aprovação da administração.';
  return <AuthShell eyebrow="SOLICITAÇÃO DE ACESSO" title={heading} description={desc}
-  heroTitle={<>Sua participação <span>começa aqui.</span></>}
-  heroDescription="O acesso às informações da plataforma é liberado somente após análise da administração.">
+>
   {!loading&&signedIn&&!error&&<div className="auth-state-note">
    {status==='rejected'?<XCircle size={23} aria-hidden="true"/>:status==='approved'?<CheckCircle2 size={23} aria-hidden="true"/>:<Clock3 size={23} aria-hidden="true"/>}
    <span>{status==='rejected'?'Caso precise de orientação, converse com a administração.':status==='approved'?'Sua solicitação foi aprovada. Atualize a situação para confirmar o acesso.':'Seu cadastro está protegido. Até a aprovação, nenhuma informação interna ficará disponível.'}</span>
