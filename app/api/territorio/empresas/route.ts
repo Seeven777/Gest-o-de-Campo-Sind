@@ -1,3 +1,4 @@
+import {isSchemaReady,schemaPendingMessage} from '@/lib/schema-readiness';
 import {NextResponse} from 'next/server';
 import {currentIdentity} from '@/lib/access';
 import {db} from '@/lib/db';
@@ -6,6 +7,7 @@ export async function GET(req:Request){
  const user=await currentIdentity();
  if(!user)return NextResponse.json({error:'Sessão expirada.'},{status:401});
  if(!['admin','supervisor'].includes(user.role))return NextResponse.json({error:'Acesso restrito.'},{status:403});
+ if(!(await isSchemaReady('cadastro')))return NextResponse.json({error:schemaPendingMessage('cadastro')},{status:503});
  const qs=new URL(req.url).searchParams,city=(qs.get('city')||'').trim().slice(0,100);
  const from=qs.get('from')||'',to=qs.get('to')||'',page=Math.max(1,Math.min(100,Number(qs.get('page'))||1));
  if(!city||!/^[\p{L}\p{M}\s.'()-]+$/u.test(city)||from&&!/^\d{4}-\d{2}-\d{2}$/.test(from)||to&&!/^\d{4}-\d{2}-\d{2}$/.test(to))return NextResponse.json({error:'Filtro inválido.'},{status:400});
