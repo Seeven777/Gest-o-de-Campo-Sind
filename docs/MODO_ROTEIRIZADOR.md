@@ -128,3 +128,16 @@ P0: corrigir o login visual sem fotografia; login/cadastro/recuperação e autor
 P1: revisar páginas e dados reais, estados vazios, filtros, formulários, central de validação, GPS, armazenamento e logs.
 P2: testes automatizados (funcionais e regras de papel), otimização de desempenho e acessibilidade.
 P3: limpeza autorizada de dados de teste; somente depois integração externa com a base principal de empresas.
+
+## 10. Atualização técnica posterior à auditoria (11/11/2026)
+
+- Correções adicionais no PR #18: smoke HTTP sem falso 404 do Next RSC, proteção de rotas ainda não publicadas contra acesso direto por agente, GPS nulo rejeitado no servidor, campanhas/despesas ligadas somente a rotas atribuídas publicadas, correção de grid mobile em Campanhas e tratamento de sessão ausente em Visitas.
+- A execução CI `43056342215` da branch de auditoria foi concluída com sucesso; homologação autenticada e uso do celular continuam pendentes.
+- Para novas alterações, preservar os controles de identidade sem depender de imagens de captura de tela, retestar banco Neon isolado e evitar alterar a produção sem homologação.
+
+### Verificação operacional adicional (11/11/2026)
+
+- O painel **Minhas visitas** do agente agora apresenta tanto a abertura da jornada quanto histórico e situação de revisão, com dados acessados sob a identidade autenticada.
+- A função `admin_delete_test_record` exigida por `/limpeza` **não estava instalada** no Neon principal ou Preview na consulta de auditoria. A interface deve informar claramente essa pendência e impedir cliques de exclusão; a migração `neon/005_limpeza_segura.sql` não foi aplicada automaticamente.
+- O banco Neon Preview contém 1.848 empresas para teste; não é a base externa definitiva. Registros e senhas não devem ser apagados ou modificados nesta fase.
+- O plano da Vercel atingiu a cota diária de deploys (HTTP 402) ao solicitar Preview adicional; a branch GitHub com CI aprovado é fonte do estado mais recente enquanto o deploy estiver bloqueado.

@@ -14,7 +14,7 @@ export async function GET(_req:Request,{params}:{params:Promise<{id:string}>}){
  const stops=await db().query(`select s.id,s.position_order,e.legal_name,e.trade_name,e.cnpj,e.street,e.street_number,e.city,e.state,e.postal_code,
  st_y(e.position::geometry) as lat,st_x(e.position::geometry) as lon,
  v.id as visit_id,v.checkin_at,v.checkout_at,v.review_status,
- exists(select 1 from visit_evidence ev where ev.visit_id=v.id and ev.deleted_at is null) as has_photo
+ exists(select 1 from visit_evidence ev where ev.visit_id=v.id and ev.deleted_at is null and ev.expires_at>now()) as has_photo
  from route_stops s join establishments e on e.id=s.establishment_id
  left join lateral (select * from visits where stop_id=s.id order by created_at desc limit 1) v on true
  where s.route_id=$1 order by s.position_order`,[id]);

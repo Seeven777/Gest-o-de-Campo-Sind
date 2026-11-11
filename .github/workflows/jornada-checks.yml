@@ -3,7 +3,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main]
+    branches: [main, fix/modo-roteirizador-auditoria-ux]
 permissions:
   contents: read
 jobs:

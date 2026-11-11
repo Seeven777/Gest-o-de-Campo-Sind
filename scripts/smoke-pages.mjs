@@ -24,7 +24,10 @@ async function check(path){
   }else{
    const html=await res.text();
    assert.ok(html.includes('<html'),`HTML ausente em ${path}`);
-   assert.ok(!html.includes('This page could not be found.'),`Tela 404 em ${path}`);
+   // O App Router embute "This page could not be found." no payload RSC
+   // mesmo quando a página existe e retorna HTTP 200. Uma busca de texto
+   // produz falsos 404 em TODAS as páginas. O código HTTP é a fonte de verdade.
+   assert.ok(!html.includes('<title>404</title>'),`Página 404 efetivamente renderizada em ${path}`);
   }
  }
  console.log('OK',res.status,path);

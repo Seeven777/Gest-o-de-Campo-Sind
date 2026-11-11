@@ -5,7 +5,8 @@ export const dynamic='force-dynamic';export const runtime='nodejs';
 const bad=(error:string,status=400)=>NextResponse.json({error},{status,headers:{'Cache-Control':'no-store'}});
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function point(d:Record<string,unknown>){
- const lat=Number(d.lat),lon=Number(d.lon),accuracy=Number(d.accuracy);
+ if(typeof d.lat!=='number'||typeof d.lon!=='number'||typeof d.accuracy!=='number')return null;
+ const lat=d.lat,lon=d.lon,accuracy=d.accuracy;
  if(!Number.isFinite(lat)||Math.abs(lat)>90||!Number.isFinite(lon)||Math.abs(lon)>180||!Number.isFinite(accuracy)||accuracy<0||accuracy>10000)return null;
  return {lat,lon,accuracy};
 }
@@ -60,8 +61,11 @@ export async function POST(req:Request){
   and (last_seen_at is null or last_seen_at<now()-interval '10 seconds') returning agent_id`,
   [u.id,route,p.lat,p.lon,p.accuracy]);
  if(!rows.length){
-  const [state]=await db().query('select active from agent_live_presence where agent_id=$1 and route_id=$2',[u.id,route]);
-  if(!state?.active)return bad('Localização encerrada ou expirada. Inicie novamente com consentimento.',409);
+  const [state]=await db().query(`select active,last_seen_at>now()-interval '15 minutes' as fresh
+   from agent_live_presence where agent_id=$1 and route_id=$2`,[u.id,route]);
+  if(!state?.active||!state.fresh)return bad('Localização encerrada ou expirada. Inicie novamente com consentimento.',409);
+  // Um ping antes do intervalo mínimo é ignorado sem fingir que houve atualização.
+  return NextResponse.json({active:true,unchanged:true});
  }
  return NextResponse.json({active:true});
 }

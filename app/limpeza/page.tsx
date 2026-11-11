@@ -12,10 +12,11 @@ const groups:{id:Kind;name:string;description:string}[]=[
  {id:'company',name:'Empresas',description:'Somente empresas sem rotas e sem cadastro sindical confirmado.'},
 ];
 export default function Limpeza(){
+ const [deletionAvailable,setDeletionAvailable]=useState<boolean|null>(null);
  const [kind,setKind]=useState<Kind>('route'),[q,setQ]=useState(''),[term,setTerm]=useState(''),[items,setItems]=useState<Item[]>([]),[selected,setSelected]=useState<Item|null>(null),[confirmation,setConfirmation]=useState(''),[error,setError]=useState(''),[message,setMessage]=useState(''),[busy,setBusy]=useState(false);
  const load=useCallback(async()=>{
    setBusy(true);setError('');
-   try{const r=await fetch('/api/admin/limpeza?'+new URLSearchParams({kind,q:term}),{cache:'no-store'});const d=await r.json();if(!r.ok)throw Error(d.error||'Erro na busca');setItems(d.items||[])}
+   try{const r=await fetch('/api/admin/limpeza?'+new URLSearchParams({kind,q:term}),{cache:'no-store'});const d=await r.json();if(!r.ok)throw Error(d.error||'Erro na busca');setItems(d.items||[]);setDeletionAvailable(Boolean(d.deletion_available))}
    catch(e){setItems([]);setError(e instanceof Error?e.message:'Erro ao consultar registros')}
    finally{setBusy(false)}
  },[kind,term]);
@@ -38,6 +39,10 @@ export default function Limpeza(){
  <p style={{lineHeight:1.65}}>Esta página <strong>não executa limpeza automática</strong>. Selecione um registro e confirme seu nome completo. Antes de remover dados reais ou importações grandes, realize um backup do Neon. Não existe opção de apagar todos os registros de uma vez.</p>
  <p className="muted">Rotas, visitas e despesas somente podem ser eliminadas se estiverem vinculadas a campanhas com a palavra <strong>teste</strong> no nome. Empresas com cadastro sindical confirmado não podem ser excluídas.</p>
  </section>
+ {deletionAvailable===false&&<div className="panel" role="status" style={{marginBottom:18,border:'1px solid #f2c391',background:'#fff7ef'}}>
+  <strong style={{display:'flex',alignItems:'center',gap:9,color:'#8f451e'}}><AlertTriangle size={20}/> Exclusão indisponível neste banco</strong>
+  <p style={{margin:'8px 0 0',lineHeight:1.6}}>Você pode consultar os registros, mas não excluí-los até a ativação da migração <code>neon/005_limpeza_segura.sql</code>, com backup e autorização da administração. Nenhum dado foi removido.</p>
+ </div>}
  <section className="panel">
  <div className="panel-title"><div><small>SELEÇÃO CONTROLADA</small><h2>Encontrar registro</h2></div><Search size={20}/></div>
  <div className="form-grid"><label>Tipo<select className="field" value={kind} onChange={e=>{setKind(e.target.value as Kind);setSelected(null);setQ('');setTerm('')}}>{groups.map(x=><option key={x.id} value={x.id}>{x.name}</option>)}</select></label>
@@ -46,7 +51,7 @@ export default function Limpeza(){
  {error&&<p className="error" role="alert">{error}</p>}{message&&<p className="success" role="status">{message}</p>}
  <div style={{display:'grid',gap:9,marginTop:20}}>{items.map(item=><div key={item.id} style={{display:'flex',alignItems:'center',justifyContent:'space-between',gap:16,border:'1px solid var(--line)',padding:13,borderRadius:10,flexWrap:'wrap'}}>
  <div><strong>{item.label}</strong><p className="muted" style={{fontSize:11,margin:'5px 0 0'}}>{item.linked} vínculo(s) · {item.visits} registro(s) relacionados</p></div>
- <button className="button secondary" type="button" onClick={()=>{setSelected(item);setConfirmation('');setMessage('')}}><Trash2 size={14}/> Analisar exclusão</button></div>)}
+ <button className="button secondary" type="button" disabled={deletionAvailable!==true} onClick={()=>{setSelected(item);setConfirmation('');setMessage('')}}><Trash2 size={14}/> Analisar exclusão</button></div>)}
  {!items.length&&!busy&&<div className="empty">Nenhum registro elegível encontrado.</div>}</div>
  </section>
  {selected&&<section className="panel" style={{marginTop:18,border:'1px solid #e2a28b'}}>
@@ -54,7 +59,7 @@ export default function Limpeza(){
  <p>Esta operação não poderá ser desfeita pela plataforma. Digite exatamente a frase abaixo para confirmar:</p>
  <div style={{padding:12,borderRadius:8,background:'#fff2e9',margin:'12px 0',overflowWrap:'anywhere'}}><strong>{'EXCLUIR '+selected.label}</strong></div>
  <input className="field" style={{width:'100%'}} autoComplete="off" value={confirmation} onChange={e=>setConfirmation(e.target.value)} aria-label="Digite a confirmação da exclusão"/>
- <div style={{display:'flex',gap:10,marginTop:15}}><button className="button secondary" onClick={()=>{setSelected(null);setConfirmation('')}} disabled={busy}>Cancelar</button><button className="button" style={{background:'#b54026'}} disabled={busy||confirmation!=='EXCLUIR '+selected.label} onClick={()=>void remove()}><Trash2 size={15}/> Excluir registro definitivamente</button></div>
+ <div style={{display:'flex',gap:10,marginTop:15}}><button className="button secondary" onClick={()=>{setSelected(null);setConfirmation('')}} disabled={busy}>Cancelar</button><button className="button" style={{background:'#b54026'}} disabled={busy||deletionAvailable!==true||confirmation!=='EXCLUIR '+selected.label} onClick={()=>void remove()}><Trash2 size={15}/> Excluir registro definitivamente</button></div>
  </section>}
  </Portal>
 }

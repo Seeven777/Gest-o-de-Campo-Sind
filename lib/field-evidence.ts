@@ -2,8 +2,8 @@ import {del} from '@vercel/blob';
 import {db} from '@/lib/db';
 // Remoção física imediata após a decisão, ou depois do prazo de retenção.
 // Marca como removido somente após a confirmação do provedor.
-export async function purgeVisitEvidence(visitId:string){
- const rows=await db().query('select id,storage_key from visit_evidence where visit_id=$1 and deleted_at is null',[visitId]);
+export async function purgeVisitEvidence(visitId:string,{onlyExpired=false}:{onlyExpired?:boolean}={}){
+ const rows=await db().query(`select id,storage_key from visit_evidence where visit_id=$1 and deleted_at is null\n  and ($2::boolean=false or expires_at<=now())`,[visitId,onlyExpired]);
  let removed=0;const failed:string[]=[];
  for(const row of rows){
   try{

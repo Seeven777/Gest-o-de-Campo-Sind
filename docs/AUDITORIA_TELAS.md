@@ -53,7 +53,7 @@ Atualizada em 11/11/2026. Branch: `fix/modo-roteirizador-auditoria-ux`. Registro
 
 ## Pendências de homologação real
 
-- CI precisa passar sem falhas na branch.
+- **CI: passou** na execução `43056342215` (TypeScript, ESLint, Next build e smoke HTTP). O smoke havia falhado por buscar a mensagem de 404 no payload RSC de páginas válidas; agora considera status HTTP e título 404 efetivo.
 - Publicar Preview com conexão ao Neon **isolada** do banco de produção.
 - Validar pessoalmente foto, geolocalização, acesso, recuperação de senha e fluxos de cada papel, pois a autenticação real e as permissões do celular não podem ser simuladas por smoke HTTP.
 - Monitorar erros de servidor por logs da Vercel quando disponíveis. Em Hobby, retenção é curta; não inferir ausência de erros quando log indisponível.
@@ -61,3 +61,42 @@ Atualizada em 11/11/2026. Branch: `fix/modo-roteirizador-auditoria-ux`. Registro
 - Testar fluxo de até 49 empresas em uma mesma rota usando dados de Preview.
 - Implementar papel Marketing apenas com política de permissões definida no servidor e telas específicas.
 - Limpar dados de teste **somente após confirmação explícita**; depois planejar base externa/ngrok.
+
+
+## Revisão complementar de 11/11/2026
+
+10. **Smoke do Next.js**: corrigido falso 404 causado pelo texto de fallback no payload de React Server Components; CI verde.
+11. **Rotas por link direto**: rota em rascunho não pode ser consultada por agente, mesmo conhecendo o UUID.
+12. **GPS inválido**: check-in e telemetria recusam coordenadas ausentes, nulas ou não numéricas, impedindo conversão de `null` para `0,0`.
+13. **Campanhas e reembolsos**: agente só vê como disponíveis campanhas com rota atribuída e publicada (ou já iniciada/concluída), e o servidor impõe a mesma restrição ao salvar despesa.
+14. **Responsividade em Campanhas**: removida grade forçada de duas colunas em telas pequenas; campos, botões e tabelas têm regras de legibilidade/tamanho mínimo no mobile.
+15. **Visitas com sessão inválida**: não chama API administrativa como fallback quando `/api/me` falha; exibe erro e instrução de reconexão em vez de lista vazia.
+
+### Limitações não mascaradas por CI
+- E2E real: revisão de visita, foto, GPS, aprovação, navegação orientada e recuperação de senha depende de contas reais e permissões do dispositivo.
+- Concorrência de múltiplos check-ins no mesmo `stop_id`: esquema inicial não possui constraint `unique(stop_id)` em `visits`. A proteção `where not exists` pode sofrer corrida. Recomenda-se migração aditiva em branch Neon de teste, com análise prévia de duplicados; **não aplicar automaticamente à produção**.
+- Não confundir Preview READY com teste de funcionalidades: é necessário conferir autenticação com os três perfis.
+
+## Verificação do Neon e dos logs (somente leitura)
+
+- Branch de Preview consultada: `br-quiet-morning-b62b1q3e` (não é a principal). Contagem: 1.848 empresas, 2 rotas, 4 visitas, 5 perfis, 1 visita ainda em andamento e 1 parada sem coordenada. Check-ins duplicados por parada: 0.
+- Logs de produção das últimas 24h incluem erros **históricos** de migrações não instaladas (GPS, notas de revisão e expurgo). Consulta posterior do esquema mostrou que as colunas e a tabela de GPS **já existem** nos bancos principal e Preview; portanto não tratar esses logs anteriores como erro ainda ativo.
+- **Pendência confirmada:** `admin_delete_test_record(text,uuid,text)` não existe nem no Neon principal nem no Preview. O endpoint passou a informar `deletion_available=false` e a interface desabilita exclusões em vez de apresentar erro genérico. Aplicação de `neon/005_limpeza_segura.sql` permanece para etapa futura, após backup e aprovação.
+- **Tela Visitas do agente corrigida:** além da lista de jornadas para novo registro, apresenta agora o histórico próprio de visitas e o status de revisão.
+- A limitação diária da Vercel impediu novo deploy manual do commit mais recente (HTTP 402 `api-deployments-free-per-day`). Deploy anterior READY não equivale à versão atual. CI no GitHub permanece como validação não autenticada.
+
+## Continuação: consistência e segurança operacional (11/11/2026)
+
+- **Check-in simultâneo:** reserva da parada via atualização condicional `pending → arrived` e criação de visita/log no mesmo comando SQL. Segundo check-in recebe conflito; migração com unicidade em `visits(stop_id)` segue recomendada como defesa adicional, apenas após análise dos dados.
+- **Finalização:** respostas, conclusão e status da parada + log gravados atomicamente. Ao reenviar visita solicitada para ajuste, limpa metadados da decisão anterior.
+- **GPS de navegação:** endpoint de trecho rejeita `null` e campos ausentes em vez de convertê-los em coordenadas zero. Ping após 15 minutos sem atualização não responde falsamente como posição transmitida; exige reiniciar com consentimento.
+- **Fotos:** foto expirada não conta como foto válida; o agente pode reenviar a fachada se ela expirou durante uma visita aberta. Limpeza programada elimina só imagens vencidas de visitas pendentes, preservando eventual imagem nova; análise concluída continua removendo todas as imagens.
+- **Empresas para agente:** listagem não revela empresas associadas apenas a rotas em rascunho ou canceladas.
+
+**Validação:** revisão estática do código; executar CI no commit e repetir os testes autenticados no Preview antes de qualquer merge. Nenhum banco ou dado de produção foi modificado nesta correção.
+
+### Ajustes de navegação e estados de rede (11/11/2026)
+- O portal diferencia falha de rede/servidor na consulta de sessão de um acesso realmente negado e oferece ação de nova tentativa. Falhas transitórias não são mais tratadas silenciosamente como perfil sem permissão.
+- O link da marca retorna o agente a **Meu dia** sem abrir o dashboard administrativo primeiro.
+- Depois de login aprovado, a navegação reconhece o perfil e encaminha o agente diretamente a `/agente`.
+- Nova validação: TypeScript, lint, build, smoke e Preview; confirmar funcionamento autenticado por perfil antes de merge.

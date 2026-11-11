@@ -147,3 +147,21 @@
  .role-dock-item{color:#fff}
  .role-dock-item.is-active{color:#ffb15b}
 }
+
+
+/* Ajustes de leitura e organização para pessoas com menor familiaridade com apps. */
+@media (min-width:801px){
+ .campaigns-layout{grid-template-columns:minmax(0,1fr) minmax(0,1.2fr)}
+}
+@media (max-width:800px){
+ .campaigns-layout,.two-cols{grid-template-columns:minmax(0,1fr)}
+ .app-shell:not(.journey-shell) .panel,
+ .app-shell:not(.journey-shell) .card{min-width:0}
+ .app-shell:not(.journey-shell) .button{min-height:44px}
+ .app-shell:not(.journey-shell) .field{min-height:47px;max-width:100%;font-size:16px}
+ .app-shell:not(.journey-shell) .tablewrap{max-width:100%;overflow-x:auto;overscroll-behavior-x:contain;-webkit-overflow-scrolling:touch}
+ .app-shell:not(.journey-shell) .tablewrap table{min-width:590px}
+ .app-shell:not(.journey-shell) .form-grid{grid-template-columns:minmax(0,1fr)}
+ .app-shell:not(.journey-shell) .page-heading{min-width:0}
+ .app-shell:not(.journey-shell) .panel h2{overflow-wrap:anywhere}
+}

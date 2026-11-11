@@ -27,8 +27,12 @@ export async function GET(req:Request){
  const url=new URL(req.url);const kind=url.searchParams.get('kind') as Kind;
  if(!kinds.includes(kind))return fail('Tipo inválido.');
  const term=(url.searchParams.get('q')||'').trim().slice(0,100);
- if(kind==='company'&&term.length<3)return NextResponse.json({items:[],note:'Pesquise pelo menos três caracteres para localizar empresas.'});
- return NextResponse.json({items:await candidates(kind,term)},{headers:{'Cache-Control':'no-store'}});
+ const [capability]=await db().query(`select to_regprocedure('public.admin_delete_test_record(text,uuid,text)') is not null as ready`);
+ if(kind==='company'&&term.length<3)return NextResponse.json({
+  items:[],note:'Pesquise pelo menos três caracteres para localizar empresas.',deletion_available:Boolean(capability?.ready)
+ },{headers:{'Cache-Control':'no-store'}});
+ return NextResponse.json({items:await candidates(kind,term),deletion_available:Boolean(capability?.ready)},
+  {headers:{'Cache-Control':'no-store'}});
 }
 export async function DELETE(req:Request){
  const u=await currentIdentity();if(!u||u.role!=='admin')return fail('Somente administradores podem excluir registros.',403);
@@ -38,6 +42,8 @@ export async function DELETE(req:Request){
  const current=await candidates(kind,id);const item=current.find(x=>String(x.id)===id);
  if(!item)return fail('Registro não encontrado ou não elegível para a limpeza.',404);
  if(confirmation!==('EXCLUIR '+String(item.label)))return fail('A confirmação não corresponde ao nome do registro.');
+ const [capability]=await db().query(`select to_regprocedure('public.admin_delete_test_record(text,uuid,text)') is not null as ready`);
+ if(!capability?.ready)return fail('A limpeza ainda não está habilitada no Neon. Após backup, aplique manualmente a migração neon/005_limpeza_segura.sql.',503);
  try{const result=await db().query('select admin_delete_test_record($1,$2::uuid,$3) as deleted',[kind,id,u.id]);
   return NextResponse.json({deleted:Number(result[0]?.deleted||0)},{headers:{'Cache-Control':'no-store'}});
  }catch(e){console.error('[limpeza de testes]',e instanceof Error?e.message:e);return fail('Exclusão impedida por vínculos, situação do registro ou migração SQL pendente. Consulte os logs do servidor.',409)}
