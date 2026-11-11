@@ -458,12 +458,14 @@ export default function CampoGuiado(){
     <RefreshCw size={23}/><span>Recalcular</span></button>}
    {!showGuide&&leg&&<button type="button" onClick={()=>setShowGuide(true)} title="Mostrar orientação"><Navigation size={22}/><span>Orientações</span></button>}
   </nav>}
-  {showStops&&plan&&(stage==='ready'||stage==='travel')&&<aside className="navigator-stops-panel" aria-label="Lista de paradas">
+  {showStops&&plan&&(stage==='ready'||stage==='travel')&&<>
+   <button type="button" className="navigator-mobile-stops-scrim" aria-label="Fechar lista de empresas" onClick={()=>setShowStops(false)}/>
+   <aside className="navigator-stops-panel" aria-label="Lista de paradas">
    <div className="navigator-stops-heading"><strong>Empresas da jornada</strong><button aria-label="Fechar lista de paradas" onClick={()=>setShowStops(false)}><X size={22}/></button></div>
    <ol>{ordered.map((s,i)=><li key={s.id} className={s.checkout_at?'done':s.id===current?.id?'active':''}>
     <span>{s.checkout_at?<Check size={18}/>:i+1}</span><div><strong>{s.trade_name||s.legal_name}</strong><small>{[s.street,s.street_number,s.city].filter(Boolean).join(', ')}</small></div>
    </li>)}</ol>
-  </aside>}
+  </aside></>}
   {(stage==='prepare'||stage==='loading'||stage==='ready'||stage==='travel'||stage==='done')&&
   <section key={current?.id+'-'+stage} className="navigator-sheet navigator-sheet-enter" aria-label="Próxima ação da jornada">
    <div className="navigator-sheet-grip" aria-hidden="true"/>
@@ -487,16 +489,34 @@ export default function CampoGuiado(){
     <button type="button" className="navigator-primary" disabled={busy} onClick={()=>void begin()}>
      <Play size={25}/>{busy?'Iniciando...':'Iniciar navegação'}<ChevronRight size={24}/></button>
     <button type="button" className="navigator-secondary-link" disabled={busy} onClick={()=>void calculate()}>Recalcular percurso</button></>}
-   {stage==='travel'&&<><div className="navigator-arrival-meta">
+   {stage==='travel'&&<><div className="navigator-arrival-meta navigator-desktop-travel">
     <span><MapPin size={19}/> PRÓXIMA PARADA</span>
     <strong>{fmtDistance(distance)}</strong>
     <small>{distance===null?'Aguardando coordenadas':'Distância em linha reta, não é o trajeto pelas ruas'}</small>
+   </div>
+   <div className="navigator-mobile-next-stop">
+    <div className="navigator-mobile-stop-heading">
+     <span>PRÓXIMA PARADA · {activeIndex}/{ordered.length}</span>
+     {leg?<strong>{fmtDistance(leg.distance_m)}</strong>:distance!==null?<strong>{fmtDistance(distance)}</strong>:<strong>—</strong>}
+    </div>
+    <strong className="navigator-mobile-company">{current?.trade_name||current?.legal_name||'Empresa'}</strong>
+    <button type="button" className="navigator-mobile-detail-toggle" aria-expanded={mobileDetailsOpen}
+     onClick={()=>setMobileDetailsOpen(open=>!open)}>
+     <span>{mobileDetailsOpen?'Ocultar detalhes':'Endereço e detalhes'}</span>
+     {mobileDetailsOpen?<ChevronUp size={18}/>:<ChevronDown size={18}/>}
+    </button>
+    {mobileDetailsOpen&&<div className="navigator-mobile-detail-content">
+     <span><MapPin size={17}/>{[current?.street,current?.street_number,current?.city,current?.state].filter(Boolean).join(', ')||'Endereço não informado'}</span>
+     <small>{leg?'Distância pela rota sugerida, sem trânsito em tempo real.':'Distância em linha reta; trajeto viário indisponível.'}</small>
+     {legError&&<p className="navigator-warning" role="status">{legError}</p>}
+     {plan?.route_warning&&!leg&&<p className="navigator-warning">O mapa pode mostrar apenas os pontos cadastrados.</p>}
+    </div>}
    </div>
     {!target&&<p className="navigator-warning">Endereço sem posição exata no mapa. Confira cuidadosamente o local antes de registrar a chegada.</p>}
     {legError&&<p className="navigator-warning" role="status">{legError} O mapa de paradas permanece disponível.</p>}
     {plan?.route_warning&&!leg&&<p className="navigator-warning">O trajeto nas ruas não foi calculado. Os pontos no mapa são apenas referências.</p>}
     <ArrivalSlider disabled={busy} onConfirm={()=>setArrivalDialog(true)}/>
-    <button type="button" className="navigator-stop-link" onClick={()=>void stopTracking()} disabled={busy}>
+    <button type="button" className="navigator-stop-link navigator-desktop-travel" onClick={()=>void stopTracking()} disabled={busy}>
      <PauseCircle size={19}/> Parar compartilhamento de GPS</button>
    </>}
    {stage==='done'&&<div className="navigator-finished"><CheckCircle2 size={54}/>
