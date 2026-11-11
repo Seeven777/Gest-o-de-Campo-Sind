@@ -3,7 +3,7 @@ export const dynamic='force-dynamic';
 const fail=(error:string,status=400)=>NextResponse.json({error},{status});
 export async function GET(){
  const user=await currentIdentity();if(!user)return fail('Acesso não autorizado',401);
-  if(user.role==='cadastro')return fail('Rotas não autorizadas para Cadastro.',403);
+  if(!['admin','supervisor','agent'].includes(user.role))return fail('Rotas não autorizadas para Cadastro.',403);
  const scope=user.role==='agent'?"where r.agent_id=$1 and r.status in ('published','in_progress','completed')":'';const params=user.role==='agent'?[user.id]:[];
  const items=await db().query(`select r.id,r.route_date,r.status,c.name as campaign_name,p.full_name as agent_name,
  (select count(*)::int from route_stops where route_id=r.id) as stops
