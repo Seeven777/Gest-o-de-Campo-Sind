@@ -6,7 +6,7 @@ export const dynamic='force-dynamic';
 export const maxDuration=25;
 const fail=(error:string,status=400)=>NextResponse.json({error},{status,headers:{'Cache-Control':'no-store'}});
 const uuid=/^[0-9a-f-]{36}$/i;
-type Step={instruction:string;type:number;distance_m:number;duration_s:number;at:[number,number]};
+type Step={instruction:string;type:number;distance_m:number;duration_s:number;at:[number,number];route_index:number};
 export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
  const u=await currentIdentity();
  if(!u||u.role!=='agent')return fail('Acesso restrito ao agente autorizado.',403);
@@ -45,7 +45,7 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
   const steps:Step[]=raw.slice(0,350).map(s=>{
    const index=Math.max(0,Math.min(geometry.length-1,Number(s.way_points?.[0]??0)||0));
    return {instruction:String(s.instruction||'Siga em frente').slice(0,220),
-    type:Number.isFinite(s.type)?Number(s.type):6,
+    type:Number.isFinite(s.type)?Number(s.type):6,route_index:index,
     distance_m:Number(s.distance||0),duration_s:Number(s.duration||0),
     at:geometry[index]};
   });
