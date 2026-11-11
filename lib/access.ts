@@ -1,6 +1,6 @@
 import { auth } from '@/lib/auth/server';
 import { db } from '@/lib/db';
-export type Role = 'admin' | 'supervisor' | 'agent';
+export type Role = 'admin' | 'supervisor' | 'agent' | 'cadastro';
 export type Identity = {id:string; name:string; email:string; role:Role};
 export async function currentIdentity():Promise<Identity|null> {
   const { data: session } = await auth.getSession();
