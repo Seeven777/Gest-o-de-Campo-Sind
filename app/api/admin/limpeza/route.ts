@@ -27,8 +27,10 @@ export async function GET(req:Request){
  const url=new URL(req.url);const kind=url.searchParams.get('kind') as Kind;
  if(!kinds.includes(kind))return fail('Tipo inválido.');
  const term=(url.searchParams.get('q')||'').trim().slice(0,100);
- if(kind==='company'&&term.length<3)return NextResponse.json({items:[],note:'Pesquise pelo menos três caracteres para localizar empresas.'});
  const [capability]=await db().query(`select to_regprocedure('public.admin_delete_test_record(text,uuid,text)') is not null as ready`);
+ if(kind==='company'&&term.length<3)return NextResponse.json({
+  items:[],note:'Pesquise pelo menos três caracteres para localizar empresas.',deletion_available:Boolean(capability?.ready)
+ },{headers:{'Cache-Control':'no-store'}});
  return NextResponse.json({items:await candidates(kind,term),deletion_available:Boolean(capability?.ready)},
   {headers:{'Cache-Control':'no-store'}});
 }
