@@ -10,7 +10,7 @@ export async function POST(req:Request){const u=await currentIdentity();if(!u)re
  const amount=Number(d.amount),date=String(d.expense_date||'');
  if(!/^[0-9a-f-]{36}$/i.test(campaign)||!['fuel','food','toll','parking','lodging','other'].includes(category)||!Number.isFinite(amount)||amount<=0||amount>50000||!/^\d{4}-\d{2}-\d{2}$/.test(date))return fail('Despesa inválida.');
  const [c]=await db().query(`select c.id from campaigns c where c.id=$1
- and ($2::bool=false or exists (select 1 from routes r where r.campaign_id=c.id and r.agent_id=$3))`,
+ and ($2::bool=false or exists (select 1 from routes r where r.campaign_id=c.id and r.agent_id=$3 and r.status in ('published','in_progress','completed')))`,
  [campaign,u.role==='agent',u.id]);
  if(!c)return fail('Campanha inexistente ou não atribuída ao usuário.',403);
  const [row]=await db().query(`insert into expenses(campaign_id,agent_id,category,amount,expense_date,approval_status) values($1,$2,$3,$4,$5,'submitted') returning id`,[campaign,u.id,category,amount,date]);
