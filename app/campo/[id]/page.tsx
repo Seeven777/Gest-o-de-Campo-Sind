@@ -88,19 +88,19 @@ const gpsOnce=(options:PositionOptions={enableHighAccuracy:true,maximumAge:30000
   error=>reject(locationError(error.code)),
   options);
 });
-async function gpsForNavigation(cached:CurrentPosition|null,updatedAt:number):Promise<CurrentPosition>{
+async function gpsForNavigation(cached:CurrentPosition|null,updatedAt:number,forceFresh=false):Promise<CurrentPosition>{
  const previous=cached&&Date.now()-updatedAt<30000?{point:cached,at:updatedAt}:lastGpsFix;
- if(previous&&Date.now()-previous.at<45000&&previous.point.accuracy<=1000){
+ if(!forceFresh&&previous&&Date.now()-previous.at<45000&&previous.point.accuracy<=1000){
   const permission=await permissionState();
   if(permission==='denied')throw locationError(1);
   return previous.point;
  }
- try{return await gpsOnce({enableHighAccuracy:true,maximumAge:45000,timeout:12000})}
+ try{return await gpsOnce({enableHighAccuracy:true,maximumAge:forceFresh?0:45000,timeout:12000})}
  catch(error){
   if((error as GpsFailure).geoCode===1)throw error;
   // Em desktop, aparelhos sem receptor de GPS ou após trocar de rota,
   // uma medição por rede costuma estar disponível antes do sinal preciso.
-  return gpsOnce({enableHighAccuracy:false,maximumAge:60000,timeout:10000});
+  return gpsOnce({enableHighAccuracy:false,maximumAge:forceFresh?12000:60000,timeout:10000});
  }
 }
 async function compressedPhoto(file:File):Promise<File>{
@@ -268,10 +268,10 @@ function CampoGuiadoSession({id}:{id:string}){
   }catch(e){setError(e instanceof Error?e.message:'Falha no cálculo.')}
   finally{setBusy(false);setProgress('')}
  }
- async function begin(){
+ async function begin(forceFresh=false){
   setBusy(true);setError('');setNotice('');
   try{
-   const p=await gpsForNavigation(positionRef.current,positionUpdatedAt.current);
+   const p=await gpsForNavigation(positionRef.current,positionUpdatedAt.current,forceFresh);
    positionRef.current=p;positionUpdatedAt.current=Date.now();setPosition(p);rememberGps(p);
    await send('/api/campo/localizacao',{action:'start',route_id:id,consent:true,...p});
    sentAt.current=Date.now();setStarted(true);setGpsRestart(n=>n+1);setNotice('Localização iniciada. Siga o mapa e pare o veículo antes de confirmar a chegada.');
@@ -523,7 +523,7 @@ function CampoGuiadoSession({id}:{id:string}){
      <MapPin size={20}/> Cheguei
     </button>
     {!target&&<p className="navigator-driving-alert">Local sem coordenadas precisas. Confirme o endereço antes de registrar a chegada.</p>}
-    {error&&<div className="navigator-gps-recovery" role="alert"><p>{error}</p><button type="button" disabled={busy} onClick={()=>void begin()}><LocateFixed size={16}/>{busy?'Localizando...':'Reativar GPS'}</button><small>Faça isso somente com o veículo parado.</small></div>}
+    {error&&<div className="navigator-gps-recovery" role="alert"><p>{error}</p><button type="button" disabled={busy} onClick={()=>void begin(true)}><LocateFixed size={16}/>{busy?'Localizando...':'Reativar GPS'}</button><small>Faça isso somente com o veículo parado.</small></div>}
     {legError&&<p className="navigator-driving-alert" role="status">Percurso viário indisponível. Confira o endereço.</p>}
    </div>}
    {stage==='done'&&<div className="navigator-finished"><CheckCircle2 size={54}/>
