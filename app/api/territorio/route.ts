@@ -7,7 +7,7 @@ const dateValid=(d:string)=>/^\d{4}-\d{2}-\d{2}$/.test(d)&&!Number.isNaN(Date.pa
 export async function GET(req:Request){
  const user=await currentIdentity();
  if(!user)return invalid('Sua sessão expirou.',401);
- if(user.role==='agent')return invalid('Acesso restrito à administração e supervisão.',403);
+ if(!['admin','supervisor'].includes(user.role))return invalid('Acesso restrito à administração e supervisão.',403);
  const params=new URL(req.url).searchParams,from=params.get('from')||'',to=params.get('to')||'';
  if(from&&!dateValid(from)||to&&!dateValid(to)||from&&to&&from>to)return invalid('Período inválido.');
  const rows=await db().query(`select coalesce(nullif(trim(e.city),''),'Não informado') as city,
