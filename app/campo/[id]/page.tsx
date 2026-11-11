@@ -416,7 +416,32 @@ export default function CampoGuiado(){
    <small>{navigationStatus.offRoute?'Use Recalcular para traçar um novo caminho.':navigationStatus.distanceToTurn!==null?'Próxima orientação a '+fmtDistance(navigationStatus.distanceToTurn):'Acompanhe o GPS no mapa'}</small></div>
    <button type="button" aria-label="Ocultar orientação" title="Ocultar orientação" onClick={()=>setShowGuide(false)}><X size={18}/></button>
   </div>}
-  {plan&&(stage==='ready'||stage==='travel')&&<nav className={'navigator-map-actions'+(mapToolsOpen?' expanded':'')} aria-label="Controles do mapa">
+  {plan&&(stage==='ready'||stage==='travel')&&<nav className="navigator-mobile-map-actions" aria-label="Controles rápidos do mapa">
+    <button type="button" className={follow?'following':''} disabled={!position}
+     title="Centralizar no GPS" aria-label="Centralizar no GPS"
+     onClick={()=>{setFollow(true);setRecenterToken(n=>n+1)}}><LocateFixed size={24}/></button>
+    <button type="button" aria-label="Mais ferramentas do mapa" aria-expanded={mapToolsOpen} title="Mais opções"
+     onClick={()=>setMapToolsOpen(open=>!open)}><MoreHorizontal size={26}/></button>
+   </nav>}
+   {plan&&(stage==='ready'||stage==='travel')&&mapToolsOpen&&<>
+    <button type="button" className="navigator-mobile-tools-scrim" aria-label="Fechar ferramentas" onClick={()=>setMapToolsOpen(false)}/>
+    <section className="navigator-mobile-tools" role="dialog" aria-modal="true" aria-labelledby="navigator-tools-title">
+     <div className="navigator-mobile-tools-heading"><strong id="navigator-tools-title">Opções do mapa</strong>
+      <button type="button" aria-label="Fechar opções" onClick={()=>setMapToolsOpen(false)}><X size={22}/></button></div>
+     <div className="navigator-mobile-tools-grid">
+      <button type="button" onClick={()=>{setFollow(false);setFitToken(n=>n+1);setMapToolsOpen(false)}}><Maximize2 size={21}/> Ver todo o percurso</button>
+      <button type="button" onClick={()=>{setShowStops(true);setMapToolsOpen(false)}}><RouteIcon size={21}/> Lista de empresas</button>
+      <button type="button" onClick={()=>setZoomCommand(x=>({id:(x?.id||0)+1,delta:1}))}><ZoomIn size={21}/> Aproximar mapa</button>
+      <button type="button" onClick={()=>setZoomCommand(x=>({id:(x?.id||0)+1,delta:-1}))}><ZoomOut size={21}/> Afastar mapa</button>
+      {started&&current&&target&&<button type="button" disabled={legBusy}
+       onClick={()=>{setShowGuide(true);setRerouteToken(n=>n+1);setMapToolsOpen(false)}}><RefreshCw size={21}/> Recalcular trajeto</button>}
+      {!showGuide&&leg&&<button type="button" onClick={()=>{setShowGuide(true);setMapToolsOpen(false)}}><Navigation size={21}/> Mostrar orientações</button>}
+      {started&&<button type="button" className="navigator-mobile-tools-stop" disabled={busy}
+       onClick={()=>{setMapToolsOpen(false);void stopTracking()}}><PauseCircle size={21}/> Parar compartilhamento de GPS</button>}
+     </div>
+    </section>
+   </>}
+   {plan&&(stage==='ready'||stage==='travel')&&<nav className={'navigator-map-actions'+(mapToolsOpen?' expanded':'')} aria-label="Controles do mapa">
    <button type="button" onClick={()=>{setFollow(true);setRecenterToken(n=>n+1)}} title="Acompanhar minha posição" disabled={!position} className={follow?'navigator-following':''}>
     <LocateFixed size={24}/><span>{follow?'Seguindo':'Seguir GPS'}</span></button>
    <button type="button" className="navigator-more-tools" onClick={()=>setMapToolsOpen(x=>!x)} aria-expanded={mapToolsOpen} title={mapToolsOpen?'Fechar ferramentas':'Abrir ferramentas do mapa'}>
