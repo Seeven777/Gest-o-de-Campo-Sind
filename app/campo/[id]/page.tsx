@@ -4,7 +4,7 @@ import Link from 'next/link';
 import {useParams} from 'next/navigation';
 import {Portal} from '@/components/portal';
 import {FieldNavigationMap,type ActiveLeg,type CurrentPosition,type FieldPlan} from '@/components/field-navigation-map';
-import {ArrowLeft,ArrowRight,Camera,Check,CheckCircle2,ChevronRight,ClipboardCheck,Flag,LocateFixed,MapPin,MapPinned,Navigation,PauseCircle,Play,Route as RouteIcon,ShieldCheck,X,ZoomIn,ZoomOut,RefreshCw,Maximize2,RotateCcw,CornerUpLeft,CornerUpRight,CornerDownLeft,CornerDownRight,MoveUp} from 'lucide-react';
+import {ArrowLeft,ArrowRight,Camera,Check,CheckCircle2,ChevronRight,ClipboardCheck,Flag,LocateFixed,MapPin,MapPinned,Navigation,PauseCircle,Play,Route as RouteIcon,ShieldCheck,X,ZoomIn,ZoomOut,RefreshCw,Maximize2,RotateCcw,CornerUpLeft,CornerUpRight,MoveUp} from 'lucide-react';
 import '../jornada.css';
 
 type Stop={
@@ -136,7 +136,7 @@ export default function CampoGuiado(){
  const [arrivalPhase,setArrivalPhase]=useState<ArrivalPhase>(null);
  const [leg,setLeg]=useState<ActiveLeg|null>(null),[legBusy,setLegBusy]=useState(false),[legError,setLegError]=useState('');
  const [rerouteToken,setRerouteToken]=useState(0),[fitToken,setFitToken]=useState(0),[zoomCommand,setZoomCommand]=useState<{id:number;delta:1|-1}|undefined>(undefined);
- const [showGuide,setShowGuide]=useState(true);
+ const [showGuide,setShowGuide]=useState(true),[mapToolsOpen,setMapToolsOpen]=useState(false);
  const sentAt=useRef(0),positionRef=useRef<CurrentPosition|null>(null),positionUpdatedAt=useRef(0);
  const cacheKey='sind-jornada-plan:'+id;
  async function reload(){
@@ -348,7 +348,7 @@ export default function CampoGuiado(){
     stop.id===stopId?{...stop,checkout_at:new Date().toISOString(),review_status:'pending'}:stop
    )}:previous);
    setQuestionIndex(0);setAnswers(blankAnswers());setNotes('');
-   setFollow(true);setRecenterToken(n=>n+1);setShowStops(false);setShowGuide(true);
+   setFollow(true);setRecenterToken(n=>n+1);setShowStops(false);setShowGuide(true);setMapToolsOpen(false);
    if(isLast){
     setNotice('Todas as visitas foram enviadas à central.');
     try{
@@ -404,12 +404,14 @@ export default function CampoGuiado(){
    <small>{navigationStatus.offRoute?'Use Recalcular para traçar um novo caminho.':navigationStatus.distanceToTurn!==null?'Próxima orientação a '+fmtDistance(navigationStatus.distanceToTurn):'Acompanhe o GPS no mapa'}</small></div>
    <button type="button" aria-label="Ocultar orientação" title="Ocultar orientação" onClick={()=>setShowGuide(false)}><X size={18}/></button>
   </div>}
-  {plan&&(stage==='ready'||stage==='travel')&&<nav className="navigator-map-actions" aria-label="Controles do mapa">
+  {plan&&(stage==='ready'||stage==='travel')&&<nav className={'navigator-map-actions'+(mapToolsOpen?' expanded':'')} aria-label="Controles do mapa">
    <button type="button" onClick={()=>{setFollow(true);setRecenterToken(n=>n+1)}} title="Acompanhar minha posição" disabled={!position} className={follow?'navigator-following':''}>
     <LocateFixed size={24}/><span>{follow?'Seguindo':'Seguir GPS'}</span></button>
-   <button type="button" onClick={()=>{setFollow(false);setFitToken(n=>n+1)}} title="Ver o percurso completo">
+   <button type="button" className="navigator-more-tools" onClick={()=>setMapToolsOpen(x=>!x)} aria-expanded={mapToolsOpen} title={mapToolsOpen?'Fechar ferramentas':'Abrir ferramentas do mapa'}>
+    <RouteIcon size={23}/><span>{mapToolsOpen?'Fechar':'Ferramentas'}</span></button>
+   <button type="button" onClick={()=>{setFollow(false);setFitToken(n=>n+1);setMapToolsOpen(false)}} title="Ver o percurso completo">
     <Maximize2 size={23}/><span>Ver rota</span></button>
-   <button type="button" onClick={()=>setShowStops(x=>!x)} aria-pressed={showStops} title="Visualizar paradas">
+   <button type="button" onClick={()=>{setShowStops(x=>!x);setMapToolsOpen(false)}} aria-pressed={showStops} title="Visualizar paradas">
     <RouteIcon size={23}/><span>Paradas</span></button>
    <button type="button" onClick={()=>setZoomCommand(old=>({id:(old?.id||0)+1,delta:1}))} title="Ampliar mapa">
     <ZoomIn size={22}/><span>Mais zoom</span></button>
