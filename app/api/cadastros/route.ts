@@ -1,3 +1,4 @@
+import {isSchemaReady,schemaPendingMessage} from '@/lib/schema-readiness';
 import {NextResponse} from 'next/server';
 import {currentIdentity} from '@/lib/access';
 import {db} from '@/lib/db';
@@ -13,6 +14,7 @@ export async function GET(req:Request){
  const user=await currentIdentity();
  if(!user)return fail('Entre em sua conta.',401);
  if(!['admin','supervisor','cadastro'].includes(user.role))return fail('Acesso restrito.',403);
+ if(!(await isSchemaReady('cadastro')))return fail(schemaPendingMessage('cadastro'),503);
  const params=new URL(req.url).searchParams;
  const view=params.get('view')||'confirmed';
  if(!['pending','confirmed'].includes(view))return fail('Situação de cadastro inválida.');
@@ -51,6 +53,7 @@ export async function POST(req:Request){
  const user=await currentIdentity();
  if(!user)return fail('Entre em sua conta.',401);
  if(!canConfirm(user.role))return fail('A confirmação sindical é restrita ao perfil Cadastro e à administração.',403);
+ if(!(await isSchemaReady('cadastro')))return fail(schemaPendingMessage('cadastro'),503);
  const origin=req.headers.get('origin');
  if(origin&&new URL(origin).origin!==new URL(req.url).origin)return fail('Origem não autorizada.',403);
  const data=await req.json().catch(()=>({})) as Record<string,unknown>;
