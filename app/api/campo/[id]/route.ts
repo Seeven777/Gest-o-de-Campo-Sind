@@ -2,6 +2,7 @@ import {NextResponse} from 'next/server';
 import {currentIdentity} from '@/lib/access';import {db} from '@/lib/db';
 export const dynamic='force-dynamic';export const runtime='nodejs';
 export async function GET(_req:Request,{params}:{params:Promise<{id:string}>}){
+ try{
  const u=await currentIdentity();if(!u)return NextResponse.json({error:'Acesso negado.'},{status:401});
  if(u.role!=='agent')return NextResponse.json({error:'Esta jornada é exclusiva do agente responsável.'},{status:403});
  const {id}=await params;
@@ -19,4 +20,11 @@ export async function GET(_req:Request,{params}:{params:Promise<{id:string}>}){
  where s.route_id=$1 order by s.position_order`,[id]);
  const [presence]=await db().query('select active,last_seen_at from agent_live_presence where agent_id=$1 and route_id=$2',[route.agent_id,id]);
  return NextResponse.json({route,stops,presence:presence||null},{headers:{'Cache-Control':'no-store'}});
+ }catch(error){
+  console.error('[GET /api/campo/:id]',error);
+  return NextResponse.json(
+   {error:'A central não conseguiu consultar esta jornada. Tente novamente em instantes.'},
+   {status:503,headers:{'Cache-Control':'no-store'}}
+  );
+ }
 }

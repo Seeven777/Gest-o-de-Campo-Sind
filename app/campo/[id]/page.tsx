@@ -45,9 +45,16 @@ const questions:Question[]=[
  ]}
 ];
 const blankAnswers=():Answers=>({address_match:'',operating_status:'',pet_activity_match:'',signage_status:'',regularity_note:''});
+async function apiResponse<T extends {error?:string}>(response:Response):Promise<T>{
+ const raw=await response.text();
+ if(!raw.trim())throw Error('O servidor não retornou dados (HTTP '+response.status+'). Tente novamente.');
+ try{return JSON.parse(raw) as T}
+ catch{throw Error('A resposta do servidor foi inválida (HTTP '+response.status+'). Tente novamente.')}
+}
 const send=async(path:string,body:unknown)=>{
  const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),cache:'no-store'});
- const data=await r.json();if(!r.ok)throw Error(data.error||'Não foi possível concluir a operação.');return data;
+ const data=await apiResponse<{error?:string;ok?:boolean}>(r);
+ if(!r.ok)throw Error(data.error||'Não foi possível concluir a operação.');return data;
 };
 const gpsOnce=()=>new Promise<CurrentPosition>((resolve,reject)=>{
  if(!navigator.geolocation)return reject(Error('Seu celular não disponibiliza GPS.'));
@@ -122,21 +129,23 @@ export default function CampoGuiado(){
  const {id}=useParams<{id:string}>();
  const [data,setData]=useState<RouteData|null>(null),[plan,setPlan]=useState<FieldPlan|null>(null);
  const [started,setStarted]=useState(false),[position,setPosition]=useState<CurrentPosition|null>(null),[follow,setFollow]=useState(true);
- const [busy,setBusy]=useState(false),[photoBusy,setPhotoBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[progress,setProgress]=useState('');
+ const [busy,setBusy]=useState(false),[photoBusy,setPhotoBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[progress,setProgress]=useState(''),[retryCount,setRetryCount]=useState(0);
  const [showStops,setShowStops]=useState(false),[arrivalDialog,setArrivalDialog]=useState(false),[recenterToken,setRecenterToken]=useState(0);
  const [questionIndex,setQuestionIndex]=useState(0),[answers,setAnswers]=useState<Answers>(blankAnswers),[notes,setNotes]=useState('');
  const sentAt=useRef(0),positionRef=useRef<CurrentPosition|null>(null);
  const cacheKey='sind-jornada-plan:'+id;
  async function reload(){
-  const r=await fetch('/api/campo/'+encodeURIComponent(id),{cache:'no-store'});const d=await r.json();
-  if(!r.ok)throw Error(d.error||'Não foi possível abrir sua jornada.');
+  const r=await fetch('/api/campo/'+encodeURIComponent(id),{cache:'no-store'});
+  const d=await apiResponse<RouteData & {error?:string}>(r);
+  if(!r.ok)throw Error(d.error||'Não foi possível abrir sua jornada (HTTP '+r.status+').');
   setData(d as RouteData);
   return d as RouteData;
  }
  useEffect(()=>{
-  let alive=true;
+  let alive=true;setError('');
   fetch('/api/campo/'+encodeURIComponent(id),{cache:'no-store'}).then(async r=>{
-   const d=await r.json();if(!r.ok)throw Error(d.error||'Não foi possível carregar a rota.');
+   const d=await apiResponse<RouteData & {error?:string}>(r);
+   if(!r.ok)throw Error(d.error||'Não foi possível carregar a rota (HTTP '+r.status+').');
    if(!alive)return;
    const route=d as RouteData;setData(route);
    if(route.presence?.active&&route.presence.last_seen_at&&Date.now()-new Date(route.presence.last_seen_at).getTime()<120000)setStarted(true);
@@ -149,7 +158,7 @@ export default function CampoGuiado(){
    }catch{ /* Cache opcional. A rota pode ser recalculada. */ }
   }).catch(e=>{if(alive)setError(e instanceof Error?e.message:'Erro ao abrir jornada.')});
   return()=>{alive=false};
- },[id]);
+ },[id,retryCount]);
  const ordered=useMemo(()=>{
   if(!data)return [];
   const sequence=plan?.order||[],byId=new Map(data.stops.map(x=>[x.id,x]));
@@ -177,7 +186,7 @@ export default function CampoGuiado(){
     const r=await fetch('/api/rotas/'+encodeURIComponent(id)+'/otimizar',{
      method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({start}),cache:'no-store'
     });
-    const d=await r.json();
+    const d=await apiResponse<FieldPlan & {retryable?:boolean;error?:string}>(r);
     if(r.ok){saved=d as FieldPlan;break}
     if(r.status===422&&d.retryable===true&&batch<12)continue;
     throw Error(d.error||'Não foi possível calcular a rota.');
@@ -253,7 +262,7 @@ export default function CampoGuiado(){
   setPhotoBusy(true);setError('');setNotice('');
   try{
    const jpeg=await compressedPhoto(file),form=new FormData();form.append('visit_id',current.visit_id);form.append('photo',jpeg);
-   const r=await fetch('/api/campo/foto',{method:'POST',body:form}),d=await r.json();
+   const r=await fetch('/api/campo/foto',{method:'POST',body:form}),d=await apiResponse<{error?:string}>(r);
    if(!r.ok)throw Error(d.error||'Não foi possível enviar a foto.');
    await reload();setNotice('Foto recebida e protegida. Responda às perguntas para concluir.');
   }catch(e){setError(e instanceof Error?e.message:'Erro no envio da fotografia.')}
@@ -311,7 +320,10 @@ export default function CampoGuiado(){
    <div className="navigator-sheet-grip" aria-hidden="true"/>
    {error&&<p className="navigator-error" role="alert">{error}</p>}
    {notice&&<p className="navigator-notice" role="status">{notice}</p>}
-   {stage==='loading'&&<><h2>Preparando sua jornada...</h2><p>Consultando suas empresas e a rota atribuída.</p></>}
+   {stage==='loading'&&<><h2>{error?'Não foi possível abrir a jornada':'Preparando sua jornada...'}</h2>
+    <p>{error?'A conexão com o servidor falhou. Você pode tentar carregar novamente sem perder sua rota.':'Consultando suas empresas e a rota atribuída.'}</p>
+    {error&&<button type="button" className="navigator-primary" onClick={()=>setRetryCount(n=>n+1)}>
+     Tentar novamente<ChevronRight size={24}/></button>}</>}
    {stage==='prepare'&&<><span className="navigator-sheet-eyebrow">PASSO 1 · ORGANIZAR</span>
     <h2>Vamos encontrar o melhor caminho?</h2>
     <p>{remaining} {remaining===1?'empresa para visitar':'empresas para visitar'}. O mapa mostrará a ordem sugerida.</p>
