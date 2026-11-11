@@ -18,6 +18,7 @@ export const maxDuration=60;
 export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
  const user=await currentIdentity();
  if(!user)return fail('Faça login para consultar o percurso.',401);
+ if(user.role==='cadastro')return fail('Otimização restrita à equipe operacional.',403);
  const {id}=await params;
  if(!/^[0-9a-f-]{36}$/i.test(id))return fail('Identificador da rota inválido.');
  const [route]=await db().query('select id,agent_id,status from routes where id=$1',[id]);
