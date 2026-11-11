@@ -11,7 +11,7 @@ const statuses=new Set(['draft','submitted','receipt_received','accounting_revie
 const textValue=(v:unknown,max=250)=>String(v??'').trim().slice(0,max+1);
 const normalCnpj=(v:unknown)=>String(v??'').toUpperCase().replace(/[^A-Z0-9]/g,'');
 const amountValue=(v:unknown)=>{const n=Number(v);return Number.isFinite(n)&&n>0&&n<=50000&&Math.abs(n*100-Math.round(n*100))<1e-5?Math.round(n*100)/100:null};
-const dateValid=(v:unknown)=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&new Date(v).toISOString().slice(0,10)===v;
+const dateValid=(v:unknown)=>{if(typeof v!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(v))return false;const t=Date.parse(v);return Number.isFinite(t)&&new Date(t).toISOString().slice(0,10)===v;};
 const protectedResponse={headers:{'Cache-Control':'no-store'}};
 
 export async function GET(req:Request){
