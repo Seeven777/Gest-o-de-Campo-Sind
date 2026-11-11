@@ -7,7 +7,7 @@ import './reembolsos.css';
 type Role='admin'|'agent'|'rh';
 type RouteOption={id:string;route_date:string;status:string;stops:number};
 type Expense={id:string;route_id:string|null;agent_id:string;category:string;amount:number;expense_date:string;
- description:string|null;invoice_reference:string|null;invoice_recipient_cnpj:string|null;
+ description:string|null;invoice_reference:string|null;invoice_recipient_cnpj:string|null;invoice_issuer_cnpj:string|null;invoice_access_key:string|null;
  approval_status:string;agent_name:string;campaign_name:string;created_at:string;
  receipt_received_at:string|null;physical_archive_reference:string|null;
  accounting_contact:string|null;accounting_reference:string|null;accounting_reviewed_at:string|null;approved_amount:number|null;
@@ -78,7 +78,7 @@ export default function Reembolsos(){
  }
  function openAction(x:Expense,action:string){
   setActive({id:x.id,action});setChecked(false);setError('');setNotice('');
-  setFields({invoice_reference:x.invoice_reference||'',invoice_recipient_cnpj:x.invoice_recipient_cnpj||'',
+  setFields({invoice_reference:x.invoice_reference||'',invoice_recipient_cnpj:x.invoice_recipient_cnpj||'',invoice_issuer_cnpj:x.invoice_issuer_cnpj||'',invoice_access_key:x.invoice_access_key||'',
    archive_reference:x.physical_archive_reference||'',paid_amount:String(x.approved_amount||x.amount),
    payment_date:today(),payment_method:'pix',payment_reference:'',accounting_contact:'',
    accounting_reference:'',note:'',resolution_reference:'',amount:String(x.amount),description:x.description||''});
@@ -130,7 +130,9 @@ export default function Reembolsos(){
    <strong>{actions[action]}</strong>
    {action==='receive'&&<>
     {field('invoice_reference','Número ou referência da nota fiscal','Referência da nota')}
-    {field('invoice_recipient_cnpj','CNPJ destinatário (14 dígitos)','CNPJ impresso na nota')}
+    {field('invoice_recipient_cnpj','CNPJ do sindicato destinatário (14 caracteres)','CNPJ impresso na nota')}
+    {field('invoice_issuer_cnpj','CNPJ do fornecedor emissor (14 caracteres)','CNPJ do estabelecimento que emitiu a nota')}
+    {field('invoice_access_key','Chave de acesso fiscal (se houver, 44 caracteres)','Quando constar na NF-e ou NFC-e')}
     {field('archive_reference','Local/protocolo da nota física','Ex.: Pasta RH novembro/2026, nº 25')}
    </>}
    {action==='approve'&&<>
@@ -189,7 +191,7 @@ export default function Reembolsos(){
      <label className="expense-field">Data da despesa<input type="date" className="field" required value={expenseDate} onChange={e=>setExpenseDate(e.target.value)}/></label>
      <label className="expense-field expense-wide">Descrição do gasto<input className="field" required minLength={6} maxLength={500} value={description} onChange={e=>setDescription(e.target.value)} placeholder="Ex.: Abastecimento para rota em Guarulhos"/></label>
      <label className="expense-field">Referência da nota (se disponível)<input className="field" maxLength={100} value={invoice} onChange={e=>setInvoice(e.target.value)} placeholder="Número da nota fiscal"/></label>
-     <label className="expense-field">CNPJ destinatário da nota (se disponível)<input className="field" maxLength={18} inputMode="numeric" value={recipient} onChange={e=>setRecipient(e.target.value)} placeholder="14 dígitos"/></label>
+     <label className="expense-field">CNPJ destinatário da nota (se disponível)<input className="field" maxLength={20} autoCapitalize="characters" value={recipient} onChange={e=>setRecipient(e.target.value)} placeholder="14 caracteres"/></label>
      <button className="expense-primary expense-wide" type="submit" disabled={busy||!routes.length}>Registrar solicitação<ArrowRight size={18}/></button>
     </form>
     {!routes.length&&<p className="expense-hint">Nenhuma rota atribuída está disponível. Solicite a publicação de uma rota à administração.</p>}
