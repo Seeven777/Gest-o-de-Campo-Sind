@@ -5,7 +5,8 @@ export const dynamic='force-dynamic';export const runtime='nodejs';
 const bad=(error:string,status=400)=>NextResponse.json({error},{status,headers:{'Cache-Control':'no-store'}});
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 function point(d:Record<string,unknown>){
- const lat=Number(d.lat),lon=Number(d.lon),accuracy=Number(d.accuracy);
+ if(typeof d.lat!=='number'||typeof d.lon!=='number'||typeof d.accuracy!=='number')return null;
+ const lat=d.lat,lon=d.lon,accuracy=d.accuracy;
  if(!Number.isFinite(lat)||Math.abs(lat)>90||!Number.isFinite(lon)||Math.abs(lon)>180||!Number.isFinite(accuracy)||accuracy<0||accuracy>10000)return null;
  return {lat,lon,accuracy};
 }
