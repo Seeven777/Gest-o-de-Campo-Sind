@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { auth } from '@/lib/auth/server';
 import { currentIdentity } from '@/lib/access';
 import { db } from '@/lib/db';
+import {isSchemaReady,schemaPendingMessage} from '@/lib/schema-readiness';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -69,12 +70,14 @@ export async function PATCH(request:Request) {
     if(action==='change-role'){
       const profileId=String(body.profile_id||'');
       const nextRole=String(body.role||'');
-      if(!profileId||!['agent','supervisor','cadastro'].includes(nextRole))
+      if(!profileId||!['agent','supervisor','cadastro','rh'].includes(nextRole))
         return NextResponse.json({error:'Cargo inválido.'},{status:400});
+      if((nextRole==='cadastro'||nextRole==='rh')&&!(await isSchemaReady(nextRole==='rh'?'rh':'cadastro')))
+        return NextResponse.json({error:schemaPendingMessage(nextRole==='rh'?'rh':'cadastro')},{status:503});
       const rows=await db().query(`with changed as (
         update app_profiles set role=$2
         where auth_user_id=$1 and auth_user_id<>$3 and is_active=true
-          and role in ('agent','supervisor','cadastro') and role<>$2
+          and role in ('agent','supervisor','cadastro','rh') and role<>$2
         returning auth_user_id,role
       ), audited as (
         insert into audit_logs(actor_id,action,details)
@@ -89,6 +92,9 @@ export async function PATCH(request:Request) {
     const role = String(body.role||'agent');
     if (!/^[0-9a-f-]{36}$/i.test(id) || !['approve','reject'].includes(action) || (action==='approve'&&!isRole(role)))
       return NextResponse.json({error:'Solicitação inválida.'},{status:400});
+
+    if(action==='approve'&&(role==='cadastro'||role==='rh')&&!(await isSchemaReady(role==='rh'?'rh':'cadastro')))
+      return NextResponse.json({error:schemaPendingMessage(role==='rh'?'rh':'cadastro')},{status:503});
 
     if (action==='reject') {
       const rows=await db().query(`UPDATE access_requests SET status='rejected', reviewed_by=$2, reviewed_at=now()

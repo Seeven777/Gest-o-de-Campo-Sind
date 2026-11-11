@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { randomBytes, createHash } from 'node:crypto';
 import { currentIdentity } from '@/lib/access';
 import { db } from '@/lib/db';
+import {isSchemaReady,schemaPendingMessage} from '@/lib/schema-readiness';
 
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
@@ -40,6 +41,8 @@ export async function POST(request: Request) {
     if (!validEmail(email) || fullName.length < 3 || fullName.length > 120 || !['admin','supervisor','agent','cadastro','rh'].includes(role)) {
       return NextResponse.json({ error: 'Informe nome, e-mail e perfil válidos.' }, { status: 400 });
     }
+    if((role==='cadastro'||role==='rh')&&!(await isSchemaReady(role==='rh'?'rh':'cadastro')))
+      return NextResponse.json({error:schemaPendingMessage(role==='rh'?'rh':'cadastro')},{status:503});
     const existing = await db().query(`select 1 from neon_auth."user" u join app_profiles p on p.auth_user_id = u.id::text where lower(u.email)=$1 and p.is_active=true limit 1`, [email]);
     if (existing.length) return NextResponse.json({ error: 'Este e-mail já possui acesso ativo. Não é necessário criar outro convite.' }, { status: 409 });
     const pending = await db().query(`select 1 from access_invitations where lower(email)=$1 and accepted_at is null and revoked_at is null and expires_at>now() limit 1`, [email]);

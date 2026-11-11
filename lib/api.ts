@@ -6,6 +6,7 @@ export async function withRole<T>(roles: Role[], action:(user:Identity)=>Promise
     if(!user) return NextResponse.json({error:'Acesso não autorizado ou perfil ainda não liberado.'},{status:401});
     if(!roles.includes(user.role)) return NextResponse.json({error:'Permissão insuficiente.'},{status:403});
     const payload=await action(user);
+    if(payload instanceof Response)return payload;
     // Erros de validação devolvidos pelo módulo não podem virar HTTP 200:
     // a interface precisa receber !response.ok para exibir a falha.
     if(payload&&typeof payload==='object'&&'error' in payload&&

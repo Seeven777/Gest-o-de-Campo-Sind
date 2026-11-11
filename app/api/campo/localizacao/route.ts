@@ -36,9 +36,9 @@ export async function POST(req:Request){
   // A parada pertence à rota que abriu o monitoramento: um beacon antigo não
   // pode encerrar o GPS de uma rota iniciada logo em seguida.
   const expected=String(d.route_id||'');
-  if(expected&&!uuid.test(expected))return bad('Rota inválida.',400);
+  if(!uuid.test(expected))return bad('Informe a rota que deve encerrar o compartilhamento.',400);
   const rows=await db().query(`update agent_live_presence set active=false,last_position=null,accuracy_m=null,stopped_at=now(),updated_at=now()
-   where agent_id=$1 and active=true and ($2::uuid is null or route_id=$2::uuid) returning route_id`,[u.id,expected||null]);
+   where agent_id=$1 and active=true and route_id=$2::uuid returning route_id`,[u.id,expected]);
   if(rows.length)await db().query('insert into audit_logs(actor_id,action,details) values($1,$2,$3::jsonb)',[u.id,'gps.stopped',JSON.stringify({route_id:rows[0].route_id})]);
   return NextResponse.json({active:false,stopped:rows.length>0});
  }
