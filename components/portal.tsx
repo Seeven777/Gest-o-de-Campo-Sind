@@ -56,7 +56,6 @@ export function Portal({title,subtitle,children,action,immersive=false}:{title:s
   </div>}
   <div className="workspace"><header className="topbar"><div className="topbar-left"><button aria-label="Abrir menu" className="icon-btn menu-mobile" onClick={()=>setDrawer(true)}><Menu size={21}/></button><button aria-label="Recolher menu" className="icon-btn menu-desktop" onClick={()=>setCollapsed(x=>!x)}><PanelLeftClose size={20}/></button><span className="breadcrumbs">SindPetshop-SP <ChevronRight size={14}/> <b>{title}</b></span></div><div className="topbar-right"><span className="env-pill"><span/> Operação interna</span><button className="icon-btn" aria-label="Notificações ainda não implementadas" title="Notificações na próxima etapa" disabled><Bell size={19}/></button><div className="avatar small">{user.name.charAt(0).toUpperCase()}</div></div></header>
   <main className="page-wrap"><div className="page-heading"><div><span className="kicker"><span className="kicker-dot"/> CENTRAL SINDPETSHOP-SP</span><h1>{title}</h1><p>{subtitle||'Sua operação territorial, de ponta a ponta.'}</p></div>{action&&<div className="heading-action">{action}</div>}</div>{children}<footer className="page-footer"><span>SindPetshop-SP · Gestão territorial</span><span>Protegendo quem cuida <ArrowUpRight size={13}/></span></footer></main></div>
- </div>
  <RoleDock role={user.role} pathname={pathname} moreOpen={moreOpen} onMore={()=>{setDrawer(false);setMoreOpen(x=>!x)}}/>
 </div>
 }
