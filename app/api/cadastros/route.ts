@@ -24,13 +24,13 @@ export async function GET(req:Request){
  const [rows,stats]=await Promise.all([
   db().query(`select e.id,e.cnpj,e.legal_name,e.trade_name,e.city,e.state,e.field_status,
    e.updated_at as validated_at,coalesce(rr.state,'pending') as registration_state,
-   rr.reference,rr.confirmed_at,rr.confirmed_by,p.full_name as confirmed_by_name
+   rr.reference,rr.confirmed_at,rr.official_verified_at,rr.confirmed_by,p.full_name as confirmed_by_name
    from establishments e
    left join registration_records rr on rr.establishment_id=e.id
    left join app_profiles p on p.auth_user_id=rr.confirmed_by
    where e.field_status='validated'
-     and ($1='confirmed' and rr.state='confirmed' and rr.confirmed_at is not null
-      or $1='pending' and (rr.state is distinct from 'confirmed' or rr.confirmed_at is null))
+     and ($1='confirmed' and rr.state='confirmed' and rr.confirmed_at is not null and rr.official_verified_at is not null
+      or $1='pending' and (rr.official_verified_at is null))
      and ($2='' or e.cnpj like '%'||$2||'%'
       or unaccent(e.legal_name) ilike '%'||unaccent($2)||'%'
       or unaccent(coalesce(e.trade_name,'')) ilike '%'||unaccent($2)||'%'
@@ -38,8 +38,8 @@ export async function GET(req:Request){
    order by case when $1='confirmed' then rr.confirmed_at else e.updated_at end desc,e.id
    limit $3 offset $4`,[view,q,limit+1,offset]),
   db().query(`select
-   count(*) filter (where rr.state='confirmed' and rr.confirmed_at is not null)::int confirmed,
-   count(*) filter (where rr.state is distinct from 'confirmed' or rr.confirmed_at is null)::int pending
+   count(*) filter (where rr.state='confirmed' and rr.confirmed_at is not null and rr.official_verified_at is not null)::int confirmed,
+   count(*) filter (where rr.official_verified_at is null)::int pending
    from establishments e left join registration_records rr on rr.establishment_id=e.id
    where e.field_status='validated'`)
  ]);
@@ -65,12 +65,12 @@ export async function POST(req:Request){
  const rows=await db().query(`with eligible as (
    select id from establishments where id=$1 and field_status='validated' for update
   ), confirmed as (
-   insert into registration_records(establishment_id,state,reference,confirmed_by,confirmed_at,updated_at)
-   select id,'confirmed',$2,$3,now(),now() from eligible
+   insert into registration_records(establishment_id,state,reference,confirmed_by,confirmed_at,official_verified_at,updated_at)
+   select id,'confirmed',$2,$3,now(),now(),now() from eligible
    on conflict(establishment_id) do update set
     state='confirmed',reference=excluded.reference,confirmed_by=excluded.confirmed_by,
-    confirmed_at=excluded.confirmed_at,updated_at=now()
-   where registration_records.state is distinct from 'confirmed'
+    confirmed_at=excluded.confirmed_at,official_verified_at=excluded.official_verified_at,updated_at=now()
+   where registration_records.official_verified_at is null
    returning establishment_id,confirmed_at
   ), audited as (
    insert into audit_logs(actor_id,action,details)
