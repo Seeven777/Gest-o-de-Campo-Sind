@@ -45,6 +45,7 @@ const questions:Question[]=[
   {value:'not_evaluated',label:'Não consegui avaliar'}
  ]}
 ];
+const wallTime=()=>Date.now();
 const blankAnswers=():Answers=>({address_match:'',operating_status:'',pet_activity_match:'',signage_status:'',regularity_note:''});
 async function apiResponse<T extends {error?:string}>(response:Response):Promise<T>{
  const raw=await response.text();
@@ -304,9 +305,9 @@ export default function CampoGuiado(){
    // Acompanhamento GPS já ativo: evite aguardar outra aquisição de até 18 segundos
    // quando existe uma medição recente e suficientemente precisa.
    let fix=positionRef.current;
-   if(!fix||Date.now()-positionUpdatedAt.current>12000||fix.accuracy>250){
+   if(!fix||wallTime()-positionUpdatedAt.current>12000||fix.accuracy>250){
     fix=await gpsOnce({enableHighAccuracy:true,maximumAge:5000,timeout:12000});
-    positionRef.current=fix;positionUpdatedAt.current=Date.now();setPosition(fix);
+    positionRef.current=fix;positionUpdatedAt.current=wallTime();setPosition(fix);
    }
    setArrivalPhase('saving');
    const result=await send<{id?:string;error?:string}>('/api/campo/visita',{action:'arrive',stop_id:stopId,...fix});
