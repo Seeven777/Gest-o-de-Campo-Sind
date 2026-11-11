@@ -12,7 +12,7 @@ useEffect(()=>{
   if(!r.ok||!d.user?.role)throw Error(d.error||'Não foi possível confirmar o perfil.');
   setIsAgent(d.user.role==='agent');
  }).catch(e=>setError(e instanceof Error?e.message:'Erro ao identificar permissões.'));
- void fetch('/api/rotas-disponiveis',{cache:'no-store'}).then(async r=>{
+ void fetch('/api/campanhas-disponiveis',{cache:'no-store'}).then(async r=>{
   const d=await r.json().catch(()=>({}));
   if(!r.ok)throw Error(d.error||'Não foi possível listar as rotas disponíveis.');
   setCampaigns(d.items||[]);
