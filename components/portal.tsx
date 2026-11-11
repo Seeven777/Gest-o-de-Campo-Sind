@@ -13,7 +13,8 @@ export function Portal({title,subtitle,children,action,immersive=false}:{title:s
  const router=useRouter(),pathname=usePathname();
  useEffect(()=>{let live=true;fetch('/api/me',{cache:'no-store'}).then(async r=>{if(!r.ok){if(r.status===401)router.replace('/login');return null}return r.json()}).then(j=>{if(live&&j?.user){setUser(j.user);if(j.user.role==='agent'&&pathname==='/dashboard')router.replace('/agente')}}).catch(()=>{}).finally(()=>{if(live)setLoading(false)});return()=>{live=false}},[router,pathname]);
  const agent=user?.role==='agent';
- const items=agent?agentMenu:adminMenu.filter(item=>item.href!=='/limpeza'||user?.role==='admin');
+ const supervisorLinks=new Set(['/dashboard','/empresas','/campanhas','/rotas','/visitas','/reembolsos','/mapa','/localizacoes','/relatorios','/configuracoes']);
+ const items=agent?agentMenu:adminMenu.filter(item=>user?.role==='admin'||supervisorLinks.has(item.href));
  const groups=[['principal','Área de trabalho'],['operacao','Trabalho de campo'],['inteligencia','Inteligência'],['sistema','Sistema']] as const;
  if(loading)return <div className="loading-screen"><BrandMark size={52}/><p>Preparando seu espaço de trabalho...</p></div>;
  if(!user)return <div className="loading-screen"><BrandMark size={52}/><h2>Acesso restrito</h2><p>Entre na sua conta ou solicite que a administração libere seu perfil.</p><Link className="button" href="/login">Ir para o acesso</Link></div>;
@@ -25,7 +26,7 @@ export function Portal({title,subtitle,children,action,immersive=false}:{title:s
     <div className="side-footer"><div className="avatar">{user.name.charAt(0).toUpperCase()}</div><div className="user-info"><strong>{user.name}</strong><small>{user.role==='admin'?'Administração':user.role==='supervisor'?'Supervisão':'Agente de campo'}</small></div><button aria-label="Sair" className="icon-btn" onClick={async()=>{await authClient.signOut();router.replace('/login')}}><LogOut size={18}/></button></div>
   </aside>
   {drawer&&<button aria-label="Fechar menu" className="scrim" onClick={()=>setDrawer(false)}/>}
-  {moreOpen&&<div className="dock-more-root" id="role-dock-more-panel">
+  {moreOpen&&<div className="dock-more-root" id="role-dock-more-panel" onKeyDown={e=>{if(e.key==='Escape')setMoreOpen(false)}}>
    <button type="button" className="dock-more-backdrop" onClick={()=>setMoreOpen(false)} aria-label="Fechar o menu de funções"/>
    <section className="dock-more-sheet" role="dialog" aria-modal="true" aria-labelledby="dock-more-heading">
     <div className="dock-more-handle" aria-hidden="true"/>
@@ -56,6 +57,6 @@ export function Portal({title,subtitle,children,action,immersive=false}:{title:s
   </div>}
   <div className="workspace"><header className="topbar"><div className="topbar-left"><button aria-label="Abrir menu" className="icon-btn menu-mobile" onClick={()=>setDrawer(true)}><Menu size={21}/></button><button aria-label="Recolher menu" className="icon-btn menu-desktop" onClick={()=>setCollapsed(x=>!x)}><PanelLeftClose size={20}/></button><span className="breadcrumbs">SindPetshop-SP <ChevronRight size={14}/> <b>{title}</b></span></div><div className="topbar-right"><span className="env-pill"><span/> Operação interna</span><button className="icon-btn" aria-label="Notificações ainda não implementadas" title="Notificações na próxima etapa" disabled><Bell size={19}/></button><div className="avatar small">{user.name.charAt(0).toUpperCase()}</div></div></header>
   <main className="page-wrap"><div className="page-heading"><div><span className="kicker"><span className="kicker-dot"/> CENTRAL SINDPETSHOP-SP</span><h1>{title}</h1><p>{subtitle||'Sua operação territorial, de ponta a ponta.'}</p></div>{action&&<div className="heading-action">{action}</div>}</div>{children}<footer className="page-footer"><span>SindPetshop-SP · Gestão territorial</span><span>Protegendo quem cuida <ArrowUpRight size={13}/></span></footer></main></div>
- <RoleDock role={user.role} pathname={pathname} moreOpen={moreOpen} onMore={()=>{setDrawer(false);setMoreOpen(x=>!x)}}/>
+ {!immersive&&<RoleDock role={user.role} pathname={pathname} moreOpen={moreOpen} onMore={()=>{setDrawer(false);setMoreOpen(x=>!x)}}/>}
 </div>
 }
