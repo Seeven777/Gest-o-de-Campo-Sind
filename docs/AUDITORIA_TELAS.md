@@ -1,0 +1,63 @@
+# Auditoria de telas e fluxos — MODO ROTEIRIZADOR
+
+Atualizada em 11/11/2026. Branch: `fix/modo-roteirizador-auditoria-ux`. Registro operacional e verificável; não declarar tudo funcional sem percorrer os estados autenticados.
+
+## Níveis de validação
+
+- **Código**: rota e controle de acesso revisados no GitHub.
+- **CI**: TypeScript, ESLint e compilação Next.js.
+- **Smoke**: servidor HTTP acessível, páginas não retornam 404 e fotografias de login carregam.
+- **E2E real**: operação no navegador logado por perfis, permissão GPS/câmera, banco, upload, mudança de parada, central; requer contas adequadas e teste manual ou Playwright autenticado.
+
+**Importante:** CI e smoke NÃO provam o funcionamento das funcionalidades com dados reais.
+
+| Tela | URL | Avaliação/ação nesta etapa | Teste pendente |
+|---|---|---|---|
+| Acesso | /login | Foto desktop e mobile versionada, layout responsivo revisado | Entrar com conta ativa, senha errada, mobile real |
+| Criação de conta | /login (aba) | Preserva validação, solicitação e role exclusivamente no servidor | E-mail e perfil pendente sem acesso interno |
+| Recuperar senha | /login (aba) | Mantém Neon Auth e retorno de sucesso/erro | E-mail real, redirect confiável e expiração |
+| Redefinir senha | /redefinir-senha | Página presente, token query/hash, erro e confirmação | Link real do Neon Auth sem 404 |
+| Solicitação | /aguardando | Página presente e leitura de `/api/access-requests` | Aprovação/recusa com usuários distintos |
+| Convites | /convite | Página pública testável por HTTP | Convite expira/revogação/redeem |
+| Início central | /dashboard | Smoke e módulo de métricas | Totais conferidos na base |
+| Meu dia | /agente | Smoke e acesso por papel | Rota ativa/publicada + próxima parada |
+| Empresas | /empresas | Código/API revisados; filtro inválido devolve 400 | Paginação, CNAE, CNPJ, duplicata e estados vazios |
+| Campanhas | /campanhas | Código/API revisados; validação devolve 400 | Criar, filtrar, período e orçamento |
+| Cadastros sindicais | /cadastros | Backend exige admin para alterar | Confirmação manual e auditoria |
+| Rotas | /rotas | Corrigida detecção de papel; 49 paradas inseridas de forma atômica | Criar/publicar, limite, reentrada e conflito |
+| Percurso | /rotas/[id] | Backend preservado | Endereços sem coordenadas, quota e mapa |
+| Visitas | /visitas | GET por agente, POST legado bloqueado | Foto obrigatória, formulário e próxima visita |
+| Jornada guiada | /campo/[id] | Acesso restrito à rota atribuída; layout mobile do projeto preservado | Teste no celular com GPS/câmera, pin e swipe |
+| Validações | /validacoes | Backend e fluxo de foto revisados estaticamente | Aprovar/recusar, evidência, expurgo após análise |
+| Despesas | /reembolsos | Agente não pode enviar despesa em campanha sem rota própria | Lançar, aprovar, rejeitar e recibos |
+| Mapa de cobertura | /mapa | Smoke e API de território | Dados por município, render e performance |
+| GPS equipe | /localizacoes | API tem escopo de agente e central; dados recentes | Consentimento, frequência, perda de sinal |
+| Equipes | /equipes | Só administrador aprova cadastros no servidor | Permissão por perfil e segurança da troca |
+| Relatórios | /relatorios | Corrigido vazamento dos custos de outros agentes; CSV preservado | Valores, escopo, download |
+| Importações | /importacoes | Lotes inválidos devolvem erro 400, não 500 | CSV inválido/duplicado, log |
+| Configurações | /configuracoes | Diferencia perfil e módulo administrativo | Atualização do perfil e recuperação |
+| Limpeza de testes | /limpeza | API exige admin e confirmação | Prévia e exclusão **somente** com autorização |
+| Menu e dock | Global | Visual preto e laranja; opções por papel; jornada imersiva sem dock | Tab/teclado, iOS safe-area e menu Mais |
+
+## Correções encontradas durante a auditoria
+
+1. **Imagem ausente no login**: duas fotos WebP locais incorporadas, removida dependência da URL não confiável, CSS reorganizado.
+2. **Respostas falsas de sucesso**: `withRole` agora retorna HTTP 400 quando o módulo sinaliza `{error:...}`, evitando mensagens de operação concluída após falha.
+3. **Roteiro por papel**: `/rotas` agora consulta `/api/me`, não infere agente de falhas nas APIs administrativas; agentes não carregam listas desnecessárias.
+4. **Criação incompleta de rotas**: inserção de uma rota e até 49 paradas no mesmo SQL atômico.
+5. **Privacidade de relatórios**: agentes recebem somente campanhas com rotas atribuídas e despesas próprias.
+6. **Despesa não atribuída**: bloqueada tentativa do agente de lançar custo em campanha alheia.
+7. **Importação inválida**: lote vazio, fora do limite ou item inválido não deve gerar erro 500.
+8. **CI legado**: removida permissão de escrita e modificação automática do lockfile; incluída verificação HTTP de 21 páginas e de ambas as fotografias.
+9. **Identidade dos painéis**: dock escuro com contraste e laranja, mantendo mecanismos de autorização existentes.
+
+## Pendências de homologação real
+
+- CI precisa passar sem falhas na branch.
+- Publicar Preview com conexão ao Neon **isolada** do banco de produção.
+- Validar pessoalmente foto, geolocalização, acesso, recuperação de senha e fluxos de cada papel, pois a autenticação real e as permissões do celular não podem ser simuladas por smoke HTTP.
+- Monitorar erros de servidor por logs da Vercel quando disponíveis. Em Hobby, retenção é curta; não inferir ausência de erros quando log indisponível.
+- Levantar problemas da UI com imagens reais de cada tela e corrigir contraste, textos, estados e sobreposição.
+- Testar fluxo de até 49 empresas em uma mesma rota usando dados de Preview.
+- Implementar papel Marketing apenas com política de permissões definida no servidor e telas específicas.
+- Limpar dados de teste **somente após confirmação explícita**; depois planejar base externa/ngrok.

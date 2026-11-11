@@ -2,14 +2,38 @@
 import {useEffect,useState} from 'react';import Link from 'next/link';import {Portal} from '@/components/portal';import {Route as RouteIcon} from 'lucide-react';
 type RouteRow={id:string;route_date:string;campaign_name:string;agent_name:string;status:string;stops:number};type Pick={id:string;name:string};type Company={id:string;legal_name:string;city:string};
 export default function Rotas(){const [rows,setRows]=useState<RouteRow[]>([]),[campaigns,setCampaigns]=useState<Pick[]>([]),[agents,setAgents]=useState<Pick[]>([]),[companies,setCompanies]=useState<Company[]>([]);
-const [companyPage,setCompanyPage]=useState(1),[hasMoreCompanies,setHasMoreCompanies]=useState(false),[companySearch,setCompanySearch]=useState(''),[campaign,setCampaign]=useState(''),[agent,setAgent]=useState(''),[date,setDate]=useState(''),[selected,setSelected]=useState<string[]>([]),[error,setError]=useState(''),[message,setMessage]=useState(''),[busy,setBusy]=useState(false),[isAgent,setIsAgent]=useState(false);
+const [companyPage,setCompanyPage]=useState(1),[hasMoreCompanies,setHasMoreCompanies]=useState(false),[companySearch,setCompanySearch]=useState(''),[campaign,setCampaign]=useState(''),[agent,setAgent]=useState(''),[date,setDate]=useState(''),[selected,setSelected]=useState<string[]>([]),[error,setError]=useState(''),[message,setMessage]=useState(''),[busy,setBusy]=useState(false),[isAgent,setIsAgent]=useState<boolean|null>(null);
 async function load(){const r=await fetch('/api/rotas',{cache:'no-store'});const d=await r.json();if(!r.ok)throw Error(d.error);setRows(d.items||[])}
-useEffect(()=>{void load().catch(e=>setError(e.message));void Promise.all([fetch('/api/equipe'),fetch('/api/campaigns'),fetch('/api/companies?page=1')]).then(async res=>{const [a,c,co]=await Promise.all(res.map(x=>x.json()));if(res[0].ok)setAgents((a.items||[]).map((x:{id:string;full_name:string})=>({id:x.id,name:x.full_name})));else setIsAgent(true);if(res[1].ok)setCampaigns((c.items||[]).map((x:Pick)=>({id:x.id,name:x.name})));if(res[2].ok){setCompanies(co.items||[]);setHasMoreCompanies(Boolean(co.hasMore))}}).catch(()=>{})},[]);
+useEffect(()=>{
+ let cancelled=false;
+ void (async()=>{
+  try{
+   const me=await fetch('/api/me',{cache:'no-store'});
+   const profile=await me.json().catch(()=>({}));
+   if(!me.ok||!profile.user?.role)throw Error(profile.error||'Entre na sua conta para consultar as rotas.');
+   const agentRole=profile.user.role==='agent';
+   if(!cancelled)setIsAgent(agentRole);
+   await load();
+   if(agentRole||cancelled)return;
+   const res=await Promise.all([fetch('/api/equipe'),fetch('/api/campaigns'),fetch('/api/companies?page=1')]);
+   const data=await Promise.all(res.map(x=>x.json().catch(()=>({}))));
+   if(cancelled)return;
+   if(!res.every(x=>x.ok)){
+    const failure=res.findIndex(x=>!x.ok);
+    throw Error(data[failure]?.error||'Falha ao carregar as opções de planejamento.');
+   }
+   setAgents((data[0].items||[]).map((x:{id:string;full_name:string})=>({id:x.id,name:x.full_name})));
+   setCampaigns((data[1].items||[]).map((x:Pick)=>({id:x.id,name:x.name})));
+   setCompanies(data[2].items||[]);setHasMoreCompanies(Boolean(data[2].hasMore));setCompanyPage(1);
+  }catch(e){if(!cancelled)setError(e instanceof Error?e.message:'Falha ao abrir rotas.');}
+ })();
+ return()=>{cancelled=true};
+},[]);
 async function searchCompanies(page=1){const r=await fetch('/api/companies?'+new URLSearchParams({q:companySearch,page:String(page)}).toString(),{cache:'no-store'});const d=await r.json();if(!r.ok)throw Error(d.error);setCompanies(d.items||[]);setHasMoreCompanies(Boolean(d.hasMore));setCompanyPage(page)}
 async function publish(id:string){setBusy(true);setError('');try{const r=await fetch('/api/rotas',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});const d=await r.json();if(!r.ok)throw Error(d.error);setMessage('Rota publicada para a equipe.');await load()}catch(e){setError(e instanceof Error?e.message:'Erro ao publicar')}finally{setBusy(false)}}
 async function create(e:React.FormEvent){e.preventDefault();setBusy(true);setError('');setMessage('');try{const r=await fetch('/api/rotas',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({campaign_id:campaign,agent_id:agent,date,establishment_ids:selected})});const d=await r.json();if(!r.ok)throw Error(d.error);setMessage('Rota criada com '+d.count+' paradas. Abra o percurso para otimizar a ordem pelo mapa.');setSelected([]);await load()}catch(e){setError(e instanceof Error?e.message:'Erro ao criar rota')}finally{setBusy(false)}}
 return <Portal title="Rotas" subtitle="Distribua empresas por campanha e consulte a sequência de visitas.">
-{!isAgent&&<section className="panel" style={{marginBottom:18}}><div className="panel-title"><div><small>PLANEJAMENTO</small><h2>Montar rota manual</h2></div><RouteIcon size={20}/></div>
+{isAgent===false&&<section className="panel" style={{marginBottom:18}}><div className="panel-title"><div><small>PLANEJAMENTO</small><h2>Montar rota manual</h2></div><RouteIcon size={20}/></div>
 <form onSubmit={create} className="form-grid"><label>Campanha<select className="field" required value={campaign} onChange={e=>setCampaign(e.target.value)}><option value="">Selecione</option>{campaigns.map(x=><option value={x.id} key={x.id}>{x.name}</option>)}</select></label>
 <label>Responsável de campo<select className="field" required value={agent} onChange={e=>setAgent(e.target.value)}><option value="">Selecione</option>{agents.map(x=><option value={x.id} key={x.id}>{x.name}</option>)}</select></label>
 <label>Data da rota<input className="field" type="date" value={date} onChange={e=>setDate(e.target.value)} required/></label>
@@ -17,7 +41,7 @@ return <Portal title="Rotas" subtitle="Distribua empresas por campanha e consult
 <button className="button" disabled={busy||!selected.length}>Criar rota com {selected.length} paradas</button></form>
 <p className="muted" style={{marginTop:15}}>Selecione até 49 empresas para uma jornada. A otimização é sugerida na tela do percurso e não inclui trânsito em tempo real.</p>
 </section>}
-<section className="panel"><div className="panel-title"><div><small>AGENDA</small><h2>{isAgent?'Minhas rotas':'Rotas cadastradas'}</h2></div></div>
+<section className="panel"><div className="panel-title"><div><small>AGENDA</small><h2>{isAgent===true?'Minhas rotas':'Rotas cadastradas'}</h2></div></div>
 {error&&<p className="error" role="alert">{error}</p>}{message&&<p className="success">{message}</p>}
 <div className="tablewrap"><table><thead><tr><th>Data</th><th>Campanha</th><th>Responsável</th><th>Paradas</th><th>Situação</th><th>Abrir</th></tr></thead><tbody>{rows.map(x=><tr key={x.id}><td>{String(x.route_date).slice(0,10)}</td><td>{x.campaign_name}</td><td>{x.agent_name}</td><td>{x.stops}</td><td>{x.status==='draft'&&!isAgent?<button className="button secondary" disabled={busy} onClick={()=>void publish(x.id)}>Publicar rota</button>:x.status}</td><td>{isAgent?<Link className="button" href={'/campo/'+x.id}>Iniciar jornada</Link>:<Link className="link-inline" href={'/rotas/'+x.id}>Ver percurso</Link>}</td></tr>)}{!rows.length&&<tr><td colSpan={6}>Nenhuma rota atribuída até o momento.</td></tr>}</tbody></table></div>
 </section></Portal>}
