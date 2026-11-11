@@ -71,13 +71,18 @@ export async function PATCH(request:Request) {
       const nextRole=String(body.role||'');
       if(!profileId||!['agent','supervisor','cadastro'].includes(nextRole))
         return NextResponse.json({error:'Cargo inválido.'},{status:400});
-      const rows=await db().query(`update app_profiles set role=$2
+      const rows=await db().query(`with changed as (
+        update app_profiles set role=$2
         where auth_user_id=$1 and auth_user_id<>$3 and is_active=true
           and role in ('agent','supervisor','cadastro') and role<>$2
-        returning auth_user_id,full_name,role`,[profileId,nextRole,operator.id]);
+        returning auth_user_id,role
+      ), audited as (
+        insert into audit_logs(actor_id,action,details)
+        select $3,'access.profile_role_changed',
+          jsonb_build_object('profile_id',changed.auth_user_id,'new_role',changed.role)
+        from changed returning id
+      ) select changed.auth_user_id from changed join audited on true`,[profileId,nextRole,operator.id]);
       if(!rows.length)return NextResponse.json({error:'Perfil não elegível, inativo ou já utiliza o cargo informado.'},{status:409});
-      await db().query(`insert into audit_logs(actor_id,action,details) values($1,$2,$3::jsonb)`,
-        [operator.id,'access.profile_role_changed',JSON.stringify({profile_id:profileId,role:nextRole})]);
       return NextResponse.json({ok:true});
     }
     const id = String(body.id||'');
