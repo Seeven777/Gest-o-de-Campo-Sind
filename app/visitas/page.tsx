@@ -6,7 +6,11 @@ type Visit={id:string;legal_name:string;agent_name:string;result:string;review_s
 export default function Visitas(){
  const [agent,setAgent]=useState<boolean|null>(null),[routes,setRoutes]=useState<Route[]>([]),[visits,setVisits]=useState<Visit[]>([]),[error,setError]=useState('');
  useEffect(()=>{
-  void fetch('/api/me',{cache:'no-store'}).then(async r=>{const j=await r.json();return j.user?.role==='agent'}).then(async role=>{
+  void fetch('/api/me',{cache:'no-store'}).then(async r=>{
+   const j=await r.json().catch(()=>({}));
+   if(!r.ok||!j.user?.role)throw Error(j.error||'Entre novamente para consultar suas visitas.');
+   return j.user.role==='agent';
+  }).then(async role=>{
    setAgent(role);
    const endpoint=role?'/api/rotas':'/api/visitas';const r=await fetch(endpoint,{cache:'no-store'});const data=await r.json();
    if(!r.ok)throw Error(data.error||'Erro ao carregar');
@@ -15,7 +19,7 @@ export default function Visitas(){
  },[]);
  return <Portal title={agent?'Registrar visita':'Visitas registradas'} subtitle={agent?'Acesse sua jornada e siga o passo a passo com foto e GPS.':'Acompanhe os registros enviados pelas equipes.'}>
  {error&&<p className="error" role="alert">{error}</p>}
- {agent===null?<section className="panel">Carregando informações...</section>:agent?
+ {agent===null?<section className="panel" role="status">{error?'Não foi possível carregar suas visitas. Confira sua conexão e autenticação.':'Carregando informações...'}</section>:agent?
  <section className="panel"><div className="panel-title"><div><small>SUAS ROTAS</small><h2>Onde você vai trabalhar?</h2></div><Navigation size={22}/></div>
  <p className="muted" style={{fontSize:17,lineHeight:1.6}}>Escolha a rota. O sistema irá mostrar o caminho, pedir sua confirmação de chegada e orientar a foto e o formulário. Não é necessário preencher várias telas ao mesmo tempo.</p>
  <div style={{display:'grid',gap:14,marginTop:20}}>{routes.map(r=><div key={r.id} style={{padding:20,border:'1px solid var(--line)',borderRadius:15,display:'grid',gap:12}}>
