@@ -1,3 +1,4 @@
+import {isSchemaReady,schemaPendingMessage} from '@/lib/schema-readiness';
 import {NextResponse} from 'next/server';
 import {currentIdentity} from '@/lib/access';
 import {db} from '@/lib/db';
@@ -8,6 +9,7 @@ export async function GET(req:Request){
  const user=await currentIdentity();
  if(!user)return invalid('Sua sessão expirou.',401);
  if(!['admin','supervisor'].includes(user.role))return invalid('Acesso restrito à administração e supervisão.',403);
+ if(!(await isSchemaReady('cadastro')))return invalid(schemaPendingMessage('cadastro'),503);
  const params=new URL(req.url).searchParams,from=params.get('from')||'',to=params.get('to')||'';
  if(from&&!dateValid(from)||to&&!dateValid(to)||from&&to&&from>to)return invalid('Período inválido.');
  const rows=await db().query(`select coalesce(nullif(trim(e.city),''),'Não informado') as city,
