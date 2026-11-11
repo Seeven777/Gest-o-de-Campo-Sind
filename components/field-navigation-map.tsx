@@ -83,7 +83,7 @@ export function FieldNavigationMap({plan,targetId,current,follow=true,compact=fa
    const all=plan.points.map(p=>[p.lat,p.lon]);
    window.requestAnimationFrame(()=>{if(!disposed){instance.invalidateSize();makeBounds(all.length?all:route,instance,L);setReady(true)}});
    return ()=>{instance.off('dragstart',panListener);observer?.disconnect()};
-  }).then(cleanup=>{if(disposed)cleanup?.();else cleanupRef.current=cleanup}).catch(e=>{if(!disposed)setError(e instanceof Error?e.message:'Falha no mapa')});
+  }).then(cleanup=>{if(disposed)cleanup?.();else cleanupRef.current=cleanup||null}).catch(e=>{if(!disposed)setError(e instanceof Error?e.message:'Falha no mapa')});
   return()=>{disposed=true;cleanupRef.current?.();cleanupRef.current=null;map.current?.remove();map.current=null;gpsMarker.current=null;gpsAccuracy.current=null;legLayer.current=null;legOutline.current=null;markers.current.clear();leafletApi.current=null};
  // A montagem do mapa depende da rota, mas não deve reiniciar a cada ping, alteração de etapa ou check-in.
  // eslint-disable-next-line react-hooks/exhaustive-deps
