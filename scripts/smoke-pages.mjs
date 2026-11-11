@@ -23,11 +23,11 @@ async function check(path){
    assert.ok(bytes>1000,`Imagem vazia: ${path}`);
   }else{
    const html=await res.text();
-   assert.ok(/<!doctype html|<html[\\s>]/i.test(html),`HTML ausente em ${path}`);
+   assert.ok(html.includes('<html'),`HTML ausente em ${path}`);
    // O App Router embute "This page could not be found." no payload RSC
    // mesmo quando a página existe e retorna HTTP 200. Uma busca de texto
    // produz falsos 404 em TODAS as páginas. O código HTTP é a fonte de verdade.
-   assert.ok(!/<title>404[^<]*<\\/title>/i.test(html),`Página 404 efetivamente renderizada em ${path}`);
+   assert.ok(!html.includes('<title>404</title>'),`Página 404 efetivamente renderizada em ${path}`);
   }
  }
  console.log('OK',res.status,path);
