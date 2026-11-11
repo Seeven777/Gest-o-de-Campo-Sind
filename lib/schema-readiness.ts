@@ -21,12 +21,18 @@ export async function getSchemaReadiness():Promise<SchemaReadiness>{
        'paid_at','paid_amount','payment_reference','receipt_acknowledged_at',
        'receipt_disputed_at','dispute_resolved_at','physical_archive_reference'
      ))=14) as rh,
-  coalesce((select position('cadastro' in pg_get_constraintdef(c.oid))>0
-    from pg_constraint c where c.conrelid='public.app_profiles'::regclass
-    and c.conname='app_profiles_role_check'),false) as roles_cadastro,
-  coalesce((select position('rh' in pg_get_constraintdef(c.oid))>0
-    from pg_constraint c where c.conrelid='public.app_profiles'::regclass
-    and c.conname='app_profiles_role_check'),false) as roles_rh`);
+  (select count(*)=3 from pg_constraint c
+   where (c.conrelid,c.conname) in (
+    ('public.app_profiles'::regclass,'app_profiles_role_check'),
+    ('public.access_requests'::regclass,'access_requests_assigned_role_check'),
+    ('public.access_invitations'::regclass,'access_invitations_role_check'))
+   and position('cadastro' in pg_get_constraintdef(c.oid))>0) as roles_cadastro,
+  (select count(*)=3 from pg_constraint c
+   where (c.conrelid,c.conname) in (
+    ('public.app_profiles'::regclass,'app_profiles_role_check'),
+    ('public.access_requests'::regclass,'access_requests_assigned_role_check'),
+    ('public.access_invitations'::regclass,'access_invitations_role_check'))
+   and position('rh' in pg_get_constraintdef(c.oid))>0) as roles_rh`);
  return {cadastro:row?.cadastro===true,rh:row?.rh===true,
   rolesCadastro:row?.roles_cadastro===true,rolesRh:row?.roles_rh===true};
 }
