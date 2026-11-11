@@ -129,6 +129,9 @@ function QuestionView({question,value,onChange}:{question:Question;value:string;
 }
 export default function CampoGuiado(){
  const {id}=useParams<{id:string}>();
+ return <CampoGuiadoSession key={id} id={id}/>;
+}
+function CampoGuiadoSession({id}:{id:string}){
  const [data,setData]=useState<RouteData|null>(null),[plan,setPlan]=useState<FieldPlan|null>(null);
  const [started,setStarted]=useState(false),[position,setPosition]=useState<CurrentPosition|null>(null),[follow,setFollow]=useState(true);
  const [busy,setBusy]=useState(false),[photoBusy,setPhotoBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[progress,setProgress]=useState(''),[retryCount,setRetryCount]=useState(0);
@@ -137,7 +140,7 @@ export default function CampoGuiado(){
  const [arrivalPhase,setArrivalPhase]=useState<ArrivalPhase>(null);
  const [leg,setLeg]=useState<ActiveLeg|null>(null),[legBusy,setLegBusy]=useState(false),[legError,setLegError]=useState('');
  const [rerouteToken,setRerouteToken]=useState(0),[fitToken,setFitToken]=useState(0),[zoomCommand,setZoomCommand]=useState<{id:number;delta:1|-1}|undefined>(undefined);
- const [showGuide,setShowGuide]=useState(true),[mapToolsOpen,setMapToolsOpen]=useState(false),[mobileDetailsOpen,setMobileDetailsOpen]=useState(false);
+ const [showGuide,setShowGuide]=useState(true),[mapToolsOpen,setMapToolsOpen]=useState(false);
  const sentAt=useRef(0),positionRef=useRef<CurrentPosition|null>(null),positionUpdatedAt=useRef(0);
  const cacheKey='sind-jornada-plan:'+id;
  async function reload(){
@@ -178,7 +181,7 @@ export default function CampoGuiado(){
  const distance=straightDistance(position,target);
  const questionnaireEnd=questionIndex===questions.length;
  const nextQuestion=questions[questionIndex];
- const gpsActive=started;
+ const gpsActive=started&&!!position;
  const remaining=ordered.length-complete;
  const currentStopId=current?.id;
  const havePosition=!!position;
@@ -254,7 +257,7 @@ export default function CampoGuiado(){
   try{
    const p=await gpsOnce();positionRef.current=p;positionUpdatedAt.current=Date.now();setPosition(p);
    await send('/api/campo/localizacao',{action:'start',route_id:id,consent:true,...p});
-   setStarted(true);setNotice('Jornada iniciada. A central recebe sua posição somente enquanto o GPS está ativo.');
+   sentAt.current=Date.now();setStarted(true);setNotice('GPS ativo durante esta rota.');
   }catch(e){setError(e instanceof Error?e.message:'Não foi possível iniciar a localização.')}
   finally{setBusy(false)}
  }
@@ -268,7 +271,7 @@ export default function CampoGuiado(){
   if(!started||!navigator.geolocation)return;
   let watch:number|undefined;
   const ping=(p:CurrentPosition)=>{
-   positionRef.current=p;positionUpdatedAt.current=Date.now();setPosition(p);
+   positionRef.current=p;positionUpdatedAt.current=Date.now();setPosition(p);setError(old=>old.startsWith('GPS')||old.startsWith('Sinal de GPS')?'':old);
    if(Date.now()-sentAt.current<20000)return;
    sentAt.current=Date.now();
    void send('/api/campo/localizacao',{action:'ping',route_id:id,...p}).catch(e=>setError(e instanceof Error?e.message:'GPS desconectado.'));
@@ -277,7 +280,7 @@ export default function CampoGuiado(){
    if(document.visibilityState==='visible'&&watch===undefined){
     watch=navigator.geolocation.watchPosition(
      p=>ping({lat:p.coords.latitude,lon:p.coords.longitude,accuracy:p.coords.accuracy,heading:p.coords.heading,speed:p.coords.speed}),
-     ()=>setError('GPS indisponível. Confira as permissões de localização.'),
+     e=>{if(e.code===1){setStarted(false);setPosition(null);positionRef.current=null;void send('/api/campo/localizacao',{action:'stop'}).catch(()=>{});setError('GPS bloqueado pelo navegador. Autorize a localização e toque em Iniciar navegação novamente.');}else setError('Sinal de GPS indisponível. Verifique as permissões e tente novamente.');},
      {enableHighAccuracy:true,maximumAge:10000,timeout:18000});
    }else if(document.visibilityState==='hidden'&&watch!==undefined){
     navigator.geolocation.clearWatch(watch);watch=undefined;
@@ -295,7 +298,7 @@ export default function CampoGuiado(){
   if(!started)return;
   const leave=()=>{try{navigator.sendBeacon('/api/campo/localizacao',new Blob([JSON.stringify({action:'stop'})],{type:'application/json'}))}catch{}};
   window.addEventListener('pagehide',leave);
-  return()=>{window.removeEventListener('pagehide',leave);leave()};
+  return()=>{window.removeEventListener('pagehide',leave)};
  },[started]);
  async function arrive(){
   if(!current||busy)return;
@@ -349,16 +352,16 @@ export default function CampoGuiado(){
     stop.id===stopId?{...stop,checkout_at:new Date().toISOString(),review_status:'pending'}:stop
    )}:previous);
    setQuestionIndex(0);setAnswers(blankAnswers());setNotes('');
-   setFollow(true);setRecenterToken(n=>n+1);setShowStops(false);setShowGuide(true);setMapToolsOpen(false);setMobileDetailsOpen(false);
+   setFollow(true);setRecenterToken(n=>n+1);setShowStops(false);setShowGuide(true);setMapToolsOpen(false);
    if(isLast){
     setNotice('Todas as visitas foram enviadas à central.');
     try{
      await send('/api/campo/localizacao',{action:'stop'});
-     setStarted(false);setNotice('Jornada concluída e GPS encerrado.');
+     setStarted(false);positionRef.current=null;setPosition(null);setNotice('Jornada concluída e GPS encerrado automaticamente.');
     }catch{
-     setError('Visitas salvas, mas não foi possível desligar o GPS. Toque em Encerrar localização para tentar novamente.');
+     setError('Visitas salvas. Não foi possível confirmar o encerramento do GPS; a central desativa o sinal após expirar.');
     }
-   }else setNotice('Visita enviada à central. Próxima parada pronta!');
+   }else {setNotice('Visita enviada. Próxima empresa no mapa.');setLeg(null);setLegError('');setRerouteToken(n=>n+1);}
   }catch(e){setError(e instanceof Error?e.message:'Falha ao enviar visita. Suas respostas continuam na tela.')}
   finally{setBusy(false)}
  }
@@ -399,7 +402,7 @@ export default function CampoGuiado(){
     {current&&<span>Parada {activeIndex} de {ordered.length}</span>}
    </div>
    <div className="navigator-progress-bar"><span style={{width:ordered.length?complete/ordered.length*100+'%':'0%'}}/></div>
-   {started&&current&&<div className="navigator-directions-summary" role="status">
+   {started&&current&&stage==='travel'&&<div className="navigator-directions-summary" role="status">
     {legBusy?<><span className="navigator-mini-spinner"/><span>Calculando caminho até a empresa...</span></>:
     leg?<><RouteIcon size={17}/><strong>{fmtDistance(leg.distance_m)}</strong><span>·</span><strong>{Math.max(1,Math.round(leg.duration_s/60))} min</strong><small>estimados, sem trânsito</small></>:
     <><MapPin size={17}/><span>GPS ativo · orientação viária indisponível</span></>}
@@ -431,8 +434,7 @@ export default function CampoGuiado(){
       {started&&current&&target&&<button type="button" disabled={legBusy}
        onClick={()=>{setShowGuide(true);setRerouteToken(n=>n+1);setMapToolsOpen(false)}}><RefreshCw size={21}/> Recalcular trajeto</button>}
       {!showGuide&&leg&&<button type="button" onClick={()=>{setShowGuide(true);setMapToolsOpen(false)}}><Navigation size={21}/> Mostrar orientações</button>}
-      {started&&<button type="button" className="navigator-mobile-tools-stop" disabled={busy}
-       onClick={()=>{setMapToolsOpen(false);void stopTracking()}}><PauseCircle size={21}/> Parar compartilhamento de GPS</button>}
+      
      </div>
     </section>
    </>}
@@ -484,40 +486,23 @@ export default function CampoGuiado(){
     <button type="button" className="navigator-primary" disabled={busy} onClick={()=>void begin()}>
      <Play size={25}/>{busy?'Iniciando...':'Iniciar navegação'}<ChevronRight size={24}/></button>
     <button type="button" className="navigator-secondary-link" disabled={busy} onClick={()=>void calculate()}>Recalcular percurso</button></>}
-   {stage==='travel'&&<><div className="navigator-arrival-meta navigator-desktop-travel">
-    <span><MapPin size={19}/> PRÓXIMA PARADA</span>
-    <strong>{fmtDistance(distance)}</strong>
-    <small>{distance===null?'Aguardando coordenadas':'Distância em linha reta, não é o trajeto pelas ruas'}</small>
-   </div>
-   <div className="navigator-mobile-next-stop">
-    <div className="navigator-mobile-stop-heading">
+   {stage==='travel'&&<div className="navigator-driving-card">
+    <div className="navigator-driving-copy">
      <span>PRÓXIMA PARADA · {activeIndex}/{ordered.length}</span>
-     {leg?<strong>{fmtDistance(leg.distance_m)}</strong>:distance!==null?<strong>{fmtDistance(distance)}</strong>:<strong>—</strong>}
+     <strong>{current?.trade_name||current?.legal_name||'Empresa'}</strong>
+     <small>{leg?fmtDistance(leg.distance_m)+' pela rota':distance!==null?fmtDistance(distance)+' em linha reta':'Aguardando localização'}</small>
     </div>
-    <strong className="navigator-mobile-company">{current?.trade_name||current?.legal_name||'Empresa'}</strong>
-    <button type="button" className="navigator-mobile-detail-toggle" aria-expanded={mobileDetailsOpen}
-     onClick={()=>setMobileDetailsOpen(open=>!open)}>
-     <span>{mobileDetailsOpen?'Ocultar detalhes':'Endereço e detalhes'}</span>
-     {mobileDetailsOpen?<ChevronUp size={18}/>:<ChevronDown size={18}/>}
+    <button type="button" className="navigator-arrived-button" disabled={busy} onClick={()=>setArrivalDialog(true)}>
+     <MapPin size={20}/> Cheguei
     </button>
-    {mobileDetailsOpen&&<div className="navigator-mobile-detail-content">
-     <span><MapPin size={17}/>{[current?.street,current?.street_number,current?.city,current?.state].filter(Boolean).join(', ')||'Endereço não informado'}</span>
-     <small>{leg?'Distância pela rota sugerida, sem trânsito em tempo real.':'Distância em linha reta; trajeto viário indisponível.'}</small>
-     {legError&&<p className="navigator-warning" role="status">{legError}</p>}
-     {plan?.route_warning&&!leg&&<p className="navigator-warning">O mapa pode mostrar apenas os pontos cadastrados.</p>}
-    </div>}
-   </div>
-    {!target&&<p className="navigator-warning navigator-map-target-warning">Endereço sem posição exata no mapa. Confira cuidadosamente o local antes de registrar a chegada.</p>}
-    {legError&&<p className="navigator-warning" role="status">{legError} O mapa de paradas permanece disponível.</p>}
-    {plan?.route_warning&&!leg&&<p className="navigator-warning">O trajeto nas ruas não foi calculado. Os pontos no mapa são apenas referências.</p>}
-    <ArrivalSlider disabled={busy} onConfirm={()=>setArrivalDialog(true)}/>
-    <button type="button" className="navigator-stop-link navigator-desktop-travel" onClick={()=>void stopTracking()} disabled={busy}>
-     <PauseCircle size={19}/> Parar compartilhamento de GPS</button>
-   </>}
+    {!target&&<p className="navigator-driving-alert">Local sem coordenadas precisas. Confirme o endereço antes de registrar a chegada.</p>}
+    {error&&<p className="navigator-driving-alert" role="alert">{error}</p>}
+    {legError&&<p className="navigator-driving-alert" role="status">Percurso viário indisponível. Confira o endereço.</p>}
+   </div>}
    {stage==='done'&&<div className="navigator-finished"><CheckCircle2 size={54}/>
     <span className="navigator-sheet-eyebrow">JORNADA FINALIZADA</span><h2>Visitas enviadas!</h2>
     <p>As informações seguiram para análise da central. Se houver alguma correção necessária, a equipe será avisada.</p>
-    {started&&<button className="navigator-primary" onClick={()=>void stopTracking()} disabled={busy}><PauseCircle size={23}/> Encerrar localização</button>}
+    
     <Link className="navigator-secondary-link" href="/agente">Voltar ao Meu dia</Link></div>}
   </section>}
   {(stage==='photo'||stage==='questions')&&<section key={current?.id+'-'+stage} className="navigator-form-sheet navigator-sheet-enter" aria-label="Registro da visita">
@@ -567,7 +552,7 @@ export default function CampoGuiado(){
    <section className="navigator-modal" role="dialog" aria-modal="true" aria-labelledby="navigator-confirm-title">
     <MapPin size={34} color="#ef6c29"/>
     <h2 id="navigator-confirm-title">Você está em frente à empresa?</h2>
-    <p>Confirme apenas quando estiver no endereço. Sua localização e o horário serão enviados à central.</p>
+    <p>Confirme somente com o veículo parado, em frente à empresa. Sua localização e o horário serão registrados.</p>
     {distance!==null&&distance>500&&<p className="navigator-warning">Seu GPS está a aproximadamente {fmtDistance(distance)} da coordenada cadastrada, que pode estar imprecisa. Confira o endereço antes de continuar.</p>}
     <button className="navigator-primary" disabled={busy} onClick={()=>void arrive()}><CheckCircle2 size={24}/> Sim, cheguei ao local</button>
     <button className="navigator-back navigator-modal-cancel" disabled={busy} onClick={()=>setArrivalDialog(false)}>Cancelar e continuar a rota</button>
