@@ -63,8 +63,24 @@ export async function PATCH(request:Request) {
     if (!operator) return NextResponse.json({error:'Acesso não autorizado.'},{status:401});
     if (operator.role !== 'admin') return NextResponse.json({error:'Somente administradores podem avaliar cadastros.'},{status:403});
     const body = await request.json().catch(()=>({}));
-    const id = String(body.id||'');
     const action = String(body.action||'');
+    // Administrador pode remanejar colaboradores já ativos entre funções de trabalho,
+    // mas nunca modificar outro administrador, conceder admin ou alterar a própria conta.
+    if(action==='change-role'){
+      const profileId=String(body.profile_id||'');
+      const nextRole=String(body.role||'');
+      if(!profileId||!['agent','supervisor','cadastro'].includes(nextRole))
+        return NextResponse.json({error:'Cargo inválido.'},{status:400});
+      const rows=await db().query(`update app_profiles set role=$2
+        where auth_user_id=$1 and auth_user_id<>$3 and is_active=true
+          and role in ('agent','supervisor','cadastro') and role<>$2
+        returning auth_user_id,full_name,role`,[profileId,nextRole,operator.id]);
+      if(!rows.length)return NextResponse.json({error:'Perfil não elegível, inativo ou já utiliza o cargo informado.'},{status:409});
+      await db().query(`insert into audit_logs(actor_id,action,details) values($1,$2,$3::jsonb)`,
+        [operator.id,'access.profile_role_changed',JSON.stringify({profile_id:profileId,role:nextRole})]);
+      return NextResponse.json({ok:true});
+    }
+    const id = String(body.id||'');
     const role = String(body.role||'agent');
     if (!/^[0-9a-f-]{36}$/i.test(id) || !['approve','reject'].includes(action) || (action==='approve'&&!isRole(role)))
       return NextResponse.json({error:'Solicitação inválida.'},{status:400});
