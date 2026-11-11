@@ -141,3 +141,12 @@ P3: limpeza autorizada de dados de teste; somente depois integração externa co
 - A função `admin_delete_test_record` exigida por `/limpeza` **não estava instalada** no Neon principal ou Preview na consulta de auditoria. A interface deve informar claramente essa pendência e impedir cliques de exclusão; a migração `neon/005_limpeza_segura.sql` não foi aplicada automaticamente.
 - O banco Neon Preview contém 1.848 empresas para teste; não é a base externa definitiva. Registros e senhas não devem ser apagados ou modificados nesta fase.
 - O plano da Vercel atingiu a cota diária de deploys (HTTP 402) ao solicitar Preview adicional; a branch GitHub com CI aprovado é fonte do estado mais recente enquanto o deploy estiver bloqueado.
+
+## Sprint 2 — atualização de decisões (11/11/2026)
+- O núcleo do produto passa a ser **captação e métricas empresariais** com rotas, visita, validação e cadastros confirmados; recursos secundários ficam em Mais/sistema.
+- **Rotas**, não campanhas, são o conceito principal na interface. `campaigns` continua como agrupamento técnico para compatibilidade com histórico, despesas e relatórios; novas rotas criam automaticamente o agrupamento interno.
+- A interface do agente em direção deve mostrar mapa, próxima orientação e destino; somente com veículo parado o usuário toca em **Cheguei** para confirmar GPS e iniciar registro.
+- **Cadastros Sindicais** é a visão final de empresas validadas e confirmadas administrativamente, com protocolo de referência. Não equivale à visita validada isolada.
+- A página de cobertura passa a contemplar **645 municípios**, filtros por situação e data de inserção, detalhe com empresas por cidade. A malha de SP é consultada em fonte pública geodata-br/IBGE com cache; nenhum polígono armazenado no Neon.
+- A base de 200 mil empresas permanece fora do Neon gratuito; ngrok/API externa somente após homologação do MVP. Nenhuma importação massiva autorizada.
+- Branch de implementação: `feat/modo-roteirizador-sprint-2`, PR #21; homologação em ambiente Neon Preview isolado antes de merge.
