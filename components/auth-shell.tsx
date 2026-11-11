@@ -1,13 +1,10 @@
 import type {ReactNode} from 'react';
-import {ShieldCheck} from 'lucide-react';
 
 type AuthShellProps={
  eyebrow:string;
  title:string;
  description:string;
  children:ReactNode;
- heroTitle?:ReactNode;
- heroDescription?:string;
  footer?:ReactNode;
 };
 export function AuthShell({
