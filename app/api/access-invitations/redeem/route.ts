@@ -36,6 +36,9 @@ export async function POST(req:Request){
       update access_invitations set accepted_at=now(),accepted_by=$2
       where token_hash=$1 and lower(email)=$3 and revoked_at is null
         and accepted_at is null and expires_at>now()
+        and exists (select 1 from neon_auth."user" account
+          where account.id::text=$2 and lower(account.email)=$3
+            and account."emailVerified"=true)
       returning id,full_name,role
     ), inserted as (
       insert into app_profiles(auth_user_id,full_name,role,is_active)
@@ -43,7 +46,7 @@ export async function POST(req:Request){
       on conflict(auth_user_id) do update set full_name=excluded.full_name,role=excluded.role,is_active=true
       returning auth_user_id
     ) select id from claimed where exists (select 1 from inserted)`,[hash(token),user.id,email]);
-    if(!rows.length) return NextResponse.json({error:'Convite inválido, já utilizado ou de outro e-mail.'},{status:403});
+    if(!rows.length) return NextResponse.json({error:'Não foi possível aceitar o convite. Confirme seu e-mail, o prazo e se ele pertence à sua conta.'},{status:403});
     await db().query(`insert into audit_logs(actor_id,action,details) values($1,'access.invitation_accepted',$2::jsonb)`,[user.id,JSON.stringify({invitation_id:rows[0].id})]);
     return NextResponse.json({ok:true});
   }catch(e){
