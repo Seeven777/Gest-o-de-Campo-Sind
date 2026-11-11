@@ -22,6 +22,8 @@ ALTER TABLE public.expenses
  ADD COLUMN IF NOT EXISTS description text,
  ADD COLUMN IF NOT EXISTS invoice_reference text,
  ADD COLUMN IF NOT EXISTS invoice_recipient_cnpj varchar(14),
+ ADD COLUMN IF NOT EXISTS invoice_issuer_cnpj varchar(14),
+ ADD COLUMN IF NOT EXISTS invoice_access_key varchar(44),
  ADD COLUMN IF NOT EXISTS receipt_received_at timestamptz,
  ADD COLUMN IF NOT EXISTS receipt_received_by text REFERENCES public.app_profiles(auth_user_id),
  ADD COLUMN IF NOT EXISTS physical_archive_reference text,
@@ -46,6 +48,9 @@ ALTER TABLE public.expenses
 
 ALTER TABLE public.expenses ADD CONSTRAINT expenses_payment_amount_positive
  CHECK(paid_amount IS NULL OR paid_amount>0);
+-- Quando houver chave da nota, uma mesma nota não pode sustentar dois reembolsos em andamento.
+CREATE UNIQUE INDEX IF NOT EXISTS ix_expenses_invoice_access_key ON public.expenses(invoice_access_key)
+ WHERE invoice_access_key IS NOT NULL AND approval_status NOT IN ('returned','rejected');
 CREATE INDEX IF NOT EXISTS ix_expenses_route_id ON public.expenses(route_id);
 CREATE INDEX IF NOT EXISTS ix_expenses_workflow ON public.expenses(approval_status,created_at DESC);
 CREATE INDEX IF NOT EXISTS ix_expenses_agent_created ON public.expenses(agent_id,created_at DESC);
