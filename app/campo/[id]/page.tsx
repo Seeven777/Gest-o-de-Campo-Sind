@@ -93,7 +93,8 @@ async function gpsForNavigation(cached:CurrentPosition|null,updatedAt:number,for
  if(!forceFresh&&previous&&Date.now()-previous.at<45000&&previous.point.accuracy<=1000){
   const permission=await permissionState();
   if(permission==='denied')throw locationError(1);
-  return previous.point;
+  if(permission==='granted')return previous.point;
+  // Quando a permissão voltou a 'prompt', solicite uma posição nova ao navegador.
  }
  try{return await gpsOnce({enableHighAccuracy:true,maximumAge:forceFresh?0:45000,timeout:12000})}
  catch(error){
@@ -274,7 +275,7 @@ function CampoGuiadoSession({id}:{id:string}){
    const p=await gpsForNavigation(positionRef.current,positionUpdatedAt.current,forceFresh);
    positionRef.current=p;positionUpdatedAt.current=Date.now();setPosition(p);rememberGps(p);
    await send('/api/campo/localizacao',{action:'start',route_id:id,consent:true,...p});
-   sentAt.current=Date.now();setStarted(true);setGpsRestart(n=>n+1);setNotice('Localização iniciada. Siga o mapa e pare o veículo antes de confirmar a chegada.');
+   sentAt.current=Date.now();setStarted(true);setGpsRestart(n=>n+1);setRerouteToken(n=>n+1);setNotice('Localização iniciada. Siga o mapa e pare o veículo antes de confirmar a chegada.');
   }catch(e){setError(e instanceof Error?e.message:'Não foi possível iniciar a localização.')}
   finally{setBusy(false)}
  }
