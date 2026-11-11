@@ -19,6 +19,7 @@ ALTER TABLE public.expenses ADD CONSTRAINT expenses_approval_status_check
 
 ALTER TABLE public.expenses
  ADD COLUMN IF NOT EXISTS route_id uuid REFERENCES public.routes(id),
+ ADD COLUMN IF NOT EXISTS client_request_id uuid,
  ADD COLUMN IF NOT EXISTS description text,
  ADD COLUMN IF NOT EXISTS invoice_reference text,
  ADD COLUMN IF NOT EXISTS invoice_recipient_cnpj varchar(14),
@@ -51,6 +52,9 @@ ALTER TABLE public.expenses ADD CONSTRAINT expenses_payment_amount_positive
 -- Quando houver chave da nota, uma mesma nota não pode sustentar dois reembolsos em andamento.
 CREATE UNIQUE INDEX IF NOT EXISTS ix_expenses_invoice_access_key ON public.expenses(invoice_access_key)
  WHERE invoice_access_key IS NOT NULL AND approval_status NOT IN ('returned','rejected');
+-- Uma solicitação reenviada devido à oscilação da rede não pode criar outra despesa.
+CREATE UNIQUE INDEX IF NOT EXISTS ix_expenses_client_request ON public.expenses(client_request_id)
+ WHERE client_request_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS ix_expenses_route_id ON public.expenses(route_id);
 CREATE INDEX IF NOT EXISTS ix_expenses_workflow ON public.expenses(approval_status,created_at DESC);
 CREATE INDEX IF NOT EXISTS ix_expenses_agent_created ON public.expenses(agent_id,created_at DESC);
