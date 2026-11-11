@@ -58,10 +58,10 @@ export async function POST(req:Request){
  const origin=req.headers.get('origin');
  if(origin&&new URL(origin).origin!==new URL(req.url).origin)return fail('Origem não autorizada.',403);
  const d=await req.json().catch(()=>({})) as Record<string,unknown>;
- const route=textValue(d.route_id,40),category=textValue(d.category,30),date=d.expense_date;
+ const route=textValue(d.route_id,40),requestId=textValue(d.request_id,40),category=textValue(d.category,30),date=d.expense_date;
  const amount=amountValue(d.amount),description=textValue(d.description,500);
  const invoice=textValue(d.invoice_reference,100),recipient=normalCnpj(d.invoice_recipient_cnpj);
- if(!uuid.test(route)||!categories.has(category)||amount===null||!dateValid(date)||description.length<6||description.length>500)
+ if(!uuid.test(route)||!uuid.test(requestId)||!categories.has(category)||amount===null||!dateValid(date)||description.length<6||description.length>500)
   return fail('Informe uma rota sua, categoria, data, valor e descrição válida (6 a 500 caracteres).');
  if(String(date)>todaySP())return fail('A despesa deve ter ocorrido na data informada. Não é possível solicitar gasto futuro.');
  if(invoice.length>100||recipient&&recipient.length!==14)return fail('Confira a referência da nota e os 14 caracteres do CNPJ destinatário.');
@@ -70,9 +70,9 @@ export async function POST(req:Request){
     and status in ('published','in_progress','completed')
  ), created as (
   insert into expenses(campaign_id,route_id,agent_id,category,amount,expense_date,description,
-   invoice_reference,invoice_recipient_cnpj,approval_status)
-  select campaign_id,id,$2,$3,$4,$5::date,$6,$7,$8,'submitted' from assigned
-  returning id
+   invoice_reference,invoice_recipient_cnpj,approval_status,client_request_id)
+  select campaign_id,id,$2,$3,$4,$5::date,$6,$7,$8,'submitted',$9::uuid from assigned
+  where true on conflict do nothing returning id
  ), tracked as (
   insert into expense_events(expense_id,actor_id,action,before_status,after_status,note,details)
   select id,$2,'submitted',null,'submitted','Solicitação de reembolso registrada',
@@ -81,8 +81,12 @@ export async function POST(req:Request){
   insert into audit_logs(actor_id,action,details)
   select $2,'expense.submitted',jsonb_build_object('expense_id',id,'route_id',$1) from created returning id
  ) select created.id from created join tracked on true join audited on true`,
- [route,user.id,category,amount,date,description,invoice||null,recipient||null]);
- if(!rows.length)return fail('Rota não encontrada ou não atribuída a você.',403);
+ [route,user.id,category,amount,date,description,invoice||null,recipient||null,requestId]);
+ if(!rows.length){
+  const [existing]=await db().query('select id from expenses where client_request_id=$1 and agent_id=$2 and route_id=$3',[requestId,user.id,route]);
+  if(existing)return NextResponse.json({item:existing,already_registered:true,message:'Solicitação já registrada; não foi criada duplicata.'},protectedResponse);
+  return fail('Rota não atribuída ou solicitação duplicada. Revise a lista antes de reenviar.',409);
+ }
  return NextResponse.json({item:rows[0],message:'Solicitação registrada. Entregue a nota fiscal original ao RH ao retornar.'},{status:201,...protectedResponse});
 }
 
