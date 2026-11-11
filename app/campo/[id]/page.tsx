@@ -150,7 +150,7 @@ export default function CampoGuiado(){
 }
 function CampoGuiadoSession({id}:{id:string}){
  const [data,setData]=useState<RouteData|null>(null),[plan,setPlan]=useState<FieldPlan|null>(null);
- const [started,setStarted]=useState(false),[position,setPosition]=useState<CurrentPosition|null>(null),[follow,setFollow]=useState(true),[gpsRestart,setGpsRestart]=useState(0),[gpsIssue,setGpsIssue]=useState(false);
+ const [started,setStarted]=useState(false),[position,setPosition]=useState<CurrentPosition|null>(null),[follow,setFollow]=useState(true),[gpsRestart,setGpsRestart]=useState(0),[gpsIssue,setGpsIssue]=useState(false),[signalTick,setSignalTick]=useState(0);
  const [busy,setBusy]=useState(false),[photoBusy,setPhotoBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[progress,setProgress]=useState(''),[retryCount,setRetryCount]=useState(0);
  const [showStops,setShowStops]=useState(false),[arrivalDialog,setArrivalDialog]=useState(false),[recenterToken,setRecenterToken]=useState(0);
  const [questionIndex,setQuestionIndex]=useState(0),[answers,setAnswers]=useState<Answers>(blankAnswers),[notes,setNotes]=useState('');
@@ -198,8 +198,10 @@ function CampoGuiadoSession({id}:{id:string}){
  const distance=straightDistance(position,target);
  const questionnaireEnd=questionIndex===questions.length;
  const nextQuestion=questions[questionIndex];
- const gpsActive=started&&!!position&&!gpsIssue;
- const gpsLabel=!started?'GPS parado':gpsIssue?'Sinal GPS instável':position?'GPS ativo':'Buscando GPS';
+ const gpsStale=started&&!!position&&signalTick>0&&signalTick-positionUpdatedAt.current>90000;
+ const gpsNeedsRecovery=started&&(gpsIssue||gpsStale);
+ const gpsActive=started&&!!position&&!gpsNeedsRecovery;
+ const gpsLabel=!started?'GPS parado':gpsNeedsRecovery?'GPS instável':position?'GPS ativo':'Buscando GPS';
  const remaining=ordered.length-complete;
  const currentStopId=current?.id;
  const havePosition=!!position;
@@ -280,6 +282,12 @@ function CampoGuiadoSession({id}:{id:string}){
   }catch(e){if((e as GpsFailure)?.geoCode!==undefined)setGpsIssue(true);setError(e instanceof Error?e.message:'Não foi possível iniciar a localização.')}
   finally{setBusy(false)}
  }
+ useEffect(()=>{
+  if(!started)return;
+  setSignalTick(Date.now());
+  const timer=window.setInterval(()=>setSignalTick(Date.now()),20000);
+  return()=>window.clearInterval(timer);
+ },[started]);
  useEffect(()=>{
   if(!started||!navigator.geolocation)return;
   let watch:number|undefined,alive=true;
@@ -526,7 +534,8 @@ function CampoGuiadoSession({id}:{id:string}){
      <MapPin size={20}/> Cheguei
     </button>
     {!target&&<p className="navigator-driving-alert">Local sem coordenadas precisas. Confirme o endereço antes de registrar a chegada.</p>}
-    {error&&(gpsIssue?<div className="navigator-gps-recovery" role="alert"><p>{error}</p><button type="button" disabled={busy} onClick={()=>void begin(true)}><LocateFixed size={16}/>{busy?'Localizando...':'Reativar GPS'}</button><small>Faça isso somente com o veículo parado.</small></div>:<p className="navigator-driving-alert" role="alert">{error}</p>)}
+    {gpsNeedsRecovery&&<div className="navigator-gps-recovery" role="alert"><p>{error||'O GPS parou de atualizar a posição. Você pode recuperar o sinal sem recarregar a página.'}</p><button type="button" disabled={busy} onClick={()=>void begin(true)}><LocateFixed size={16}/>{busy?'Localizando...':'Reativar GPS'}</button><small>Faça isso somente com o veículo parado.</small></div>}
+    {error&&!gpsNeedsRecovery&&<p className="navigator-driving-alert" role="alert">{error}</p>}
     {legError&&<p className="navigator-driving-alert" role="status">Percurso viário indisponível. Confira o endereço.</p>}
    </div>}
    {stage==='done'&&<div className="navigator-finished"><CheckCircle2 size={54}/>
