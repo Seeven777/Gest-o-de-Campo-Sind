@@ -1,48 +1,52 @@
-name: Jornada guiada - verificações
+name: Plataforma SindPetshop - verificações
 on:
-  push:
-    branches: [feat/jornada-guiada-fotos-gps-v12]
   pull_request:
+    branches: [main]
+  push:
     branches: [main]
 permissions:
   contents: read
 jobs:
   check:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
-    permissions:
-      contents: write
+    timeout-minutes: 20
     steps:
-      - name: Baixar código
-        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - name: Baixar código (somente leitura)
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
         with:
-          persist-credentials: true
+          persist-credentials: false
       - name: Preparar Node.js
         uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
         with:
           node-version: '22'
-      - name: Atualizar o lockfile de dependências
-        run: npm install --package-lock-only --ignore-scripts --no-audit --no-fund
-      - name: Commitar lockfile gerado (somente na branch da feature)
-        if: github.event_name == 'push' && github.ref == 'refs/heads/feat/jornada-guiada-fotos-gps-v12'
-        run: |
-          if ! git diff --quiet -- package-lock.json; then
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add package-lock.json
-            git commit -m "chore: atualizar package-lock para Blob privado"
-            git push origin HEAD:feat/jornada-guiada-fotos-gps-v12
-          fi
+          cache: npm
       - name: Instalar dependências sem executar scripts
         run: npm ci --ignore-scripts --no-audit --no-fund
       - name: Verificar TypeScript
         run: npm run typecheck
       - name: Verificar ESLint
         run: npm run lint
-      - name: Compilar Next.js com configurações sintéticas
+      - name: Compilar Next.js com configuração sintética (sem dados reais)
         env:
           DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
           DATABASE_NEON_AUTH_BASE_URL: https://ci-auth.example.com
           NEON_AUTH_COOKIE_SECRET: ci-only-dummy-cookie-secret-not-for-production-123456
           OPENROUTESERVICE_API_KEY: ci-dummy-no-api-requests
         run: npm run build
+      - name: Smoke HTTP de todas as telas e fotos de login
+        env:
+          DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+          DATABASE_NEON_AUTH_BASE_URL: https://ci-auth.example.com
+          NEON_AUTH_COOKIE_SECRET: ci-only-dummy-cookie-secret-not-for-production-123456
+          OPENROUTESERVICE_API_KEY: ci-dummy-no-api-requests
+          SMOKE_BASE_URL: http://127.0.0.1:3100
+        run: |
+          set -euo pipefail
+          npm run start -- --port 3100 > /tmp/sind-next.log 2>&1 &
+          NEXT_PID=$!
+          trap 'kill "$NEXT_PID" 2>/dev/null || true' EXIT
+          for i in $(seq 1 40); do
+            if curl -fsS "$SMOKE_BASE_URL/login" >/dev/null; then break; fi
+            sleep 1
+          done
+          npm run test:smoke || { cat /tmp/sind-next.log; exit 1; }
