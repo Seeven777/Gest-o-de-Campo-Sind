@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import {Building2,CalendarDays,Camera,CheckCheck,House,MoreHorizontal,Route,UsersRound,Wallet, type LucideIcon} from 'lucide-react';
+import {Building2,Camera,CheckCheck,House,MoreHorizontal,Route,UsersRound,Wallet, type LucideIcon} from 'lucide-react';
 
 export type DockRole='admin'|'supervisor'|'agent';
 type NavItem={href:string;label:string;icon:LucideIcon;featured?:boolean};
@@ -16,7 +16,7 @@ const destinations:Record<DockRole,NavItem[]>={
   {href:'/dashboard',label:'Início',icon:House},
   {href:'/rotas',label:'Rotas',icon:Route},
   {href:'/visitas',label:'Visitas',icon:Camera,featured:true},
-  {href:'/equipes',label:'Equipe',icon:UsersRound}
+  {href:'/relatorios',label:'Relatórios',icon:UsersRound}
  ],
  agent:[
   {href:'/agente',label:'Meu dia',icon:House},
