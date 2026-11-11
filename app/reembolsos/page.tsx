@@ -26,7 +26,7 @@ const day=(v:string)=>v?.slice(0,10).split('-').reverse().join('/')||'—';
 const today=()=>new Date().toLocaleDateString('sv-SE');
 
 export default function Reembolsos(){
- const [role,setRole]=useState<Role|null>(null),[routes,setRoutes]=useState<RouteOption[]>([]);
+ const [role,setRole]=useState<Role|null>(null),[currentUserId,setCurrentUserId]=useState(''),[routes,setRoutes]=useState<RouteOption[]>([]);
  const requestKey=useRef<string|null>(null);
  const [rows,setRows]=useState<Expense[]>([]),[summary,setSummary]=useState<Summary>({total:0,awaiting_paper:0,in_review:0,approved:0,awaiting_ack:0,legacy_paid:0,disputed:0,acknowledged:0});
  const [loading,setLoading]=useState(true),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
@@ -46,7 +46,7 @@ export default function Reembolsos(){
   (async()=>{try{
    const me=await fetch('/api/me',{cache:'no-store'});const data=await me.json();
    if(!me.ok)throw Error(data.error||'Faça login novamente.');
-   if(live)setRole(data.user.role);
+   if(live){setRole(data.user.role);setCurrentUserId(String(data.user.id||''))}
    if(data.user.role==='agent'){
     const resp=await fetch('/api/rotas',{cache:'no-store'});const d=await resp.json();
     if(!resp.ok)throw Error(d.error||'Não foi possível consultar suas rotas.');
@@ -116,7 +116,7 @@ export default function Reembolsos(){
    if(x.approval_status==='paid'&&x.payment_reference&&x.paid_at&&!x.receipt_acknowledged_at&&(!x.receipt_disputed_at||x.dispute_resolved_at))return ['acknowledge','contest'];
    return [];
   }
-  if(!rh)return [];
+  if(!rh||x.agent_id===currentUserId)return [];
   if(x.approval_status==='submitted')return ['receive','return','reject'];
   if(x.approval_status==='receipt_received')return ['send_accounting','return','reject'];
   if(x.approval_status==='accounting_review')return ['approve','return','reject'];
