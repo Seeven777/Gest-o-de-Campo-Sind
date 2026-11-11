@@ -7,7 +7,7 @@ const fail=(error:string,status=400)=>NextResponse.json({error},{status});
 export async function GET(){
  const u=await currentIdentity();if(!u||!['admin','supervisor'].includes(u.role))return fail('Acesso restrito à central.',403);
  const rows=await db().query(`select v.id,v.checkin_at,v.checkout_at,v.result,v.notes,v.review_status,v.review_notes,
- v.operating_status,v.signage_status,v.regularity_note,v.accuracy_m,
+ v.operating_status,v.signage_status,v.regularity_note,v.address_match,v.pet_activity_match,v.accuracy_m,
  case when v.checkin_position is not null and e.position is not null then round(ST_Distance(v.checkin_position,e.position)) else null end as distance_m,
  e.legal_name,e.cnpj,e.city,p.full_name as agent_name,
  (select ev.id from visit_evidence ev where ev.visit_id=v.id and ev.deleted_at is null and ev.expires_at>now() order by ev.uploaded_at desc limit 1) as evidence_id

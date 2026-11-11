@@ -7,14 +7,14 @@ import {BrandMark} from '@/components/brand-mark';
 import {adminMenu,agentMenu} from '@/lib/menu';
 import {authClient} from '@/lib/auth/client';
 type User={id:string;name:string;email:string;role:'admin'|'supervisor'|'agent'};
-export function Portal({title,subtitle,children,action}:{title:string;subtitle?:string;children:React.ReactNode;action?:React.ReactNode}){
+export function Portal({title,subtitle,children,action,immersive=false}:{title:string;subtitle?:string;children:React.ReactNode;action?:React.ReactNode;immersive?:boolean}){
  const [user,setUser]=useState<User|null>(null),[loading,setLoading]=useState(true),[drawer,setDrawer]=useState(false),[collapsed,setCollapsed]=useState(false);
  const router=useRouter(),pathname=usePathname();
  useEffect(()=>{let live=true;fetch('/api/me',{cache:'no-store'}).then(async r=>{if(!r.ok){if(r.status===401)router.replace('/login');return null}return r.json()}).then(j=>{if(live&&j?.user){setUser(j.user);if(j.user.role==='agent'&&pathname==='/dashboard')router.replace('/agente')}}).catch(()=>{}).finally(()=>{if(live)setLoading(false)});return()=>{live=false}},[router,pathname]);
  const agent=user?.role==='agent';const items=agent?agentMenu:adminMenu.filter(item=>item.href!=='/limpeza'||user?.role==='admin');
  if(loading)return <div className="loading-screen"><BrandMark size={52}/><p>Preparando seu espaço de trabalho...</p></div>;
  if(!user)return <div className="loading-screen"><BrandMark size={52}/><h2>Acesso restrito</h2><p>Entre na sua conta ou solicite que a administração libere seu perfil.</p><Link className="button" href="/login">Ir para o acesso</Link></div>;
- return <div className={`app-shell ${collapsed?'collapsed':''}`}>
+ return <div className={`app-shell ${collapsed?'collapsed':''} ${immersive?'journey-shell':''}`}>
   <aside className={`side ${drawer?'shown':''}`}>
     <div className="side-head"><Link href="/dashboard" className="brand"><BrandMark size={42}/><div><strong>SindPetshop<span>-SP</span></strong><small>Campo & Território</small></div></Link><button className="icon-btn side-close" aria-label="Fechar" onClick={()=>setDrawer(false)}><X size={19}/></button></div>
     <div className="side-scroll"><div className="side-unit"><span className="eyebrow">{agent?'ESPAÇO DO AGENTE':'CENTRAL DE OPERAÇÕES'}</span><strong>{agent?'Sua jornada de campo':'Onde a presença vira resultado.'}</strong></div>
