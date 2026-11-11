@@ -1,5 +1,5 @@
 'use client';
-import {useEffect,useState,type FormEvent} from 'react';
+import {useEffect,useRef,useState,type FormEvent} from 'react';
 import {Portal} from '@/components/portal';
 import {Receipt,Wallet,Clock3,CheckCircle2,FileCheck2,History,ArrowRight,ChevronLeft,ChevronRight,AlertCircle,ShieldCheck} from 'lucide-react';
 import './reembolsos.css';
@@ -27,6 +27,7 @@ const today=()=>new Date().toLocaleDateString('sv-SE');
 
 export default function Reembolsos(){
  const [role,setRole]=useState<Role|null>(null),[routes,setRoutes]=useState<RouteOption[]>([]);
+ const requestKey=useRef<string|null>(null);
  const [rows,setRows]=useState<Expense[]>([]),[summary,setSummary]=useState<Summary>({total:0,awaiting_paper:0,in_review:0,approved:0,awaiting_ack:0,legacy_paid:0,disputed:0,acknowledged:0});
  const [loading,setLoading]=useState(true),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
  const [page,setPage]=useState(1),[hasMore,setHasMore]=useState(false),[statusFilter,setStatusFilter]=useState('');
@@ -67,11 +68,13 @@ export default function Reembolsos(){
  async function submit(e:FormEvent){
   e.preventDefault();setBusy(true);setError('');setNotice('');
   try{
+   if(!requestKey.current)requestKey.current=crypto.randomUUID();
    const r=await fetch('/api/despesas',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({
-    route_id:route,category,amount:Number(amount),expense_date:expenseDate,description,
+    route_id:route,request_id:requestKey.current,category,amount:Number(amount),expense_date:expenseDate,description,
     invoice_reference:invoice,invoice_recipient_cnpj:recipient})});
    const d=await r.json();if(!r.ok)throw Error(d.error||'Não foi possível registrar.');
-   setNotice('Solicitação registrada. Guarde a nota fiscal original e entregue-a ao RH quando retornar.');
+   setNotice(d.already_registered?'Esta solicitação já estava registrada. Nenhuma despesa duplicada foi criada.':'Solicitação registrada. Guarde a nota fiscal original e entregue-a ao RH quando retornar.');
+   requestKey.current=null;
    setDescription('');setInvoice('');setRecipient('');setAmount('');setPage(1);setStatusFilter('');await load(1,'');
   }catch(e){setError(e instanceof Error?e.message:'Falha no registro.')}
   finally{setBusy(false)}
