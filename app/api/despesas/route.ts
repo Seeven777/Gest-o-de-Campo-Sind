@@ -98,6 +98,7 @@ export async function PATCH(req:Request){
  const user=await currentIdentity();
  if(!user)return fail('Entre em sua conta.',401);
  if(!['agent','rh'].includes(user.role))return fail('Somente o agente e o RH podem movimentar reembolsos.',403);
+ if(!(await isSchemaReady('rh')))return fail(schemaPendingMessage('rh'),503);
  const origin=req.headers.get('origin');
  if(origin&&new URL(origin).origin!==new URL(req.url).origin)return fail('Origem não autorizada.',403);
  const d=await req.json().catch(()=>({})) as Record<string,unknown>;
