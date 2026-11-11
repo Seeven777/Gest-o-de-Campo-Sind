@@ -3,8 +3,8 @@ import {useEffect,useMemo,useRef,useState} from 'react';
 import Link from 'next/link';
 import {useParams} from 'next/navigation';
 import {Portal} from '@/components/portal';
-import {FieldNavigationMap,type CurrentPosition,type FieldPlan} from '@/components/field-navigation-map';
-import {ArrowLeft,ArrowRight,Camera,Check,CheckCircle2,ChevronRight,ClipboardCheck,Flag,LocateFixed,MapPin,MapPinned,Navigation,PauseCircle,Play,Route as RouteIcon,ShieldCheck,X} from 'lucide-react';
+import {FieldNavigationMap,type ActiveLeg,type CurrentPosition,type FieldPlan} from '@/components/field-navigation-map';
+import {ArrowLeft,ArrowRight,Camera,Check,CheckCircle2,ChevronRight,ClipboardCheck,Flag,LocateFixed,MapPin,MapPinned,Navigation,PauseCircle,Play,Route as RouteIcon,ShieldCheck,X,ZoomIn,ZoomOut,RefreshCw,Maximize2,RotateCcw,CornerUpLeft,CornerUpRight,MoveUp} from 'lucide-react';
 import '../jornada.css';
 
 type Stop={
@@ -12,6 +12,7 @@ type Stop={
  city:string|null;state:string|null;cnpj:string;lat:number|null;lon:number|null;
  visit_id:string|null;checkin_at:string|null;checkout_at:string|null;review_status:string|null;review_notes?:string|null;has_photo:boolean;
 };
+type ArrivalPhase='locating'|'saving'|null;
 type RouteData={
  route:{id:string;campaign_name:string;route_date:string;status:string};
  stops:Stop[];
@@ -44,6 +45,7 @@ const questions:Question[]=[
   {value:'not_evaluated',label:'Não consegui avaliar'}
  ]}
 ];
+const wallTime=()=>Date.now();
 const blankAnswers=():Answers=>({address_match:'',operating_status:'',pet_activity_match:'',signage_status:'',regularity_note:''});
 async function apiResponse<T extends {error?:string}>(response:Response):Promise<T>{
  const raw=await response.text();
@@ -51,17 +53,17 @@ async function apiResponse<T extends {error?:string}>(response:Response):Promise
  try{return JSON.parse(raw) as T}
  catch{throw Error('A resposta do servidor foi inválida (HTTP '+response.status+'). Tente novamente.')}
 }
-const send=async(path:string,body:unknown)=>{
+const send=async<T extends {error?:string}={error?:string;ok?:boolean}>(path:string,body:unknown):Promise<T>=>{
  const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),cache:'no-store'});
- const data=await apiResponse<{error?:string;ok?:boolean}>(r);
+ const data=await apiResponse<T>(r);
  if(!r.ok)throw Error(data.error||'Não foi possível concluir a operação.');return data;
 };
-const gpsOnce=()=>new Promise<CurrentPosition>((resolve,reject)=>{
+const gpsOnce=(options:PositionOptions={enableHighAccuracy:true,maximumAge:0,timeout:18000})=>new Promise<CurrentPosition>((resolve,reject)=>{
  if(!navigator.geolocation)return reject(Error('Seu celular não disponibiliza GPS.'));
  navigator.geolocation.getCurrentPosition(
   p=>resolve({lat:p.coords.latitude,lon:p.coords.longitude,accuracy:p.coords.accuracy}),
   ()=>reject(Error('Autorize o GPS nas permissões do navegador e tente novamente.')),
-  {enableHighAccuracy:true,maximumAge:0,timeout:18000});
+  options);
 });
 async function compressedPhoto(file:File):Promise<File>{
  let w=0,h=0,draw:(ctx:CanvasRenderingContext2D,width:number,height:number)=>void;
@@ -132,7 +134,11 @@ export default function CampoGuiado(){
  const [busy,setBusy]=useState(false),[photoBusy,setPhotoBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[progress,setProgress]=useState(''),[retryCount,setRetryCount]=useState(0);
  const [showStops,setShowStops]=useState(false),[arrivalDialog,setArrivalDialog]=useState(false),[recenterToken,setRecenterToken]=useState(0);
  const [questionIndex,setQuestionIndex]=useState(0),[answers,setAnswers]=useState<Answers>(blankAnswers),[notes,setNotes]=useState('');
- const sentAt=useRef(0),positionRef=useRef<CurrentPosition|null>(null);
+ const [arrivalPhase,setArrivalPhase]=useState<ArrivalPhase>(null);
+ const [leg,setLeg]=useState<ActiveLeg|null>(null),[legBusy,setLegBusy]=useState(false),[legError,setLegError]=useState('');
+ const [rerouteToken,setRerouteToken]=useState(0),[fitToken,setFitToken]=useState(0),[zoomCommand,setZoomCommand]=useState<{id:number;delta:1|-1}|undefined>(undefined);
+ const [showGuide,setShowGuide]=useState(true),[mapToolsOpen,setMapToolsOpen]=useState(false);
+ const sentAt=useRef(0),positionRef=useRef<CurrentPosition|null>(null),positionUpdatedAt=useRef(0);
  const cacheKey='sind-jornada-plan:'+id;
  async function reload(){
   const r=await fetch('/api/campo/'+encodeURIComponent(id),{cache:'no-store'});
@@ -174,12 +180,57 @@ export default function CampoGuiado(){
  const nextQuestion=questions[questionIndex];
  const gpsActive=started;
  const remaining=ordered.length-complete;
+ const currentStopId=current?.id;
+ const havePosition=!!position;
+ useEffect(()=>{
+  if(!started||!currentStopId||!target||!havePosition){setLeg(null);setLegBusy(false);return}
+  const p=positionRef.current;
+  if(!p)return;
+  const ctrl=new AbortController();
+  let alive=true;
+  setLeg(null);setLegError('');setLegBusy(true);
+  (async()=>{
+   try{
+    const r=await fetch('/api/campo/'+encodeURIComponent(id)+'/trecho',{
+     method:'POST',headers:{'Content-Type':'application/json'},
+     body:JSON.stringify({stop_id:currentStopId,lat:p.lat,lon:p.lon}),
+     signal:ctrl.signal,cache:'no-store'});
+    const route=await apiResponse<ActiveLeg & {error?:string}>(r);
+    if(!r.ok)throw Error(route.error||'Não foi possível obter as orientações.');
+    if(alive)setLeg(route);
+   }catch(e){
+    if(alive&&!ctrl.signal.aborted)setLegError(e instanceof Error?e.message:'Orientações indisponíveis.');
+   }finally{if(alive)setLegBusy(false)}
+  })();
+  return()=>{alive=false;ctrl.abort()};
+ // O mapa consulta um novo trecho somente ao iniciar, trocar de parada ou pedir recálculo.
+ // eslint-disable-next-line react-hooks/exhaustive-deps
+ },[id,started,currentStopId,target?.lat,target?.lon,havePosition,rerouteToken]);
+ const navigationStatus=useMemo(()=>{
+  if(!leg||!position||!leg.geometry.coordinates.length)return null;
+  const coordinates=leg.geometry.coordinates;
+  let near=Number.POSITIVE_INFINITY,nearest=0;
+  // Rota existente: localiza o ponto mais próximo para exibir a próxima manobra.
+  for(let i=0;i<coordinates.length;i++){
+   const [lon,lat]=coordinates[i];
+   const dlat=(position.lat-lat)*111000,dlon=(position.lon-lon)*111000*Math.cos(position.lat*Math.PI/180);
+   const sq=dlat*dlat+dlon*dlon;
+   if(sq<near){near=sq;nearest=i}
+  }
+  const offset=Math.sqrt(near);
+  const next=leg.steps.find(step=>step.route_index>nearest+1&&step.type!==11)||leg.steps.find(step=>step.type===10)||null;
+  return {offRoute:offset>200,step:next,distanceToTurn:next?straightDistance(position,{lat:next.at[1],lon:next.at[0]}):null};
+ },[leg,position]);
+ const nextTurn=navigationStatus?.step;
+ const turnIcon=nextTurn?.type===0||nextTurn?.type===2||nextTurn?.type===4||nextTurn?.type===12?
+  <CornerUpLeft size={26}/>:nextTurn?.type===1||nextTurn?.type===3||nextTurn?.type===5||nextTurn?.type===13?
+  <CornerUpRight size={26}/>:nextTurn?.type===9?<RotateCcw size={26}/>:<MoveUp size={26}/>;
  async function calculate(){
   if(!data)return;
   setBusy(true);setError('');setNotice('');
   try{
    let start:CurrentPosition|undefined;
-   try{start=await gpsOnce();positionRef.current=start;setPosition(start)}catch{ /* Usa primeira parada quando localização não estiver disponível. */ }
+   try{start=await gpsOnce();positionRef.current=start;positionUpdatedAt.current=Date.now();setPosition(start)}catch{ /* Usa primeira parada quando localização não estiver disponível. */ }
    let saved:FieldPlan|null=null;
    for(let batch=1;batch<=12;batch++){
     setProgress('Preparando endereços · tentativa '+batch);
@@ -201,7 +252,7 @@ export default function CampoGuiado(){
  async function begin(){
   setBusy(true);setError('');setNotice('');
   try{
-   const p=await gpsOnce();positionRef.current=p;setPosition(p);
+   const p=await gpsOnce();positionRef.current=p;positionUpdatedAt.current=Date.now();setPosition(p);
    await send('/api/campo/localizacao',{action:'start',route_id:id,consent:true,...p});
    setStarted(true);setNotice('Jornada iniciada. A central recebe sua posição somente enquanto o GPS está ativo.');
   }catch(e){setError(e instanceof Error?e.message:'Não foi possível iniciar a localização.')}
@@ -217,7 +268,7 @@ export default function CampoGuiado(){
   if(!started||!navigator.geolocation)return;
   let watch:number|undefined;
   const ping=(p:CurrentPosition)=>{
-   positionRef.current=p;setPosition(p);
+   positionRef.current=p;positionUpdatedAt.current=Date.now();setPosition(p);
    if(Date.now()-sentAt.current<20000)return;
    sentAt.current=Date.now();
    void send('/api/campo/localizacao',{action:'ping',route_id:id,...p}).catch(e=>setError(e instanceof Error?e.message:'GPS desconectado.'));
@@ -225,7 +276,7 @@ export default function CampoGuiado(){
   const resume=()=>{
    if(document.visibilityState==='visible'&&watch===undefined){
     watch=navigator.geolocation.watchPosition(
-     p=>ping({lat:p.coords.latitude,lon:p.coords.longitude,accuracy:p.coords.accuracy}),
+     p=>ping({lat:p.coords.latitude,lon:p.coords.longitude,accuracy:p.coords.accuracy,heading:p.coords.heading,speed:p.coords.speed}),
      ()=>setError('GPS indisponível. Confira as permissões de localização.'),
      {enableHighAccuracy:true,maximumAge:10000,timeout:18000});
    }else if(document.visibilityState==='hidden'&&watch!==undefined){
@@ -248,14 +299,27 @@ export default function CampoGuiado(){
  },[started]);
  async function arrive(){
   if(!current||busy)return;
-  setArrivalDialog(false);setBusy(true);setError('');setNotice('');
+  const stopId=current.id;
+  setArrivalDialog(false);setBusy(true);setArrivalPhase('locating');setError('');setNotice('');
   try{
-   const p=await gpsOnce();setPosition(p);positionRef.current=p;
-   await send('/api/campo/visita',{action:'arrive',stop_id:current.id,...p});
-   await reload();
-   setNotice('Chegada registrada. Agora tire uma foto da fachada.');
+   // Acompanhamento GPS já ativo: evite aguardar outra aquisição de até 18 segundos
+   // quando existe uma medição recente e suficientemente precisa.
+   let fix=positionRef.current;
+   if(!fix||wallTime()-positionUpdatedAt.current>12000||fix.accuracy>250){
+    fix=await gpsOnce({enableHighAccuracy:true,maximumAge:5000,timeout:12000});
+    positionRef.current=fix;positionUpdatedAt.current=wallTime();setPosition(fix);
+   }
+   setArrivalPhase('saving');
+   const result=await send<{id?:string;error?:string}>('/api/campo/visita',{action:'arrive',stop_id:stopId,...fix});
+   if(!result.id||!/^[0-9a-f-]{36}$/i.test(result.id))throw Error('O servidor não confirmou o registro. Atualize sua jornada antes de tentar novamente.');
+   // A API já confirmou o check-in. Atualize somente esta parada, sem novo GET bloqueante.
+   const visitId=result.id;
+   setData(previous=>previous?{...previous,stops:previous.stops.map(stop=>
+    stop.id===stopId?{...stop,visit_id:visitId,checkin_at:new Date().toISOString(),has_photo:false}:stop
+   )}:previous);
+   setNotice('Chegada registrada! Agora tire uma foto da fachada.');
   }catch(e){setError(e instanceof Error?e.message:'Não foi possível registrar a chegada.')}
-  finally{setBusy(false)}
+  finally{setArrivalPhase(null);setBusy(false)}
  }
  async function uploadPhoto(file:File|undefined){
   if(!file||!current?.visit_id)return;
@@ -264,22 +328,37 @@ export default function CampoGuiado(){
    const jpeg=await compressedPhoto(file),form=new FormData();form.append('visit_id',current.visit_id);form.append('photo',jpeg);
    const r=await fetch('/api/campo/foto',{method:'POST',body:form}),d=await apiResponse<{error?:string}>(r);
    if(!r.ok)throw Error(d.error||'Não foi possível enviar a foto.');
-   await reload();setNotice('Foto recebida e protegida. Responda às perguntas para concluir.');
+   // O upload confirmado é suficiente para liberar o questionário sem esperar outra consulta.
+   const uploadedId=current.visit_id;
+   setData(previous=>previous?{...previous,stops:previous.stops.map(stop=>
+    stop.visit_id===uploadedId?{...stop,has_photo:true}:stop
+   )}:previous);
+   setNotice('Foto recebida e protegida. Responda às perguntas para concluir.');
   }catch(e){setError(e instanceof Error?e.message:'Erro no envio da fotografia.')}
   finally{setPhotoBusy(false)}
  }
  async function finish(){
   if(!current?.visit_id||questions.some(q=>!answers[q.key]))return;
+  const stopId=current.id,visitId=current.visit_id;
+  const isLast=ordered.every(stop=>stop.id===stopId||!!stop.checkout_at);
   setBusy(true);setError('');setNotice('');
   try{
-   await send('/api/campo/visita',{action:'finish',stop_id:current.id,visit_id:current.visit_id,...answers,notes});
-   const d=await reload();
+   await send('/api/campo/visita',{action:'finish',stop_id:stopId,visit_id:visitId,...answers,notes});
+   // Resposta confirmada: avança diretamente, sem esperar outra consulta de toda a rota.
+   setData(previous=>previous?{...previous,stops:previous.stops.map(stop=>
+    stop.id===stopId?{...stop,checkout_at:new Date().toISOString(),review_status:'pending'}:stop
+   )}:previous);
    setQuestionIndex(0);setAnswers(blankAnswers());setNotes('');
-   setFollow(true);setRecenterToken(n=>n+1);setShowStops(false);
-   if(d.stops.every(s=>!!s.checkout_at)){
-    await send('/api/campo/localizacao',{action:'stop'}).catch(()=>{});
-    setStarted(false);setNotice('Todas as visitas foram enviadas. O GPS foi encerrado.');
-   }else setNotice('Visita enviada à central. Próxima parada carregada automaticamente!');
+   setFollow(true);setRecenterToken(n=>n+1);setShowStops(false);setShowGuide(true);setMapToolsOpen(false);
+   if(isLast){
+    setNotice('Todas as visitas foram enviadas à central.');
+    try{
+     await send('/api/campo/localizacao',{action:'stop'});
+     setStarted(false);setNotice('Jornada concluída e GPS encerrado.');
+    }catch{
+     setError('Visitas salvas, mas não foi possível desligar o GPS. Toque em Encerrar localização para tentar novamente.');
+    }
+   }else setNotice('Visita enviada à central. Próxima parada pronta!');
   }catch(e){setError(e instanceof Error?e.message:'Falha ao enviar visita. Suas respostas continuam na tela.')}
   finally{setBusy(false)}
  }
@@ -288,10 +367,22 @@ export default function CampoGuiado(){
  <div className="navigator-root">
   <div className="navigator-map-frame">
    {plan?<FieldNavigationMap plan={plan} targetId={current?.id} current={position} follow={follow}
-    immersive completedIds={ordered.filter(s=>!!s.checkout_at).map(s=>s.id)} recenterToken={recenterToken}/>:
+    immersive completedIds={ordered.filter(s=>!!s.checkout_at).map(s=>s.id)} recenterToken={recenterToken}
+    fitToken={fitToken} zoomCommand={zoomCommand} activeLeg={leg}
+    onManualPan={()=>setFollow(false)}/>:
     <div className="navigator-empty-map" aria-hidden="true"><MapPinned size={86}/></div>}
   </div>
   {(stage==='photo'||stage==='questions')&&<div className="navigator-map-shade" aria-hidden="true"/>}
+  {arrivalPhase&&<div className="navigator-action-progress" role="status" aria-live="polite" aria-label="Confirmando a chegada">
+   <div className="navigator-action-card">
+    <div className="navigator-action-pulse">{arrivalPhase==='locating'?<LocateFixed size={35}/>:<CheckCircle2 size={35}/>}</div>
+    <strong>{arrivalPhase==='locating'?'Conferindo sua localização...':'Registrando sua chegada...'}</strong>
+    <p>{arrivalPhase==='locating'?'Verificando a posição do celular.':'Enviando a confirmação à central.'}</p>
+    <div className="navigator-action-steps" aria-hidden="true">
+     <span className="active">Localização</span><span className={arrivalPhase==='saving'?'active':''}>Registro</span><span>Foto</span>
+    </div>
+   </div>
+  </div>}
   <header className="navigator-top-panel">
    <div className="navigator-top-line"><span className="navigator-kicker"><RouteIcon size={16}/> ROTA EM CAMPO</span>
     <span className={'navigator-live-tag'+(gpsActive?' on':'')}><span/>{gpsActive?'GPS ativo':'GPS parado'}</span></div>
@@ -302,12 +393,34 @@ export default function CampoGuiado(){
     {current&&<span>Parada {activeIndex} de {ordered.length}</span>}
    </div>
    <div className="navigator-progress-bar"><span style={{width:ordered.length?complete/ordered.length*100+'%':'0%'}}/></div>
+   {started&&current&&<div className="navigator-directions-summary" role="status">
+    {legBusy?<><span className="navigator-mini-spinner"/><span>Calculando caminho até a empresa...</span></>:
+    leg?<><RouteIcon size={17}/><strong>{fmtDistance(leg.distance_m)}</strong><span>·</span><strong>{Math.max(1,Math.round(leg.duration_s/60))} min</strong><small>estimados, sem trânsito</small></>:
+    <><MapPin size={17}/><span>GPS ativo · orientação viária indisponível</span></>}
+   </div>}
   </header>
-  {plan&&(stage==='ready'||stage==='travel')&&<nav className="navigator-map-actions" aria-label="Controles do mapa">
-   <button type="button" onClick={()=>setShowStops(x=>!x)} aria-pressed={showStops} title="Visualizar paradas">
+  {started&&current&&leg&&navigationStatus&&showGuide&&(stage==='travel')&&<div className="navigator-turn-banner" role="status" aria-live="polite">
+   <span className="navigator-turn-icon">{turnIcon}</span>
+   <div><strong>{navigationStatus.offRoute?'Fora do trajeto sugerido':nextTurn?.instruction||'Siga até o destino'}</strong>
+   <small>{navigationStatus.offRoute?'Use Recalcular para traçar um novo caminho.':navigationStatus.distanceToTurn!==null?'Próxima orientação a '+fmtDistance(navigationStatus.distanceToTurn):'Acompanhe o GPS no mapa'}</small></div>
+   <button type="button" aria-label="Ocultar orientação" title="Ocultar orientação" onClick={()=>setShowGuide(false)}><X size={18}/></button>
+  </div>}
+  {plan&&(stage==='ready'||stage==='travel')&&<nav className={'navigator-map-actions'+(mapToolsOpen?' expanded':'')} aria-label="Controles do mapa">
+   <button type="button" onClick={()=>{setFollow(true);setRecenterToken(n=>n+1)}} title="Acompanhar minha posição" disabled={!position} className={follow?'navigator-following':''}>
+    <LocateFixed size={24}/><span>{follow?'Seguindo':'Seguir GPS'}</span></button>
+   <button type="button" className="navigator-more-tools" onClick={()=>setMapToolsOpen(x=>!x)} aria-expanded={mapToolsOpen} title={mapToolsOpen?'Fechar ferramentas':'Abrir ferramentas do mapa'}>
+    <RouteIcon size={23}/><span>{mapToolsOpen?'Fechar':'Ferramentas'}</span></button>
+   <button type="button" onClick={()=>{setFollow(false);setFitToken(n=>n+1);setMapToolsOpen(false)}} title="Ver o percurso completo">
+    <Maximize2 size={23}/><span>Ver rota</span></button>
+   <button type="button" onClick={()=>{setShowStops(x=>!x);setMapToolsOpen(false)}} aria-pressed={showStops} title="Visualizar paradas">
     <RouteIcon size={23}/><span>Paradas</span></button>
-   <button type="button" onClick={()=>{setFollow(true);setRecenterToken(n=>n+1)}} title="Centralizar o GPS" disabled={!position}>
-    <LocateFixed size={24}/><span>Centralizar</span></button>
+   <button type="button" onClick={()=>setZoomCommand(old=>({id:(old?.id||0)+1,delta:1}))} title="Ampliar mapa">
+    <ZoomIn size={22}/><span>Mais zoom</span></button>
+   <button type="button" onClick={()=>setZoomCommand(old=>({id:(old?.id||0)+1,delta:-1}))} title="Reduzir mapa">
+    <ZoomOut size={22}/><span>Menos zoom</span></button>
+   {started&&current&&target&&<button type="button" disabled={legBusy} onClick={()=>{setShowGuide(true);setRerouteToken(n=>n+1)}} title="Recalcular o caminho a partir da posição atual">
+    <RefreshCw size={23}/><span>Recalcular</span></button>}
+   {!showGuide&&leg&&<button type="button" onClick={()=>setShowGuide(true)} title="Mostrar orientação"><Navigation size={22}/><span>Orientações</span></button>}
   </nav>}
   {showStops&&plan&&(stage==='ready'||stage==='travel')&&<aside className="navigator-stops-panel" aria-label="Lista de paradas">
    <div className="navigator-stops-heading"><strong>Empresas da jornada</strong><button aria-label="Fechar lista de paradas" onClick={()=>setShowStops(false)}><X size={22}/></button></div>
@@ -316,7 +429,7 @@ export default function CampoGuiado(){
    </li>)}</ol>
   </aside>}
   {(stage==='prepare'||stage==='loading'||stage==='ready'||stage==='travel'||stage==='done')&&
-  <section className="navigator-sheet" aria-label="Próxima ação da jornada">
+  <section key={current?.id+'-'+stage} className="navigator-sheet navigator-sheet-enter" aria-label="Próxima ação da jornada">
    <div className="navigator-sheet-grip" aria-hidden="true"/>
    {error&&<p className="navigator-error" role="alert">{error}</p>}
    {notice&&<p className="navigator-notice" role="status">{notice}</p>}
@@ -344,7 +457,8 @@ export default function CampoGuiado(){
     <small>{distance===null?'Aguardando coordenadas':'Distância em linha reta, não é o trajeto pelas ruas'}</small>
    </div>
     {!target&&<p className="navigator-warning">Endereço sem posição exata no mapa. Confira cuidadosamente o local antes de registrar a chegada.</p>}
-    {plan?.route_warning&&<p className="navigator-warning">O trajeto nas ruas não foi calculado. Os pontos no mapa são apenas referências.</p>}
+    {legError&&<p className="navigator-warning" role="status">{legError} O mapa de paradas permanece disponível.</p>}
+    {plan?.route_warning&&!leg&&<p className="navigator-warning">O trajeto nas ruas não foi calculado. Os pontos no mapa são apenas referências.</p>}
     <ArrivalSlider disabled={busy} onConfirm={()=>setArrivalDialog(true)}/>
     <button type="button" className="navigator-stop-link" onClick={()=>void stopTracking()} disabled={busy}>
      <PauseCircle size={19}/> Parar compartilhamento de GPS</button>
@@ -355,7 +469,7 @@ export default function CampoGuiado(){
     {started&&<button className="navigator-primary" onClick={()=>void stopTracking()} disabled={busy}><PauseCircle size={23}/> Encerrar localização</button>}
     <Link className="navigator-secondary-link" href="/agente">Voltar ao Meu dia</Link></div>}
   </section>}
-  {(stage==='photo'||stage==='questions')&&<section className="navigator-form-sheet" aria-label="Registro da visita">
+  {(stage==='photo'||stage==='questions')&&<section key={current?.id+'-'+stage} className="navigator-form-sheet navigator-sheet-enter" aria-label="Registro da visita">
    <div className="navigator-sheet-grip" aria-hidden="true"/>
    <div className="navigator-form-header">
     <span><ClipboardCheck size={18}/> VISITA À EMPRESA · {activeIndex}/{ordered.length}</span>
@@ -363,7 +477,7 @@ export default function CampoGuiado(){
    </div>
    {error&&<p className="navigator-error" role="alert">{error}</p>}
    {notice&&<p className="navigator-notice" role="status">{notice}</p>}
-   {stage==='photo'&&<div className="navigator-photo-step">
+   {stage==='photo'&&<div className="navigator-photo-step navigator-step-enter">
     <div className="navigator-photo-emblem"><Camera size={39}/></div>
     <span className="navigator-sheet-eyebrow">ETAPA 1 · COMPROVAÇÃO</span><h2>Fotografe a fachada</h2>
     <p>Inclua a entrada e o nome do estabelecimento, quando visível. Evite fotografar pessoas ou documentos.</p>
@@ -371,9 +485,10 @@ export default function CampoGuiado(){
      <Camera size={25}/>{photoBusy?'Enviando foto...':'Tirar foto ou escolher imagem'}
      <input type="file" accept="image/*" capture="environment" disabled={photoBusy} onChange={e=>{const file=e.target.files?.[0];e.target.value='';void uploadPhoto(file)}}/>
     </label>
+    {photoBusy&&<p className="navigator-upload-progress" role="status"><span className="navigator-mini-spinner"/> Preparando e enviando a foto...</p>}
     <p className="navigator-small">A foto será mantida em armazenamento privado temporário e removida após a análise.</p>
    </div>}
-   {stage==='questions'&&<div className="navigator-question-step">
+   {stage==='questions'&&<div key={questionIndex} className="navigator-question-step navigator-step-enter">
     {current?.review_status==='needs_more'&&current.review_notes&&<p className="navigator-warning">A central solicitou uma correção: {current.review_notes}</p>}
     <div className="navigator-step-counter"><span>{questionnaireEnd?'ETAPA FINAL · OBSERVAÇÕES':'PERGUNTA '+(questionIndex+1)+' DE '+questions.length}</span><span><Check size={15}/> Foto recebida</span></div>
     <div className="navigator-step-track"><span style={{width:(questionIndex/questions.length)*100+'%'}}/></div>
