@@ -1,48 +1,125 @@
 'use client';
-import {useEffect,useState} from 'react';import Link from 'next/link';import {Portal} from '@/components/portal';import {Route as RouteIcon} from 'lucide-react';
-type RouteRow={id:string;route_date:string;campaign_name:string;agent_name:string;status:string;stops:number};type Pick={id:string;name:string};type Company={id:string;legal_name:string;city:string};
-const statusLabels:Record<string,string>={draft:'Rascunho',published:'Publicada',in_progress:'Em andamento',completed:'Concluída',cancelled:'Cancelada'};
-export default function Rotas(){const [rows,setRows]=useState<RouteRow[]>([]),[campaigns,setCampaigns]=useState<Pick[]>([]),[agents,setAgents]=useState<Pick[]>([]),[companies,setCompanies]=useState<Company[]>([]);
-const [companyPage,setCompanyPage]=useState(1),[hasMoreCompanies,setHasMoreCompanies]=useState(false),[companySearch,setCompanySearch]=useState(''),[campaign,setCampaign]=useState(''),[agent,setAgent]=useState(''),[date,setDate]=useState(''),[selected,setSelected]=useState<string[]>([]),[error,setError]=useState(''),[message,setMessage]=useState(''),[busy,setBusy]=useState(false),[isAgent,setIsAgent]=useState<boolean|null>(null);
-async function load(){const r=await fetch('/api/rotas',{cache:'no-store'});const d=await r.json();if(!r.ok)throw Error(d.error);setRows(d.items||[])}
-useEffect(()=>{
- let cancelled=false;
- void (async()=>{
+import {useEffect,useMemo,useState} from 'react';
+import Link from 'next/link';
+import {Portal} from '@/components/portal';
+import {Route as RouteIcon,Plus,Search,ChevronRight,CalendarDays,UserRound,CheckCircle2,MapPin,ArrowRight,Layers,Send} from 'lucide-react';
+import './rotas.css';
+type RouteRow={id:string;route_date:string;campaign_name:string;agent_name:string;status:string;stops:number};
+type Pick={id:string;name:string};
+type Company={id:string;legal_name:string;trade_name?:string|null;city:string|null;cnpj?:string};
+const states:Record<string,string>={draft:'A publicar',published:'Disponível',in_progress:'Em campo',completed:'Concluída',cancelled:'Cancelada'};
+const dateLabel=(value:string)=>{const raw=String(value).slice(0,10);return raw.split('-').reverse().join('/')};
+const defaultDate=()=>new Date().toLocaleDateString('sv-SE');
+export default function Rotas(){
+ const [rows,setRows]=useState<RouteRow[]>([]),[agents,setAgents]=useState<Pick[]>([]),[companies,setCompanies]=useState<Company[]>([]);
+ const [role,setRole]=useState<'admin'|'supervisor'|'agent'|null>(null),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
+ const [showForm,setShowForm]=useState(false),[filter,setFilter]=useState('all'),[agent,setAgent]=useState(''),[date,setDate]=useState(defaultDate);
+ const [searchInput,setSearchInput]=useState(''),[search,setSearch]=useState(''),[page,setPage]=useState(1),[hasMore,setHasMore]=useState(false);
+ const [selected,setSelected]=useState<string[]>([]),[selectedNames,setSelectedNames]=useState<Record<string,string>>({});
+ const canPlan=role==='admin'||role==='supervisor';
+ async function reload(){const res=await fetch('/api/rotas',{cache:'no-store'});const payload=await res.json();if(!res.ok)throw Error(payload.error||'Falha ao carregar rotas');setRows(payload.items||[])}
+ useEffect(()=>{let live=true;
+  (async()=>{try{
+   const [me,routes]=await Promise.all([fetch('/api/me',{cache:'no-store'}),fetch('/api/rotas',{cache:'no-store'})]);
+   const user=await me.json();const list=await routes.json();
+   if(!me.ok||!user.user?.role)throw Error('Faça login novamente.');
+   if(!routes.ok)throw Error(list.error||'Rotas indisponíveis.');
+   if(!live)return;setRole(user.user.role);setRows(list.items||[]);
+   if(user.user.role==='agent')return;
+   const [people,company]=await Promise.all([fetch('/api/equipe',{cache:'no-store'}),fetch('/api/companies?page=1',{cache:'no-store'})]);
+   const [pd,cd]=await Promise.all([people.json(),company.json()]);
+   if(!people.ok||!company.ok)throw Error(pd.error||cd.error||'Falha ao carregar opções.');
+   if(!live)return;setAgents((pd.items||[]).map((x:{id:string;full_name:string})=>({id:x.id,name:x.full_name})));
+   setCompanies(cd.items||[]);setHasMore(Boolean(cd.hasMore));
+  }catch(e){if(live)setError(e instanceof Error?e.message:'Falha ao abrir as rotas')}
+  finally{if(live)setLoading(false)}})();
+  return()=>{live=false};
+ },[]);
+ async function findCompanies(nextPage=1){
+  setError('');const res=await fetch('/api/companies?'+new URLSearchParams({q:search,page:String(nextPage)}).toString(),{cache:'no-store'});
+  const data=await res.json();if(!res.ok)throw Error(data.error||'Falha na busca');
+  setCompanies(data.items||[]);setHasMore(Boolean(data.hasMore));setPage(nextPage);
+ }
+ function toggle(company:Company){
+  setSelected(previous=>{
+   if(previous.includes(company.id))return previous.filter(id=>id!==company.id);
+   if(previous.length>=49)return previous;
+   setSelectedNames(names=>({...names,[company.id]:(company.trade_name||company.legal_name)}));
+   return [...previous,company.id];
+  });
+ }
+ async function create(e:React.FormEvent){
+  e.preventDefault();if(!agent||!selected.length||!date)return;
+  setBusy(true);setError('');setMessage('');
   try{
-   const me=await fetch('/api/me',{cache:'no-store'});
-   const profile=await me.json().catch(()=>({}));
-   if(!me.ok||!profile.user?.role)throw Error(profile.error||'Entre na sua conta para consultar as rotas.');
-   const agentRole=profile.user.role==='agent';
-   if(!cancelled)setIsAgent(agentRole);
-   await load();
-   if(agentRole||cancelled)return;
-   const res=await Promise.all([fetch('/api/equipe'),fetch('/api/campaigns'),fetch('/api/companies?page=1')]);
-   const data=await Promise.all(res.map(x=>x.json().catch(()=>({}))));
-   if(cancelled)return;
-   if(!res.every(x=>x.ok)){
-    const failure=res.findIndex(x=>!x.ok);
-    throw Error(data[failure]?.error||'Falha ao carregar as opções de planejamento.');
-   }
-   setAgents((data[0].items||[]).map((x:{id:string;full_name:string})=>({id:x.id,name:x.full_name})));
-   setCampaigns((data[1].items||[]).map((x:Pick)=>({id:x.id,name:x.name})));
-   setCompanies(data[2].items||[]);setHasMoreCompanies(Boolean(data[2].hasMore));setCompanyPage(1);
-  }catch(e){if(!cancelled)setError(e instanceof Error?e.message:'Falha ao abrir rotas.');}
- })();
- return()=>{cancelled=true};
-},[]);
-async function searchCompanies(page=1){const r=await fetch('/api/companies?'+new URLSearchParams({q:companySearch,page:String(page)}).toString(),{cache:'no-store'});const d=await r.json();if(!r.ok)throw Error(d.error);setCompanies(d.items||[]);setHasMoreCompanies(Boolean(d.hasMore));setCompanyPage(page)}
-async function publish(id:string){setBusy(true);setError('');try{const r=await fetch('/api/rotas',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});const d=await r.json();if(!r.ok)throw Error(d.error);setMessage('Rota publicada para a equipe.');await load()}catch(e){setError(e instanceof Error?e.message:'Erro ao publicar')}finally{setBusy(false)}}
-async function create(e:React.FormEvent){e.preventDefault();setBusy(true);setError('');setMessage('');try{const r=await fetch('/api/rotas',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({campaign_id:campaign,agent_id:agent,date,establishment_ids:selected})});const d=await r.json();if(!r.ok)throw Error(d.error);setMessage('Rota criada com '+d.count+' paradas. Abra o percurso para otimizar a ordem pelo mapa.');setSelected([]);await load()}catch(e){setError(e instanceof Error?e.message:'Erro ao criar rota')}finally{setBusy(false)}}
-return <Portal title="Rotas" subtitle="Distribua empresas por campanha e consulte a sequência de visitas.">
-{isAgent===false&&<section className="panel" style={{marginBottom:18}}><div className="panel-title"><div><small>PLANEJAMENTO</small><h2>Montar rota manual</h2></div><RouteIcon size={20}/></div>
-<form onSubmit={create} className="form-grid"><label>Campanha<select className="field" required value={campaign} onChange={e=>setCampaign(e.target.value)}><option value="">Selecione</option>{campaigns.map(x=><option value={x.id} key={x.id}>{x.name}</option>)}</select></label>
-<label>Responsável de campo<select className="field" required value={agent} onChange={e=>setAgent(e.target.value)}><option value="">Selecione</option>{agents.map(x=><option value={x.id} key={x.id}>{x.name}</option>)}</select></label>
-<label>Data da rota<input className="field" type="date" value={date} onChange={e=>setDate(e.target.value)} required/></label>
-<div><span className="muted">Empresas selecionadas: <strong>{selected.length} de 49</strong> — você pode pesquisar e selecionar em várias páginas.</span><div style={{display:'flex',gap:8,margin:'8px 0',flexWrap:'wrap'}}><input className="field" style={{flex:'1 1 240px',minWidth:0}} value={companySearch} onChange={e=>setCompanySearch(e.target.value)} placeholder="Buscar empresa por nome, CNPJ ou município"/><button className="button secondary" style={{minHeight:48}} type="button" onClick={()=>void searchCompanies(1).catch(e=>setError(e.message))}>Buscar</button></div><div style={{maxHeight:160,overflowY:'auto',border:'1px solid var(--line)',borderRadius:10,padding:10}}>{companies.map(x=><label key={x.id} style={{display:'flex',alignItems:'center',gap:12,fontSize:15,padding:'10px 8px',minHeight:48}}><input type="checkbox" disabled={!selected.includes(x.id)&&selected.length>=49} checked={selected.includes(x.id)} onChange={e=>setSelected(p=>e.target.checked?(p.length<49?[...p,x.id]:p):p.filter(id=>id!==x.id))}/>{x.legal_name} — {x.city||'Sem cidade'}</label>)}</div><div style={{display:'flex',alignItems:'center',gap:12,marginTop:10}}><button className="button secondary" type="button" disabled={companyPage<=1} onClick={()=>void searchCompanies(companyPage-1).catch(e=>setError(e.message))}>Anterior</button><span className="muted">Página {companyPage}</span><button className="button secondary" type="button" disabled={!hasMoreCompanies} onClick={()=>void searchCompanies(companyPage+1).catch(e=>setError(e.message))}>Próxima</button></div></div>
-<button className="button" disabled={busy||!selected.length}>Criar rota com {selected.length} paradas</button></form>
-<p className="muted" style={{marginTop:15}}>Selecione até 49 empresas para uma jornada. A otimização é sugerida na tela do percurso e não inclui trânsito em tempo real.</p>
-</section>}
-<section className="panel"><div className="panel-title"><div><small>AGENDA</small><h2>{isAgent===true?'Minhas rotas':'Rotas cadastradas'}</h2></div></div>
-{error&&<p className="error" role="alert">{error}</p>}{message&&<p className="success">{message}</p>}
-<div className="tablewrap"><table><thead><tr><th>Data</th><th>Campanha</th><th>Responsável</th><th>Paradas</th><th>Situação</th><th>Abrir</th></tr></thead><tbody>{rows.map(x=><tr key={x.id}><td>{String(x.route_date).slice(0,10)}</td><td>{x.campaign_name}</td><td>{x.agent_name}</td><td>{x.stops}</td><td>{x.status==='draft'&&!isAgent?<button className="button secondary" disabled={busy} onClick={()=>void publish(x.id)}>Publicar rota</button>:(statusLabels[x.status]||x.status)}</td><td>{isAgent?<Link className="button" href={'/campo/'+x.id}>{x.status==='in_progress'?'Continuar jornada':x.status==='completed'?'Consultar jornada':'Abrir jornada'}</Link>:<Link className="link-inline" href={'/rotas/'+x.id}>Ver percurso</Link>}</td></tr>)}{!rows.length&&<tr><td colSpan={6}>Nenhuma rota atribuída até o momento.</td></tr>}</tbody></table></div>
-</section></Portal>}
+   const res=await fetch('/api/rotas',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent_id:agent,date,establishment_ids:selected})});
+   const data=await res.json();if(!res.ok)throw Error(data.error||'Não foi possível criar');
+   setMessage('Rota criada com '+data.count+' empresas. Publique-a quando estiver pronta para a equipe.');
+   setSelected([]);setSelectedNames({});setShowForm(false);await reload();
+  }catch(e){setError(e instanceof Error?e.message:'Falha ao criar a rota')}finally{setBusy(false)}
+ }
+ async function publish(id:string){
+  setBusy(true);setError('');setMessage('');
+  try{const res=await fetch('/api/rotas',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});const d=await res.json();if(!res.ok)throw Error(d.error||'Não foi possível publicar');
+   setMessage('Rota publicada. O responsável já pode iniciar a jornada.');await reload();
+  }catch(e){setError(e instanceof Error?e.message:'Falha ao publicar')}finally{setBusy(false)}
+ }
+ const visible=useMemo(()=>rows.filter(r=>filter==='all'||filter==='active'&&['published','in_progress'].includes(r.status)||filter===r.status),[rows,filter]);
+ const active=rows.filter(r=>['published','in_progress'].includes(r.status)).length,drafts=rows.filter(r=>r.status==='draft').length,done=rows.filter(r=>r.status==='completed').length;
+ return <Portal title="Rotas" subtitle={canPlan?'Organize as empresas, atribua um responsável e acompanhe o trabalho.':'Suas jornadas de campo, em ordem de prioridade.'}>
+  <div className="routes-shell">
+   <div className="routes-summary">
+    <div><span>Rotas em campo ou disponíveis</span><strong>{active}</strong></div>
+    <div><span>Aguardando publicação</span><strong>{drafts}</strong></div>
+    <div><span>Finalizadas</span><strong>{done}</strong></div>
+   </div>
+   {error&&<p className="error" role="alert">{error}</p>}
+   {message&&<p className="success" role="status">{message}</p>}
+   {canPlan&&<section className="routes-builder">
+    <div className="routes-section-top"><div><span>PLANEJAMENTO SIMPLES</span><h2>Nova rota de captação</h2><p>Escolha quem irá visitar, a data e até 49 empresas. Não é necessário criar uma campanha antes.</p></div>
+     <button className="routes-primary-action" type="button" onClick={()=>setShowForm(x=>!x)} aria-expanded={showForm}>
+      <Plus size={20}/>{showForm?'Fechar planejamento':'Criar rota'}</button>
+    </div>
+    {showForm&&<form onSubmit={create} className="routes-form">
+     <div className="routes-form-top">
+      <label><UserRound size={17}/> Responsável
+       <select required value={agent} onChange={e=>setAgent(e.target.value)}><option value="">Selecione um agente</option>{agents.map(a=><option value={a.id} key={a.id}>{a.name}</option>)}</select>
+      </label>
+      <label><CalendarDays size={17}/> Data
+       <input type="date" required value={date} onChange={e=>setDate(e.target.value)}/>
+      </label>
+     </div>
+     <div className="routes-company-heading"><div><strong>Selecione as empresas</strong><p>Pesquise pelo nome, CNPJ ou município. A seleção fica salva ao trocar de página.</p></div><span>{selected.length} / 49</span></div>
+     <div className="routes-search"><Search size={18}/><input aria-label="Buscar empresa" value={searchInput} onChange={e=>setSearchInput(e.target.value)} placeholder="Nome, CNPJ ou município"/><button type="button" onClick={()=>{setSearch(searchInput);void (async()=>{try{const res=await fetch('/api/companies?'+new URLSearchParams({q:searchInput,page:'1'}),{cache:'no-store'});const d=await res.json();if(!res.ok)throw Error(d.error);setCompanies(d.items||[]);setHasMore(Boolean(d.hasMore));setPage(1)}catch(e){setError(e instanceof Error?e.message:'Falha na busca')}})()}}>Buscar</button></div>
+     <div className="routes-company-choices">{companies.map(company=><label key={company.id} className={selected.includes(company.id)?'is-selected':''}>
+      <input type="checkbox" checked={selected.includes(company.id)} disabled={!selected.includes(company.id)&&selected.length>=49} onChange={()=>toggle(company)}/>
+      <span><strong>{company.trade_name||company.legal_name}</strong><small>{company.city||'Município não informado'} {company.cnpj?'· '+company.cnpj:''}</small></span>
+     </label>)}
+     {!companies.length&&<p className="routes-empty">Nenhuma empresa encontrada. Experimente outra busca.</p>}</div>
+     <div className="routes-pagination"><button type="button" disabled={page===1} onClick={()=>void findCompanies(page-1).catch(e=>setError(e.message))}><ChevronLeft size={17}/> Anterior</button><span>Página {page}</span><button type="button" disabled={!hasMore} onClick={()=>void findCompanies(page+1).catch(e=>setError(e.message))}>Próxima <ChevronRight size={17}/></button></div>
+     {selected.length>0&&<p className="routes-picked">{selected.length} empresa(s) pronta(s) para a rota. {selected.slice(0,3).map(id=>selectedNames[id]).filter(Boolean).join(', ')}{selected.length>3?'...':''}</p>}
+     <button className="routes-create" disabled={busy||!selected.length||!agent||!date} type="submit"><RouteIcon size={19}/>{busy?'Salvando rota...':'Criar rota com '+selected.length+' empresa(s)'}<ArrowRight size={20}/></button>
+    </form>}
+   </section>}
+   <section className="routes-list-section">
+    <div className="routes-section-top"><div><span>ACOMPANHAMENTO</span><h2>{role==='agent'?'Minhas rotas':'Rotas cadastradas'}</h2><p>Abra uma rota para visualizar empresas e trajeto.</p></div></div>
+    <div className="routes-filters" role="group" aria-label="Filtrar rotas">
+     {([['all','Todas'],['active','Em campo'],['draft','A publicar'],['completed','Concluídas']] as [string,string][]).filter(x=>role!=='agent'||x[0]!=='draft').map(([key,label])=><button type="button" aria-pressed={filter===key} className={filter===key?'active':''} key={key} onClick={()=>setFilter(key)}>{label}</button>)}
+    </div>
+    <div className="routes-cards">{visible.map(r=><article key={r.id} className="routes-item">
+     <div className="routes-item-icon"><RouteIcon size={22}/></div>
+     <div className="routes-item-content">
+      <div><strong>Rota de {dateLabel(r.route_date)}</strong><span className={'routes-state routes-state-'+r.status}>{states[r.status]||r.status}</span></div>
+      <p><UserRound size={15}/>{r.agent_name}<span>·</span><MapPin size={15}/>{r.stops} {r.stops===1?'empresa':'empresas'}</p>
+     </div>
+     <div className="routes-item-actions">
+      {canPlan&&r.status==='draft'&&<button type="button" className="routes-publish" disabled={busy} onClick={()=>void publish(r.id)}><Send size={16}/> Publicar</button>}
+      <Link href={(role==='agent'?'/campo/':'/rotas/')+r.id} className="routes-open">{role==='agent'?'Abrir jornada':'Ver percurso'}<ChevronRight size={17}/></Link>
+     </div>
+    </article>)}
+     {!visible.length&&<div className="routes-empty"><Layers size={29}/><strong>{loading?'Carregando rotas...':'Nenhuma rota neste filtro'}</strong><p>{role==='agent'?'Sua equipe visualizará as rotas aqui quando forem publicadas.':'Crie uma rota ou selecione outro filtro.'}</p></div>}
+    </div>
+   </section>
+  </div>
+ </Portal>;
+}
