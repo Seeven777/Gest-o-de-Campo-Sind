@@ -44,12 +44,12 @@ export function FieldNavigationMap({plan,targetId,current,follow=true,compact=fa
  const element=useRef<HTMLDivElement|null>(null),map=useRef<LMap|null>(null),gpsMarker=useRef<Layer|null>(null),gpsAccuracy=useRef<Layer|null>(null),
   leafletApi=useRef<LApi|null>(null),markers=useRef(new Map<string,Layer>()),legLayer=useRef<Layer|null>(null),legOutline=useRef<Layer|null>(null),
   lastCenter=useRef(0),callback=useRef(onManualPan);
- callback.current=onManualPan;
+ useEffect(()=>{callback.current=onManualPan},[onManualPan]);
  const [error,setError]=useState(''),[ready,setReady]=useState(false);
  const completedKey=completedIds.join(',');
  const target=useMemo(()=>plan.points.find(p=>p.id===targetId),[plan.points,targetId]);
- const pos=useRef(current);pos.current=current;
- const targetRef=useRef(target);targetRef.current=target;
+ const pos=useRef(current);useEffect(()=>{pos.current=current},[current]);
+ const targetRef=useRef(target);useEffect(()=>{targetRef.current=target},[target]);
  const makeBounds=(pts:number[][],instance:LMap,L:LApi)=>{
   if(pts.length>1){
    const mobile=window.innerWidth<=800;
