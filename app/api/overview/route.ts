@@ -7,7 +7,7 @@ export async function GET(){return withRole(['admin','supervisor'], async()=>{
    (select count(*)::int from campaigns) as campaigns,
    (select count(*)::int from visits) as visits,
    (select count(*)::int from establishments where field_status='validated') as validated,
-   (select count(*)::int from registration_records where state='confirmed') as registrations,
+   (select count(*)::int from registration_records where state='confirmed' and official_verified_at is not null) as registrations,
    (select coalesce(sum(amount),0)::numeric from expenses where approval_status='approved') as approved_expenses`);
  return {totals:row};
 })}

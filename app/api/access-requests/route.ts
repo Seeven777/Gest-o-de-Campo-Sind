@@ -6,7 +6,7 @@ import { db } from '@/lib/db';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const isRole = (role: string): role is 'admin'|'supervisor'|'agent' => ['admin','supervisor','agent'].includes(role);
+const isRole = (role: string): role is 'admin'|'supervisor'|'agent'|'cadastro' => ['admin','supervisor','agent','cadastro'].includes(role);
 const genericError = () => NextResponse.json({error:'Não foi possível concluir a solicitação.'}, {status:500});
 
 async function authenticated() {
@@ -63,8 +63,29 @@ export async function PATCH(request:Request) {
     if (!operator) return NextResponse.json({error:'Acesso não autorizado.'},{status:401});
     if (operator.role !== 'admin') return NextResponse.json({error:'Somente administradores podem avaliar cadastros.'},{status:403});
     const body = await request.json().catch(()=>({}));
-    const id = String(body.id||'');
     const action = String(body.action||'');
+    // Administrador pode remanejar colaboradores já ativos entre funções de trabalho,
+    // mas nunca modificar outro administrador, conceder admin ou alterar a própria conta.
+    if(action==='change-role'){
+      const profileId=String(body.profile_id||'');
+      const nextRole=String(body.role||'');
+      if(!profileId||!['agent','supervisor','cadastro'].includes(nextRole))
+        return NextResponse.json({error:'Cargo inválido.'},{status:400});
+      const rows=await db().query(`with changed as (
+        update app_profiles set role=$2
+        where auth_user_id=$1 and auth_user_id<>$3 and is_active=true
+          and role in ('agent','supervisor','cadastro') and role<>$2
+        returning auth_user_id,role
+      ), audited as (
+        insert into audit_logs(actor_id,action,details)
+        select $3,'access.profile_role_changed',
+          jsonb_build_object('profile_id',changed.auth_user_id,'new_role',changed.role)
+        from changed returning id
+      ) select changed.auth_user_id from changed join audited on true`,[profileId,nextRole,operator.id]);
+      if(!rows.length)return NextResponse.json({error:'Perfil não elegível, inativo ou já utiliza o cargo informado.'},{status:409});
+      return NextResponse.json({ok:true});
+    }
+    const id = String(body.id||'');
     const role = String(body.role||'agent');
     if (!/^[0-9a-f-]{36}$/i.test(id) || !['approve','reject'].includes(action) || (action==='approve'&&!isRole(role)))
       return NextResponse.json({error:'Solicitação inválida.'},{status:400});

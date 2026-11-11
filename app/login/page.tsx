@@ -43,7 +43,7 @@ export default function Login(){
     else{
      const me=await fetch('/api/me',{cache:'no-store'});
      const profile=me.ok?await me.json().catch(()=>null):null;
-     router.replace(profile?.user?.role==='agent'?'/agente':'/dashboard');
+     router.replace(profile?.user?.role==='agent'?'/agente':profile?.user?.role==='cadastro'?'/cadastros':'/dashboard');
     }
    }else router.replace('/aguardando');
   }catch{router.replace('/aguardando');}

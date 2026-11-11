@@ -5,7 +5,7 @@ const source='https://raw.githubusercontent.com/tbrugz/geodata-br/master/geojson
 export async function GET(){
  const user=await currentIdentity();
  if(!user)return NextResponse.json({error:'Sessão expirada.'},{status:401});
- if(user.role==='agent')return NextResponse.json({error:'Acesso restrito.'},{status:403});
+ if(!['admin','supervisor'].includes(user.role))return NextResponse.json({error:'Acesso restrito.'},{status:403});
  try{
   const response=await fetch(source,{next:{revalidate:86400},signal:AbortSignal.timeout(18000)});
   if(!response.ok)throw Error('Falha ao buscar a malha municipal.');

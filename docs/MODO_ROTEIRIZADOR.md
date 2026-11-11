@@ -150,3 +150,15 @@ P3: limpeza autorizada de dados de teste; somente depois integração externa co
 - A página de cobertura passa a contemplar **645 municípios**, filtros por situação e data de inserção, detalhe com empresas por cidade. A malha de SP é consultada em fonte pública geodata-br/IBGE com cache; nenhum polígono armazenado no Neon.
 - A base de 200 mil empresas permanece fora do Neon gratuito; ngrok/API externa somente após homologação do MVP. Nenhuma importação massiva autorizada.
 - Branch de implementação: `feat/modo-roteirizador-sprint-2`, PR #21; homologação em ambiente Neon Preview isolado antes de merge.
+
+## Perfil Cadastro — quarta função interna (11/11/2026)
+
+Pipeline de negócios: **Agente visita → Supervisor valida → Cadastro confere no sistema oficial → empresa aparece como cadastrada sindicalmente**.
+
+- Novo cargo `cadastro`: só consulta a fila de empresas com `field_status='validated'`, confirma sua efetiva presença na base oficial do SindPetshop-SP, consulta os cadastros confirmados e o próprio perfil. Não acessa rotas, GPS, importações, mapa gerencial, despesas, relatórios de campo ou aprovação de usuários.
+- Administradores podem aprovar novo usuário com cargo Cadastro ou alterar o cargo de usuários ativos não-administradores na tela Equipes. Supervisores e agentes continuam sem permissão para confirmar cadastro sindical.
+- Duas abas: **A conferir** (validada em campo, mas sem conferência oficial registrada) e **Confirmados** (validação de campo + verificação oficial com referência). Data/hora, responsável e protocolo são auditados.
+- **Importante**: `registration_records.state='confirmed'` de versões anteriores NÃO basta para comprovar presença na base externa. A coluna nova `official_verified_at` inicia nula, sem backfill; somente a confirmação expressa posterior marca o registro oficialmente conferido.
+- A confirmação no sistema oficial é **manual**; não há integração com o sistema oficial ainda. O funcionário deve conferir o registro externamente e informar o identificador correspondente. Integração externa com a base >200 mil empresas fica para fase futura; não replicar a base no Neon gratuito.
+- Migração `neon/008_perfil_cadastro.sql`: 3 restrições de cargo + 1 coluna de conferência oficial. **Não aplicar automaticamente no banco principal**. Homologar primeiro no Neon Preview, após backup e aprovação, e só depois considerar produção.
+- Critérios de aceite: autenticação Cadastro, recusa de acesso à API de rotas/visitas/validações/despesas, autorização apenas da fila e confirmação após `validated`, proteção contra confirmação duplicada, registro auditável, busca/paginação por empresa, atualização das métricas e controle de troca de cargos pela administração.

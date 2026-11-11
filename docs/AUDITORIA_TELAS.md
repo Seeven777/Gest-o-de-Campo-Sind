@@ -131,3 +131,13 @@ Atualizada em 11/11/2026. Branch: `fix/modo-roteirizador-auditoria-ux`. Registro
 - **Correções:** mensagens específicas para permissão, indisponibilidade e timeout; uso de última medição somente por período curto e após consentimento, quando a permissão continua concedida; fallback de precisão; botão “Reativar GPS” sem atualizar a página, com solicitação nova e nova geração de watch; estado explícito “Sinal GPS instável”; checagem de precisão no check-in; otimização da rota não bloqueia o usuário esperando sinal; stop/beacon permanece isolado por rota.
 - **Login:** menor escurecimento do fundo, ajustes de posicionamento/contraste; fontes das imagens no GitHub continuam com resolução 980×402 desktop e 560×534 mobile. Para alta definição genuína, substituir a fotografia por original com pelo menos 1920px de largura. Não distorcer nem trocar a identidade visual da imagem.
 - **QA pendente:** navegador com GPS permitido, sem posição, timeout, bloqueio efetivo, aba oculta/visível, troca imediata entre rotas e confirmação de chegada parado; avaliar desktop e celular. Homologação deve ser em Preview com Neon isolado. Não testar fotos com Blob compartilhado.
+
+## Nova etapa Cadastro Sindical — 11/11/2026
+
+- Usuário definiu quarto cargo interno `cadastro` para confirmar empresas já validadas no sistema oficial do SindPetshop-SP. Etapa independente da supervisão, que mantém controle sobre validação de visitas.
+- Adicionadas fila de conferência e lista de confirmados, com referência obrigatória e declaração afirmativa de conferência externa. API confirma em operação atômica com auditoria e proíbe sobrescrever confirmação oficial anterior.
+- Preservados registros históricos; novo campo `official_verified_at` nulo por padrão. O histórico `state='confirmed'` só passa a compor a lista de confirmados depois de conferência real.
+- Cargos selecionáveis em aprovação de pedidos e criação de convites; remanejamento administrativo de perfil existente não-admin, sem permitir alteração para `admin` nem troca de administrador.
+- Revisados controles server-side nas APIs de despesas, rotas, visitas, cobertura, relatórios, equipe; não depender de esconder links na UI.
+- Nenhuma migração Neon aplicada nesta implementação: SQL disponível em `neon/008_perfil_cadastro.sql` para homologação controlada, sem alteração no banco principal.
+- QA e deploy ainda bloqueados pela necessidade de migração no Neon Preview e homologação dos quatro papéis; merge não autorizado.
