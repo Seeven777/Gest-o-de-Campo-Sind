@@ -12,7 +12,8 @@ export async function POST(req:Request){
  where s.id=$1 and r.agent_id=$2 and r.status in ('published','in_progress')`,[stop,u.id]);
  if(!assigned)return fail('Empresa não atribuída a uma rota ativa.',403);
  if(action==='arrive'){
-  const lat=Number(data.lat),lon=Number(data.lon),accuracy=Number(data.accuracy);
+  if(typeof data.lat!=='number'||typeof data.lon!=='number'||typeof data.accuracy!=='number')return fail('Não recebemos uma posição GPS válida. Atualize sua localização e tente novamente.');
+  const lat=data.lat,lon=data.lon,accuracy=data.accuracy;
   if(!Number.isFinite(lat)||!Number.isFinite(lon)||Math.abs(lat)>90||Math.abs(lon)>180||!Number.isFinite(accuracy)||accuracy<0||accuracy>10000)return fail('Ative o GPS e tente confirmar novamente.');
   const rows=await db().query(`insert into visits(stop_id,agent_id,checkin_at,checkin_position,accuracy_m)
   select $1,$2,now(),ST_SetSRID(ST_MakePoint($4,$3),4326)::geography,$5
