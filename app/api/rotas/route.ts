@@ -15,26 +15,30 @@ export async function POST(req:Request){
  const data=await req.json().catch(()=>({}));
  const campaign=String(data.campaign_id||''),agent=String(data.agent_id||''),date=String(data.date||'');
  const stops=Array.isArray(data.establishment_ids)?data.establishment_ids.map(String):[];
- if(!/^[0-9a-f-]{36}$/i.test(campaign)||!agent||!/^\d{4}-\d{2}-\d{2}$/.test(date)||stops.length<1||stops.length>49||new Set(stops).size!==stops.length||stops.some((x:string)=>!/^[0-9a-f-]{36}$/i.test(x)))return fail('Informe campanha, agente, dia e de 1 a 49 empresas únicas.');
- const [c]=await db().query('select id from campaigns where id=$1 and $2::date between start_date and end_date and status<>\'cancelled\'',[campaign,date]);
+ if(campaign&&!/^[0-9a-f-]{36}$/i.test(campaign)||!agent||!/^\d{4}-\d{2}-\d{2}$/.test(date)||stops.length<1||stops.length>49||new Set(stops).size!==stops.length||stops.some((x:string)=>!/^[0-9a-f-]{36}$/i.test(x)))return fail('Informe responsável, data e de 1 a 49 empresas únicas.');
+ const [c]=campaign?await db().query('select id from campaigns where id=$1 and $2::date between start_date and end_date and status<>\'cancelled\'',[campaign,date]):[{id:'automatic'}];
  const [a]=await db().query('select auth_user_id from app_profiles where auth_user_id=$1 and role=\'agent\' and is_active=true',[agent]);
- if(!c||!a)return fail('Campanha fora do período ou agente não encontrado.');
+ if(!c||!a)return fail('Rota fora do período configurado ou agente não encontrado.');
  const check=await db().query('select id from establishments where id=ANY($1::uuid[])',[stops]);if(check.length!==stops.length)return fail('Há empresas inexistentes na seleção.');
  const dup=await db().query(`select 1 from routes r join route_stops s on s.route_id=r.id
  where r.route_date=$1 and r.status<>'cancelled' and s.establishment_id=ANY($2::uuid[]) limit 1`,[date,stops]);
  if(dup.length)return fail('Uma das empresas já consta em outra rota ativa nessa data.',409);
  // A rota e todas as paradas são gravadas em um único comando atômico.
  // Uma falha intermediária não deixa rota incompleta, inclusive com até 49 empresas.
- const [route]=await db().query(`with new_route as (
+ const [route]=await db().query(`with automatic_campaign as (
+   insert into campaigns(name,start_date,end_date,status,created_by)
+   select 'Rota de '||to_char($3::date,'DD/MM/YYYY'),$3::date,$3::date,'draft',$5
+   where $1::uuid is null returning id
+ ), new_route as (
    insert into routes(campaign_id,agent_id,route_date,status)
-   values($1,$2,$3,'draft') returning id
+   values(coalesce((select id from automatic_campaign),$1::uuid),$2,$3,'draft') returning id
  ), new_stops as (
    insert into route_stops(route_id,establishment_id,position_order)
    select new_route.id,item.establishment_id,item.ordinality::int
    from new_route cross join unnest($4::uuid[]) with ordinality as item(establishment_id,ordinality)
    returning id
  ) select new_route.id,(select count(*)::int from new_stops) as count from new_route`,
- [campaign,agent,date,stops]);
+ [campaign||null,agent,date,stops,user.id]);
  await db().query('insert into audit_logs(actor_id,action,details) values($1,$2,$3::jsonb)',[user.id,'route.created',JSON.stringify({id:route.id,count:stops.length})]);
  return NextResponse.json({id:route.id,count:stops.length});
 }
