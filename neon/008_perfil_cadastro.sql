@@ -15,6 +15,11 @@ ALTER TABLE public.access_invitations
  DROP CONSTRAINT IF EXISTS access_invitations_role_check;
 ALTER TABLE public.access_invitations
  ADD CONSTRAINT access_invitations_role_check CHECK(role IN ('admin','supervisor','agent','cadastro'));
+-- Marca separadamente a conferência no sistema OFICIAL do sindicato.
+-- Cadastros marcados "confirmed" no processo anterior NÃO são validados
+-- automaticamente; devem ser revisados pela equipe Cadastro.
+ALTER TABLE public.registration_records
+ ADD COLUMN IF NOT EXISTS official_verified_at timestamptz;
 COMMIT;
 
 -- Verifique após aplicar:
