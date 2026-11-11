@@ -23,8 +23,18 @@ export async function POST(req:Request){
  const dup=await db().query(`select 1 from routes r join route_stops s on s.route_id=r.id
  where r.route_date=$1 and r.status<>'cancelled' and s.establishment_id=ANY($2::uuid[]) limit 1`,[date,stops]);
  if(dup.length)return fail('Uma das empresas já consta em outra rota ativa nessa data.',409);
- const [route]=await db().query('insert into routes(campaign_id,agent_id,route_date,status) values($1,$2,$3,\'draft\') returning id',[campaign,agent,date]);
- for(let i=0;i<stops.length;i++)await db().query('insert into route_stops(route_id,establishment_id,position_order) values($1,$2,$3)',[route.id,stops[i],i+1]);
+ // A rota e todas as paradas são gravadas em um único comando atômico.
+ // Uma falha intermediária não deixa rota incompleta, inclusive com até 49 empresas.
+ const [route]=await db().query(`with new_route as (
+   insert into routes(campaign_id,agent_id,route_date,status)
+   values($1,$2,$3,'draft') returning id
+ ), new_stops as (
+   insert into route_stops(route_id,establishment_id,position_order)
+   select new_route.id,item.establishment_id,item.ordinality::int
+   from new_route cross join unnest($4::uuid[]) with ordinality as item(establishment_id,ordinality)
+   returning id
+ ) select new_route.id,(select count(*)::int from new_stops) as count from new_route`,
+ [campaign,agent,date,stops]);
  await db().query('insert into audit_logs(actor_id,action,details) values($1,$2,$3::jsonb)',[user.id,'route.created',JSON.stringify({id:route.id,count:stops.length})]);
  return NextResponse.json({id:route.id,count:stops.length});
 }
