@@ -76,3 +76,11 @@ Atualizada em 11/11/2026. Branch: `fix/modo-roteirizador-auditoria-ux`. Registro
 - E2E real: revisão de visita, foto, GPS, aprovação, navegação orientada e recuperação de senha depende de contas reais e permissões do dispositivo.
 - Concorrência de múltiplos check-ins no mesmo `stop_id`: esquema inicial não possui constraint `unique(stop_id)` em `visits`. A proteção `where not exists` pode sofrer corrida. Recomenda-se migração aditiva em branch Neon de teste, com análise prévia de duplicados; **não aplicar automaticamente à produção**.
 - Não confundir Preview READY com teste de funcionalidades: é necessário conferir autenticação com os três perfis.
+
+## Verificação do Neon e dos logs (somente leitura)
+
+- Branch de Preview consultada: `br-quiet-morning-b62b1q3e` (não é a principal). Contagem: 1.848 empresas, 2 rotas, 4 visitas, 5 perfis, 1 visita ainda em andamento e 1 parada sem coordenada. Check-ins duplicados por parada: 0.
+- Logs de produção das últimas 24h incluem erros **históricos** de migrações não instaladas (GPS, notas de revisão e expurgo). Consulta posterior do esquema mostrou que as colunas e a tabela de GPS **já existem** nos bancos principal e Preview; portanto não tratar esses logs anteriores como erro ainda ativo.
+- **Pendência confirmada:** `admin_delete_test_record(text,uuid,text)` não existe nem no Neon principal nem no Preview. O endpoint passou a informar `deletion_available=false` e a interface desabilita exclusões em vez de apresentar erro genérico. Aplicação de `neon/005_limpeza_segura.sql` permanece para etapa futura, após backup e aprovação.
+- **Tela Visitas do agente corrigida:** além da lista de jornadas para novo registro, apresenta agora o histórico próprio de visitas e o status de revisão.
+- A limitação diária da Vercel impediu novo deploy manual do commit mais recente (HTTP 402 `api-deployments-free-per-day`). Deploy anterior READY não equivale à versão atual. CI no GitHub permanece como validação não autenticada.
