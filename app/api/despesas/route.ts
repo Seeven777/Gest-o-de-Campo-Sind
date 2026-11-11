@@ -9,9 +9,9 @@ const categories=new Set(['fuel','food','toll','parking','lodging','other']);
 const paymentMethods=new Set(['pix','transfer','payroll','cash','other']);
 const statuses=new Set(['draft','submitted','receipt_received','accounting_review','approved','returned','rejected','paid']);
 const textValue=(v:unknown,max=250)=>String(v??'').trim().slice(0,max+1);
-const digits=(v:unknown)=>String(v??'').replace(/\D/g,'');
+const normalCnpj=(v:unknown)=>String(v??'').toUpperCase().replace(/[^A-Z0-9]/g,'');
 const amountValue=(v:unknown)=>{const n=Number(v);return Number.isFinite(n)&&n>0&&n<=50000&&Math.abs(n*100-Math.round(n*100))<1e-5?Math.round(n*100)/100:null};
-const dateValid=(v:unknown)=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&!Number.isNaN(Date.parse(v));
+const dateValid=(v:unknown)=>typeof v==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(v)&&new Date(v).toISOString().slice(0,10)===v;
 const protectedResponse={headers:{'Cache-Control':'no-store'}};
 
 export async function GET(req:Request){
@@ -25,7 +25,7 @@ export async function GET(req:Request){
  const owner=user.role==='agent'?user.id:null;
  const [list,summary]=await Promise.all([
   db().query(`select x.id,x.route_id,x.campaign_id,x.agent_id,x.category,x.amount,x.expense_date,x.description,
-   x.invoice_reference,x.invoice_recipient_cnpj,x.approval_status,x.created_at,
+   x.invoice_reference,x.invoice_recipient_cnpj,x.invoice_issuer_cnpj,x.invoice_access_key,x.approval_status,x.created_at,
    x.receipt_received_at,x.receipt_received_by,x.physical_archive_reference,
    x.accounting_contact,x.accounting_reference,x.accounting_reviewed_at,x.approved_amount,
    x.payment_reference,x.payment_method,x.paid_amount,x.paid_at,x.payment_date,
@@ -58,10 +58,10 @@ export async function POST(req:Request){
  const d=await req.json().catch(()=>({})) as Record<string,unknown>;
  const route=textValue(d.route_id,40),category=textValue(d.category,30),date=d.expense_date;
  const amount=amountValue(d.amount),description=textValue(d.description,500);
- const invoice=textValue(d.invoice_reference,100),recipient=digits(d.invoice_recipient_cnpj);
+ const invoice=textValue(d.invoice_reference,100),recipient=normalCnpj(d.invoice_recipient_cnpj);
  if(!uuid.test(route)||!categories.has(category)||amount===null||!dateValid(date)||description.length<6||description.length>500)
   return fail('Informe uma rota sua, categoria, data, valor e descrição válida (6 a 500 caracteres).');
- if(invoice.length>100||recipient&&recipient.length!==14)return fail('Confira a referência da nota e os 14 dígitos do CNPJ destinatário.');
+ if(invoice.length>100||recipient&&recipient.length!==14)return fail('Confira a referência da nota e os 14 caracteres do CNPJ destinatário.');
  const rows=await db().query(`with assigned as (
   select id,campaign_id from routes where id=$1 and agent_id=$2
     and status in ('published','in_progress','completed')
@@ -105,7 +105,7 @@ export async function PATCH(req:Request){
  const checkNote=(minimum=8)=>note.length>=minimum&&note.length<=500;
  if(isAgent){
   if(action==='resubmit'&&from==='returned'){
-   const amount=amountValue(d.amount),desc=textValue(d.description,500),invoice=textValue(d.invoice_reference,100),recipient=digits(d.invoice_recipient_cnpj);
+   const amount=amountValue(d.amount),desc=textValue(d.description,500),invoice=textValue(d.invoice_reference,100),recipient=normalCnpj(d.invoice_recipient_cnpj);
    if(amount===null||desc.length<6||invoice.length>100||recipient&&recipient.length!==14)return fail('Corrija valor, descrição e dados do comprovante.');
    next='submitted';
    updates=[['amount',amount],['description',desc],['invoice_reference',invoice||null],
@@ -127,16 +127,18 @@ export async function PATCH(req:Request){
   }else return fail('Esta operação não está disponível para o agente nesta etapa.',409);
  }else{
   if(action==='receive'&&from==='submitted'){
-   const reference=textValue(d.invoice_reference,100),recipient=digits(d.invoice_recipient_cnpj);
+   const reference=textValue(d.invoice_reference,100),recipient=normalCnpj(d.invoice_recipient_cnpj);
+   const issuer=normalCnpj(d.invoice_issuer_cnpj),accessKey=normalCnpj(d.invoice_access_key);
    const archive=textValue(d.archive_reference,200);
-   const expected=digits(process.env.SINDPETSHOP_CNPJ||'');
-   if(reference.length<3||reference.length>100||recipient.length!==14||archive.length<3||archive.length>200||d.recipient_checked!==true)
+   const expected=normalCnpj(process.env.SINDPETSHOP_CNPJ||'');
+   if(reference.length<3||reference.length>100||recipient.length!==14||issuer.length!==14||accessKey&&accessKey.length!==44||archive.length<3||archive.length>200||d.recipient_checked!==true)
     return fail('O RH deve conferir nota original, CNPJ destinatário e informar referência física de arquivamento.');
    if(expected.length===14&&recipient!==expected)return fail('CNPJ da nota diferente do CNPJ sindical configurado.',409);
    next='receipt_received';
    updates=[['invoice_reference',reference],['invoice_recipient_cnpj',recipient],
+    ['invoice_issuer_cnpj',issuer],['invoice_access_key',accessKey||null],
     ['physical_archive_reference',archive],['receipt_received_at',now],['receipt_received_by',user.id],['last_review_note',null]];
-   details={invoice_reference:reference,recipient_cnpj:recipient,archive_reference:archive,recipient_checked:true,automated_cnpj_match:expected.length===14};
+   details={invoice_reference:reference,recipient_cnpj:recipient,issuer_cnpj:issuer,access_key:accessKey||null,archive_reference:archive,recipient_checked:true,automated_cnpj_match:expected.length===14};
   }else if(action==='send_accounting'&&from==='receipt_received'){
    next='accounting_review';
    details={forwarded_by_rh:true};
@@ -192,7 +194,9 @@ export async function PATCH(req:Request){
   insert into audit_logs(actor_id,action,details)
   select $2,'expense.'||${act},jsonb_build_object('expense_id',id,'status',$4,'action',${act}) from moved returning id
  ) select moved.id from moved join tracked on true join audited on true`;
- const changed=await db().query(sql,params);
+ let changed;
+ try{changed=await db().query(sql,params)}
+ catch(e){if((e as {code?:string})?.code==='23505')return fail('Já existe outro reembolso com esta chave fiscal. Confira possíveis duplicidades.',409);throw e}
  if(!changed.length)return fail('Esta despesa foi alterada por outra pessoa. Atualize a lista antes de continuar.',409);
  return NextResponse.json({ok:true,status:next,message:'Etapa registrada no histórico.'},protectedResponse);
 }
