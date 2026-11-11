@@ -251,7 +251,7 @@ function CampoGuiadoSession({id}:{id:string}){
   setBusy(true);setError('');setNotice('');
   try{
    let start:CurrentPosition|undefined;
-   try{start=await gpsForNavigation(positionRef.current,positionUpdatedAt.current);positionRef.current=start;positionUpdatedAt.current=Date.now();setPosition(start)}catch{ /* A otimização pode usar a primeira parada sem GPS. */ }
+   try{start=await gpsOnce({enableHighAccuracy:false,maximumAge:60000,timeout:6000});positionRef.current=start;positionUpdatedAt.current=Date.now();setPosition(start)}catch{ /* A otimização pode usar a primeira parada sem GPS, evitando travar a tela. */ }
    let saved:FieldPlan|null=null;
    for(let batch=1;batch<=12;batch++){
     setProgress('Preparando endereços · tentativa '+batch);
@@ -512,7 +512,7 @@ function CampoGuiadoSession({id}:{id:string}){
    {stage==='ready'&&<><span className="navigator-sheet-eyebrow">PASSO 2 · COMEÇAR</span>
     <h2>Sua próxima parada está no mapa</h2><p>A localização será usada durante a rota. Se o sinal demorar, tente novamente sem recarregar a página.</p>
     {plan?.route_warning&&<p className="navigator-warning">Alguns trechos podem não ter rota desenhada. Confira os endereços.</p>}
-    <div className="navigator-consent"><ShieldCheck size={22}/><span>A central receberá sua última localização durante a jornada. Você pode interromper a qualquer momento.</span></div>
+    <div className="navigator-consent"><ShieldCheck size={22}/><span>Sua localização será enviada à central apenas durante a jornada. O envio termina ao encerrar a rota ou sair da tela; você também controla a permissão pelo navegador.</span></div>
     <button type="button" className="navigator-primary" disabled={busy} onClick={()=>void begin()}>
      <Play size={25}/>{busy?'Buscando localização...':error?'Tentar GPS novamente':'Iniciar navegação'}<ChevronRight size={24}/></button>
     <button type="button" className="navigator-secondary-link" disabled={busy} onClick={()=>void calculate()}>Recalcular percurso</button></>}
