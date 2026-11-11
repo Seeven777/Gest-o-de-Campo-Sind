@@ -72,7 +72,7 @@ const locationError=(code:number):GpsFailure=>{
 };
 function rememberGps(point:CurrentPosition){
  if(!Number.isFinite(point.lat)||!Number.isFinite(point.lon)||!Number.isFinite(point.accuracy))return;
- lastGpsFix={point,at:Date.now()};
+ lastGpsFix={point,at:point.timestamp&&point.timestamp>0?point.timestamp:Date.now()};
 }
 async function permissionState():Promise<PermissionState|null>{
  try{
@@ -84,7 +84,7 @@ async function permissionState():Promise<PermissionState|null>{
 const gpsOnce=(options:PositionOptions={enableHighAccuracy:true,maximumAge:30000,timeout:12000})=>new Promise<CurrentPosition>((resolve,reject)=>{
  if(!navigator.geolocation)return reject(locationError(0));
  navigator.geolocation.getCurrentPosition(
-  p=>{const point={lat:p.coords.latitude,lon:p.coords.longitude,accuracy:p.coords.accuracy,heading:p.coords.heading,speed:p.coords.speed};rememberGps(point);resolve(point)},
+  p=>{const point={lat:p.coords.latitude,lon:p.coords.longitude,accuracy:p.coords.accuracy,heading:p.coords.heading,speed:p.coords.speed,timestamp:p.timestamp};rememberGps(point);resolve(point)},
   error=>reject(locationError(error.code)),
   options);
 });
@@ -251,7 +251,7 @@ function CampoGuiadoSession({id}:{id:string}){
   setBusy(true);setError('');setNotice('');
   try{
    let start:CurrentPosition|undefined;
-   try{start=await gpsOnce({enableHighAccuracy:false,maximumAge:60000,timeout:6000});positionRef.current=start;positionUpdatedAt.current=Date.now();setPosition(start)}catch{ /* A otimização pode usar a primeira parada sem GPS, evitando travar a tela. */ }
+   try{start=await gpsOnce({enableHighAccuracy:false,maximumAge:60000,timeout:6000});positionRef.current=start;positionUpdatedAt.current=start.timestamp||Date.now();setPosition(start)}catch{ /* A otimização pode usar a primeira parada sem GPS, evitando travar a tela. */ }
    let saved:FieldPlan|null=null;
    for(let batch=1;batch<=12;batch++){
     setProgress('Preparando endereços · tentativa '+batch);
@@ -274,7 +274,7 @@ function CampoGuiadoSession({id}:{id:string}){
   setBusy(true);setError('');setNotice('');
   try{
    const p=await gpsForNavigation(positionRef.current,positionUpdatedAt.current,forceFresh);
-   positionRef.current=p;positionUpdatedAt.current=Date.now();setPosition(p);rememberGps(p);
+   positionRef.current=p;positionUpdatedAt.current=p.timestamp||Date.now();setPosition(p);rememberGps(p);
    await send('/api/campo/localizacao',{action:'start',route_id:id,consent:true,...p});
    sentAt.current=Date.now();setStarted(true);setGpsIssue(false);setGpsRestart(n=>n+1);setRerouteToken(n=>n+1);setNotice('Localização iniciada. Siga o mapa e pare o veículo antes de confirmar a chegada.');
   }catch(e){if((e as GpsFailure)?.geoCode!==undefined)setGpsIssue(true);setError(e instanceof Error?e.message:'Não foi possível iniciar a localização.')}
@@ -284,7 +284,7 @@ function CampoGuiadoSession({id}:{id:string}){
   if(!started||!navigator.geolocation)return;
   let watch:number|undefined,alive=true;
   const ping=(p:CurrentPosition)=>{
-   positionRef.current=p;positionUpdatedAt.current=Date.now();rememberGps(p);setPosition(p);setGpsIssue(false);
+   positionRef.current=p;positionUpdatedAt.current=p.timestamp||Date.now();rememberGps(p);setPosition(p);setGpsIssue(false);
    setError(old=>/GPS|localizaç|permissão|navegador/i.test(old)?'':old);
    if(Date.now()-sentAt.current<20000)return;
    sentAt.current=Date.now();
@@ -293,7 +293,7 @@ function CampoGuiadoSession({id}:{id:string}){
   const resume=()=>{
    if(document.visibilityState==='visible'&&watch===undefined){
     watch=navigator.geolocation.watchPosition(
-     p=>ping({lat:p.coords.latitude,lon:p.coords.longitude,accuracy:p.coords.accuracy,heading:p.coords.heading,speed:p.coords.speed}),
+     p=>ping({lat:p.coords.latitude,lon:p.coords.longitude,accuracy:p.coords.accuracy,heading:p.coords.heading,speed:p.coords.speed,timestamp:p.timestamp}),
      e=>{void (async()=>{
        const state=e.code===1?await permissionState():null;
        if(!alive)return;
@@ -340,7 +340,7 @@ function CampoGuiadoSession({id}:{id:string}){
      fix=await gpsOnce({enableHighAccuracy:false,maximumAge:8000,timeout:10000});
     }
     if(fix.accuracy>500)throw Error('O GPS ainda está impreciso. Aguarde a localização estabilizar e confirme novamente com o veículo parado.');
-    positionRef.current=fix;positionUpdatedAt.current=wallTime();setPosition(fix);
+    positionRef.current=fix;positionUpdatedAt.current=fix.timestamp||wallTime();setPosition(fix);
    }
    setArrivalPhase('saving');
    const result=await send<{id?:string;error?:string}>('/api/campo/visita',{action:'arrive',stop_id:stopId,...fix});
