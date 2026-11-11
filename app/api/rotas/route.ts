@@ -3,6 +3,7 @@ export const dynamic='force-dynamic';
 const fail=(error:string,status=400)=>NextResponse.json({error},{status});
 export async function GET(){
  const user=await currentIdentity();if(!user)return fail('Acesso não autorizado',401);
+  if(user.role==='cadastro')return fail('Rotas não autorizadas para Cadastro.',403);
  const scope=user.role==='agent'?"where r.agent_id=$1 and r.status in ('published','in_progress','completed')":'';const params=user.role==='agent'?[user.id]:[];
  const items=await db().query(`select r.id,r.route_date,r.status,c.name as campaign_name,p.full_name as agent_name,
  (select count(*)::int from route_stops where route_id=r.id) as stops
@@ -11,7 +12,7 @@ export async function GET(){
  return NextResponse.json({items});
 }
 export async function POST(req:Request){
- const user=await currentIdentity();if(!user||user.role==='agent')return fail('Somente administração e supervisão.',403);
+ const user=await currentIdentity();if(!user||!['admin','supervisor'].includes(user.role))return fail('Somente administração e supervisão.',403);
  const data=await req.json().catch(()=>({}));
  const campaign=String(data.campaign_id||''),agent=String(data.agent_id||''),date=String(data.date||'');
  const stops=Array.isArray(data.establishment_ids)?data.establishment_ids.map(String):[];
@@ -44,7 +45,7 @@ export async function POST(req:Request){
 }
 
 export async function PATCH(req:Request){
- const u=await currentIdentity();if(!u||u.role==='agent')return fail('Apenas administração e supervisão.',403);
+ const u=await currentIdentity();if(!u||!['admin','supervisor'].includes(u.role))return fail('Apenas administração e supervisão.',403);
  const data=await req.json().catch(()=>({}));const id=String(data.id||'');
  if(!/^[0-9a-f-]{36}$/i.test(id))return fail('Rota inválida.');
  const rows=await db().query("update routes set status='published' where id=$1 and status='draft' and exists(select 1 from route_stops where route_id=$1) returning id",[id]);
