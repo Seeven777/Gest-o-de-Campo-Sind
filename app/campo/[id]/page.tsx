@@ -150,7 +150,7 @@ export default function CampoGuiado(){
 }
 function CampoGuiadoSession({id}:{id:string}){
  const [data,setData]=useState<RouteData|null>(null),[plan,setPlan]=useState<FieldPlan|null>(null);
- const [started,setStarted]=useState(false),[position,setPosition]=useState<CurrentPosition|null>(null),[follow,setFollow]=useState(true),[gpsRestart,setGpsRestart]=useState(0),[gpsIssue,setGpsIssue]=useState(false),[signalTick,setSignalTick]=useState(0);
+ const [started,setStarted]=useState(false),[position,setPosition]=useState<CurrentPosition|null>(null),[follow,setFollow]=useState(true),[gpsRestart,setGpsRestart]=useState(0),[gpsIssue,setGpsIssue]=useState(false),[signalTick,setSignalTick]=useState(0),[lastGpsAt,setLastGpsAt]=useState(0);
  const [busy,setBusy]=useState(false),[photoBusy,setPhotoBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[progress,setProgress]=useState(''),[retryCount,setRetryCount]=useState(0);
  const [showStops,setShowStops]=useState(false),[arrivalDialog,setArrivalDialog]=useState(false),[recenterToken,setRecenterToken]=useState(0);
  const [questionIndex,setQuestionIndex]=useState(0),[answers,setAnswers]=useState<Answers>(blankAnswers),[notes,setNotes]=useState('');
@@ -198,7 +198,7 @@ function CampoGuiadoSession({id}:{id:string}){
  const distance=straightDistance(position,target);
  const questionnaireEnd=questionIndex===questions.length;
  const nextQuestion=questions[questionIndex];
- const gpsStale=started&&!!position&&signalTick>0&&signalTick-positionUpdatedAt.current>90000;
+ const gpsStale=started&&!!position&&signalTick>0&&signalTick-lastGpsAt>90000;
  const gpsNeedsRecovery=started&&(gpsIssue||gpsStale);
  const gpsActive=started&&!!position&&!gpsNeedsRecovery;
  const gpsLabel=!started?'GPS parado':gpsNeedsRecovery?'GPS instável':position?'GPS ativo':'Buscando GPS';
@@ -253,7 +253,7 @@ function CampoGuiadoSession({id}:{id:string}){
   setBusy(true);setError('');setNotice('');
   try{
    let start:CurrentPosition|undefined;
-   try{start=await gpsOnce({enableHighAccuracy:false,maximumAge:60000,timeout:6000});positionRef.current=start;positionUpdatedAt.current=start.timestamp||Date.now();setPosition(start)}catch{ /* A otimização pode usar a primeira parada sem GPS, evitando travar a tela. */ }
+   try{start=await gpsOnce({enableHighAccuracy:false,maximumAge:60000,timeout:6000});positionRef.current=start;positionUpdatedAt.current=start.timestamp||Date.now();setLastGpsAt(positionUpdatedAt.current);setPosition(start)}catch{ /* A otimização pode usar a primeira parada sem GPS, evitando travar a tela. */ }
    let saved:FieldPlan|null=null;
    for(let batch=1;batch<=12;batch++){
     setProgress('Preparando endereços · tentativa '+batch);
@@ -276,7 +276,7 @@ function CampoGuiadoSession({id}:{id:string}){
   setBusy(true);setError('');setNotice('');
   try{
    const p=await gpsForNavigation(positionRef.current,positionUpdatedAt.current,forceFresh);
-   positionRef.current=p;positionUpdatedAt.current=p.timestamp||Date.now();setPosition(p);rememberGps(p);
+   positionRef.current=p;positionUpdatedAt.current=p.timestamp||Date.now();setLastGpsAt(positionUpdatedAt.current);setPosition(p);rememberGps(p);
    await send('/api/campo/localizacao',{action:'start',route_id:id,consent:true,...p});
    sentAt.current=Date.now();setStarted(true);setGpsIssue(false);setGpsRestart(n=>n+1);setRerouteToken(n=>n+1);setNotice('Localização iniciada. Siga o mapa e pare o veículo antes de confirmar a chegada.');
   }catch(e){if((e as GpsFailure)?.geoCode!==undefined)setGpsIssue(true);setError(e instanceof Error?e.message:'Não foi possível iniciar a localização.')}
@@ -292,7 +292,7 @@ function CampoGuiadoSession({id}:{id:string}){
   if(!started||!navigator.geolocation)return;
   let watch:number|undefined,alive=true;
   const ping=(p:CurrentPosition)=>{
-   positionRef.current=p;positionUpdatedAt.current=p.timestamp||Date.now();rememberGps(p);setPosition(p);setGpsIssue(false);
+   positionRef.current=p;positionUpdatedAt.current=p.timestamp||Date.now();rememberGps(p);setLastGpsAt(positionUpdatedAt.current);setPosition(p);setGpsIssue(false);
    setError(old=>/GPS|localizaç|permissão|navegador/i.test(old)?'':old);
    if(Date.now()-sentAt.current<20000)return;
    sentAt.current=Date.now();
@@ -348,7 +348,7 @@ function CampoGuiadoSession({id}:{id:string}){
      fix=await gpsOnce({enableHighAccuracy:false,maximumAge:8000,timeout:10000});
     }
     if(fix.accuracy>500)throw Error('O GPS ainda está impreciso. Aguarde a localização estabilizar e confirme novamente com o veículo parado.');
-    positionRef.current=fix;positionUpdatedAt.current=fix.timestamp||wallTime();setPosition(fix);
+    positionRef.current=fix;positionUpdatedAt.current=fix.timestamp||wallTime();setLastGpsAt(positionUpdatedAt.current);setPosition(fix);
    }
    setArrivalPhase('saving');
    const result=await send<{id?:string;error?:string}>('/api/campo/visita',{action:'arrive',stop_id:stopId,...fix});
