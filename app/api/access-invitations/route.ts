@@ -37,7 +37,7 @@ export async function POST(request: Request) {
     const email = String(data.email || '').trim().toLowerCase();
     const fullName = String(data.full_name || '').trim().replace(/\s+/g,' ');
     const role = String(data.role || '');
-    if (!validEmail(email) || fullName.length < 3 || fullName.length > 120 || !['admin','supervisor','agent','cadastro'].includes(role)) {
+    if (!validEmail(email) || fullName.length < 3 || fullName.length > 120 || !['admin','supervisor','agent','cadastro','rh'].includes(role)) {
       return NextResponse.json({ error: 'Informe nome, e-mail e perfil válidos.' }, { status: 400 });
     }
     const existing = await db().query(`select 1 from neon_auth."user" u join app_profiles p on p.auth_user_id = u.id::text where lower(u.email)=$1 and p.is_active=true limit 1`, [email]);
