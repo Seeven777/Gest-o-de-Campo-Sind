@@ -3,7 +3,7 @@ import {useEffect,useMemo,useRef,useState} from 'react';
 export type FieldPoint={id:string;lat:number;lon:number};
 export type FieldPlan={order:string[];points:FieldPoint[];geometry:{type:'LineString';coordinates:[number,number][]};route_warning?:string;partial?:boolean;missing?:{id:string;name:string;address:string}[];distance_m?:number|null;duration_s?:number|null};
 export type CurrentPosition={lat:number;lon:number;accuracy:number;heading?:number|null;speed?:number|null};
-export type RouteStep={instruction:string;type:number;distance_m:number;duration_s:number;at:[number,number]};
+export type RouteStep={instruction:string;type:number;distance_m:number;duration_s:number;at:[number,number];route_index:number};
 export type ActiveLeg={geometry:{type:'LineString';coordinates:[number,number][]};steps:RouteStep[];distance_m:number;duration_s:number;estimated:true};
 type LMap={remove:()=>void;fitBounds:(b:unknown,o?:unknown)=>void;setView:(c:number[],zoom:number,o?:unknown)=>void;invalidateSize:()=>void;
  panTo:(c:number[],o?:unknown)=>void;panBy:(offset:number[],o?:unknown)=>void;on:(ev:string,fn:()=>void)=>void;off:(ev:string,fn:()=>void)=>void;zoomIn:()=>void;zoomOut:()=>void};
@@ -42,7 +42,7 @@ const gpsIcon=(L:LApi,heading:number|null|undefined)=>L.divIcon({
 });
 export function FieldNavigationMap({plan,targetId,current,follow=true,compact=false,kind='stop',immersive=false,recenterToken=0,fitToken=0,zoomCommand,completedIds=[],activeLeg,onManualPan}:Props){
  const element=useRef<HTMLDivElement|null>(null),map=useRef<LMap|null>(null),gpsMarker=useRef<Layer|null>(null),gpsAccuracy=useRef<Layer|null>(null),
-  leafletApi=useRef<LApi|null>(null),markers=useRef(new Map<string,Layer>()),legLayer=useRef<Layer|null>(null),
+  leafletApi=useRef<LApi|null>(null),markers=useRef(new Map<string,Layer>()),legLayer=useRef<Layer|null>(null),legOutline=useRef<Layer|null>(null),
   lastCenter=useRef(0),callback=useRef(onManualPan);
  callback.current=onManualPan;
  const [error,setError]=useState(''),[ready,setReady]=useState(false);
@@ -84,7 +84,7 @@ export function FieldNavigationMap({plan,targetId,current,follow=true,compact=fa
    window.requestAnimationFrame(()=>{if(!disposed){instance.invalidateSize();makeBounds(all.length?all:route,instance,L);setReady(true)}});
    return ()=>{instance.off('dragstart',panListener);observer?.disconnect()};
   }).then(cleanup=>{if(disposed)cleanup?.();else cleanupRef.current=cleanup}).catch(e=>{if(!disposed)setError(e instanceof Error?e.message:'Falha no mapa')});
-  return()=>{disposed=true;cleanupRef.current?.();cleanupRef.current=null;map.current?.remove();map.current=null;gpsMarker.current=null;gpsAccuracy.current=null;legLayer.current=null;markers.current.clear();leafletApi.current=null};
+  return()=>{disposed=true;cleanupRef.current?.();cleanupRef.current=null;map.current?.remove();map.current=null;gpsMarker.current=null;gpsAccuracy.current=null;legLayer.current=null;legOutline.current=null;markers.current.clear();leafletApi.current=null};
  // A montagem do mapa depende da rota, mas não deve reiniciar a cada ping, alteração de etapa ou check-in.
  // eslint-disable-next-line react-hooks/exhaustive-deps
  },[plan,kind,immersive]);
@@ -101,11 +101,11 @@ export function FieldNavigationMap({plan,targetId,current,follow=true,compact=fa
  },[ready,completedKey,targetId,kind,plan]);
  useEffect(()=>{
   if(!ready||!map.current||!leafletApi.current)return;
-  legLayer.current?.remove();legLayer.current=null;
+  legLayer.current?.remove();legLayer.current=null;legOutline.current?.remove();legOutline.current=null;
   const pts=validPoints(activeLeg?.geometry?.coordinates);
   if(pts.length>=2){
    const L=leafletApi.current,instance=map.current;
-   L.polyline(pts,{color:'#fff',weight:11,opacity:.98}).addTo(instance);
+   legOutline.current=L.polyline(pts,{color:'#fff',weight:11,opacity:.98}).addTo(instance);
    legLayer.current=L.polyline(pts,{color:'#f26a21',weight:7,opacity:1}).addTo(instance);
   }
  },[ready,activeLeg]);
