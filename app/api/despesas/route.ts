@@ -13,6 +13,7 @@ const normalCnpj=(v:unknown)=>String(v??'').toUpperCase().replace(/[^A-Z0-9]/g,'
 const amountValue=(v:unknown)=>{const n=Number(v);return Number.isFinite(n)&&n>0&&n<=50000&&Math.abs(n*100-Math.round(n*100))<1e-5?Math.round(n*100)/100:null};
 const dateValid=(v:unknown)=>{if(typeof v!=='string'||!/^\d{4}-\d{2}-\d{2}$/.test(v))return false;const t=Date.parse(v);return Number.isFinite(t)&&new Date(t).toISOString().slice(0,10)===v;};
 const protectedResponse={headers:{'Cache-Control':'no-store'}};
+const todaySP=()=>new Intl.DateTimeFormat('sv-SE',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
 
 export async function GET(req:Request){
  const user=await currentIdentity();
@@ -41,7 +42,8 @@ export async function GET(req:Request){
    count(*) filter(where approval_status in ('submitted','returned'))::int awaiting_paper,
    count(*) filter(where approval_status in ('receipt_received','accounting_review'))::int in_review,
    count(*) filter(where approval_status='approved')::int approved,
-   count(*) filter(where approval_status='paid' and receipt_acknowledged_at is null)::int awaiting_ack,
+   count(*) filter(where approval_status='paid' and receipt_acknowledged_at is null and payment_reference is not null and paid_at is not null)::int awaiting_ack,
+   count(*) filter(where approval_status='paid' and (payment_reference is null or paid_at is null))::int legacy_paid,
    count(*) filter(where receipt_disputed_at is not null and dispute_resolved_at is null)::int disputed,
    count(*) filter(where receipt_acknowledged_at is not null)::int acknowledged
    from expenses where ($1::text is null or agent_id=$1)`,[owner])
@@ -61,6 +63,7 @@ export async function POST(req:Request){
  const invoice=textValue(d.invoice_reference,100),recipient=normalCnpj(d.invoice_recipient_cnpj);
  if(!uuid.test(route)||!categories.has(category)||amount===null||!dateValid(date)||description.length<6||description.length>500)
   return fail('Informe uma rota sua, categoria, data, valor e descrição válida (6 a 500 caracteres).');
+ if(String(date)>todaySP())return fail('A despesa deve ter ocorrido na data informada. Não é possível solicitar gasto futuro.');
  if(invoice.length>100||recipient&&recipient.length!==14)return fail('Confira a referência da nota e os 14 caracteres do CNPJ destinatário.');
  const rows=await db().query(`with assigned as (
   select id,campaign_id from routes where id=$1 and agent_id=$2
@@ -93,7 +96,7 @@ export async function PATCH(req:Request){
  const d=await req.json().catch(()=>({})) as Record<string,unknown>;
  const id=textValue(d.id,45),action=textValue(d.action,40),note=textValue(d.note,500);
  if(!uuid.test(id))return fail('Solicitação inválida.');
- const [expense]=await db().query(`select id,agent_id,approval_status,amount,approved_amount,receipt_disputed_at,dispute_resolved_at,receipt_acknowledged_at
+ const [expense]=await db().query(`select id,agent_id,approval_status,amount,approved_amount,payment_reference,paid_at,receipt_disputed_at,dispute_resolved_at,receipt_acknowledged_at
   from expenses where id=$1`,[id]);
  if(!expense)return fail('Despesa não encontrada.',404);
  const isAgent=user.role==='agent';
@@ -114,11 +117,12 @@ export async function PATCH(req:Request){
     ['accounting_reviewed_at',null],['accounting_recorded_by',null],['approved_amount',null],['last_review_note',null]];
    details={previous_amount:Number(expense.amount),new_amount:amount};
   }else if(action==='acknowledge'&&from==='paid'){
-   if(expense.receipt_acknowledged_at||expense.receipt_disputed_at&&!expense.dispute_resolved_at)
+   if(!expense.payment_reference||!expense.paid_at||expense.receipt_acknowledged_at||expense.receipt_disputed_at&&!expense.dispute_resolved_at)
     return fail('Este pagamento já foi confirmado ou possui contestação pendente.',409);
-   updates=[['receipt_acknowledged_at',now]];guard='and receipt_acknowledged_at is null and (receipt_disputed_at is null or dispute_resolved_at is not null)';
+   updates=[['receipt_acknowledged_at',now]];guard='and receipt_acknowledged_at is null and payment_reference is not null and paid_at is not null and (receipt_disputed_at is null or dispute_resolved_at is not null)';
    details={confirmed_by_agent:true};
   }else if(action==='contest'&&from==='paid'){
+   if(!expense.payment_reference||!expense.paid_at)return fail('Pagamento legado sem comprovante registrado. Informe o RH antes de contestar.',409);
    if(!checkNote(12))return fail('Explique a divergência em pelo menos 12 caracteres.');
    updates=[['receipt_disputed_at',now],['receipt_dispute_reason',note],
     ['dispute_resolved_at',null],['dispute_resolution_reference',null]];
@@ -155,7 +159,7 @@ export async function PATCH(req:Request){
    const paymentDate=d.payment_date,paid=amountValue(d.paid_amount);
    if(paymentReference.length<4||paymentReference.length>200||!paymentMethods.has(method)||!dateValid(paymentDate)||paid===null)
     return fail('Informe data, forma, valor e comprovante/identificador da transferência.');
-   if(String(paymentDate)>new Date(Date.now()+86400000).toISOString().slice(0,10))return fail('Não registre como realizado um pagamento futuro.');
+   if(String(paymentDate)>todaySP())return fail('Não registre como realizado um pagamento futuro.');
    if(paid!==Number(expense.approved_amount))return fail('O valor transferido deve ser igual ao autorizado pela contabilidade.',409);
    if(d.payment_executed!==true)return fail('Confirme que o pagamento realmente ocorreu fora desta plataforma.');
    next='paid';
