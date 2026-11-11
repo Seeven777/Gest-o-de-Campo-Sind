@@ -37,8 +37,15 @@ export default function Login(){
  async function routeAfterLogin(){
   try{
    const r=await fetch('/api/access-requests',{cache:'no-store'});
-   if(r.ok){const result=await r.json();router.replace(result.authorized?'/dashboard':'/aguardando');}
-   else router.replace('/aguardando');
+   if(r.ok){
+    const result=await r.json();
+    if(!result.authorized)router.replace('/aguardando');
+    else{
+     const me=await fetch('/api/me',{cache:'no-store'});
+     const profile=me.ok?await me.json().catch(()=>null):null;
+     router.replace(profile?.user?.role==='agent'?'/agente':'/dashboard');
+    }
+   }else router.replace('/aguardando');
   }catch{router.replace('/aguardando');}
   router.refresh();
  }

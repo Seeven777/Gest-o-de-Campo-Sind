@@ -9,18 +9,40 @@ import {adminMenu,agentMenu} from '@/lib/menu';
 import {authClient} from '@/lib/auth/client';
 type User={id:string;name:string;email:string;role:'admin'|'supervisor'|'agent'};
 export function Portal({title,subtitle,children,action,immersive=false}:{title:string;subtitle?:string;children:React.ReactNode;action?:React.ReactNode;immersive?:boolean}){
- const [user,setUser]=useState<User|null>(null),[loading,setLoading]=useState(true),[drawer,setDrawer]=useState(false),[collapsed,setCollapsed]=useState(false),[moreOpen,setMoreOpen]=useState(false);
+ const [user,setUser]=useState<User|null>(null),[loading,setLoading]=useState(true),[sessionError,setSessionError]=useState(false),[retry,setRetry]=useState(0),[drawer,setDrawer]=useState(false),[collapsed,setCollapsed]=useState(false),[moreOpen,setMoreOpen]=useState(false);
  const router=useRouter(),pathname=usePathname();
- useEffect(()=>{let live=true;fetch('/api/me',{cache:'no-store'}).then(async r=>{if(!r.ok){if(r.status===401)router.replace('/login');return null}return r.json()}).then(j=>{if(live&&j?.user){setUser(j.user);if(j.user.role==='agent'&&pathname==='/dashboard')router.replace('/agente')}}).catch(()=>{}).finally(()=>{if(live)setLoading(false)});return()=>{live=false}},[router,pathname]);
+ useEffect(()=>{
+  let live=true;
+  fetch('/api/me',{cache:'no-store'})
+   .then(async r=>{
+    if(r.status===401){router.replace('/login');return null}
+    if(!r.ok)throw Error('Falha ao consultar sua sessão.');
+    return r.json();
+   })
+   .then(data=>{
+    if(!live)return;
+    if(!data?.user){setSessionError(true);return}
+    setSessionError(false);setUser(data.user);
+    if(data.user.role==='agent'&&pathname==='/dashboard')router.replace('/agente');
+   })
+   .catch(()=>{if(live)setSessionError(true)})
+   .finally(()=>{if(live)setLoading(false)});
+  return()=>{live=false};
+ },[router,pathname,retry]);
  const agent=user?.role==='agent';
  const supervisorLinks=new Set(['/dashboard','/empresas','/campanhas','/rotas','/visitas','/reembolsos','/mapa','/localizacoes','/relatorios','/configuracoes']);
  const items=agent?agentMenu:adminMenu.filter(item=>user?.role==='admin'||supervisorLinks.has(item.href));
  const groups=[['principal','Área de trabalho'],['operacao','Trabalho de campo'],['inteligencia','Inteligência'],['sistema','Sistema']] as const;
  if(loading)return <div className="loading-screen"><BrandMark size={52}/><p>Preparando seu espaço de trabalho...</p></div>;
- if(!user)return <div className="loading-screen"><BrandMark size={52}/><h2>Acesso restrito</h2><p>Entre na sua conta ou solicite que a administração libere seu perfil.</p><Link className="button" href="/login">Ir para o acesso</Link></div>;
+ if(!user)return <div className="loading-screen"><BrandMark size={52}/>
+  <h2>{sessionError?'Não foi possível carregar sua sessão':'Acesso restrito'}</h2>
+  <p>{sessionError?'Verifique sua conexão e tente novamente. Nenhuma alteração foi realizada.':'Entre na sua conta ou solicite que a administração libere seu perfil.'}</p>
+  {sessionError&&<button type="button" className="button" onClick={()=>{setLoading(true);setRetry(n=>n+1)}}>Tentar novamente</button>}
+  <Link className="button" href="/login">Ir para o acesso</Link>
+ </div>;
  return <div className={`app-shell ${collapsed?'collapsed':''} ${immersive?'journey-shell':''}`}>
   <aside className={`side ${drawer?'shown':''}`}>
-    <div className="side-head"><Link href="/dashboard" className="brand"><BrandMark size={42}/><div><strong>SindPetshop<span>-SP</span></strong><small>Campo & Território</small></div></Link><button className="icon-btn side-close" aria-label="Fechar" onClick={()=>setDrawer(false)}><X size={19}/></button></div>
+    <div className="side-head"><Link href={agent?'/agente':'/dashboard'} className="brand"><BrandMark size={42}/><div><strong>SindPetshop<span>-SP</span></strong><small>Campo & Território</small></div></Link><button className="icon-btn side-close" aria-label="Fechar" onClick={()=>setDrawer(false)}><X size={19}/></button></div>
     <div className="side-scroll"><div className="side-unit"><span className="eyebrow">{agent?'ESPAÇO DO AGENTE':'CENTRAL DE OPERAÇÕES'}</span><strong>{agent?'Sua jornada de campo':'Onde a presença vira resultado.'}</strong></div>
     <nav aria-label="Navegação principal">{['principal','operacao','inteligencia','sistema'].map(g=>{const subset=items.filter(i=>i.group===g);return subset.length?<div className="nav-section" key={g}><span className="nav-caption">{{principal:'Área de trabalho',operacao:'Trabalho de campo',inteligencia:'Inteligência',sistema:'Sistema'}[g]}</span>{subset.map(({href,label,icon:Icon})=><Link key={href} href={href} title={label} onClick={()=>setDrawer(false)} className={`side-link ${pathname===href?'active':''}`}><Icon size={19} strokeWidth={1.9}/><span>{label}</span>{pathname===href&&<span className="active-pin"/>}</Link>)}</div>:null})}</nav></div>
     <div className="side-footer"><div className="avatar">{user.name.charAt(0).toUpperCase()}</div><div className="user-info"><strong>{user.name}</strong><small>{user.role==='admin'?'Administração':user.role==='supervisor'?'Supervisão':'Agente de campo'}</small></div><button aria-label="Sair" className="icon-btn" onClick={async()=>{await authClient.signOut();router.replace('/login')}}><LogOut size={18}/></button></div>

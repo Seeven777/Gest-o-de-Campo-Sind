@@ -94,3 +94,9 @@ Atualizada em 11/11/2026. Branch: `fix/modo-roteirizador-auditoria-ux`. Registro
 - **Empresas para agente:** listagem não revela empresas associadas apenas a rotas em rascunho ou canceladas.
 
 **Validação:** revisão estática do código; executar CI no commit e repetir os testes autenticados no Preview antes de qualquer merge. Nenhum banco ou dado de produção foi modificado nesta correção.
+
+### Ajustes de navegação e estados de rede (11/11/2026)
+- O portal diferencia falha de rede/servidor na consulta de sessão de um acesso realmente negado e oferece ação de nova tentativa. Falhas transitórias não são mais tratadas silenciosamente como perfil sem permissão.
+- O link da marca retorna o agente a **Meu dia** sem abrir o dashboard administrativo primeiro.
+- Depois de login aprovado, a navegação reconhece o perfil e encaminha o agente diretamente a `/agente`.
+- Nova validação: TypeScript, lint, build, smoke e Preview; confirmar funcionamento autenticado por perfil antes de merge.
