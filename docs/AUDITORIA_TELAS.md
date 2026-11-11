@@ -141,3 +141,39 @@ Atualizada em 11/11/2026. Branch: `fix/modo-roteirizador-auditoria-ux`. Registro
 - Revisados controles server-side nas APIs de despesas, rotas, visitas, cobertura, relatórios, equipe; não depender de esconder links na UI.
 - Nenhuma migração Neon aplicada nesta implementação: SQL disponível em `neon/008_perfil_cadastro.sql` para homologação controlada, sem alteração no banco principal.
 - QA e deploy ainda bloqueados pela necessidade de migração no Neon Preview e homologação dos quatro papéis; merge não autorizado.
+
+## Módulo RH — reembolso de despesas de campo (11/11/2026)
+
+Fluxo inspirado no mapa operacional enviado pela equipe:
+```mermaid
+flowchart TD
+  A[Agente realiza a despesa] --> B[Solicita documento fiscal ao fornecedor]
+  B --> C[Registra solicitação e segue a rota]
+  C --> D[Entregue a nota física ao RH]
+  D --> E{RH confere nota e CNPJ?}
+  E -->|Não| F[Devolver para correção ou reprovar]
+  F --> C
+  E -->|Sim| G[RH registra o recebimento e local de guarda]
+  G --> H[RH encaminha à contabilidade]
+  H --> I{Aprovação contábil documentada?}
+  I -->|Não| F
+  I -->|Sim| J[RH registra aprovação externa]
+  J --> K[Pagamento executado fora do app]
+  K --> L[RH registra valor, data e referência]
+  L --> M{Agente confirma recebimento?}
+  M -->|Sim| N[Conciliação encerrada]
+  M -->|Divergência| O[Contestação para RH]
+  O --> P[RH registra apuração e referência]
+  P --> M
+```
+
+- **Perfil `rh`**: fila de reembolsos, registros fiscais, conferência externa e conciliação; não administra rotas, visitas, importações, cadastros sindicais, GPS ou outras contas. Administradores veem histórico mas **não registram pagamentos**; só o RH pode alterar etapas financeiras.
+- **Agente**: formulário de solicitação ligado a rota atribuída, descrição, categoria, valor e data; pode informar referência e CNPJ destinatário da nota; entrega **original físico** ao retornar. Somente o titular pode corrigir devoluções, confirmar recebimento ou contestar pagamento.
+- **RH**: recebimento físico exige referência da nota, CNPJ destinatário verificado manualmente, referência de arquivamento e confirmação expressa. Se `SINDPETSHOP_CNPJ` estiver configurada, o servidor também confere igualdade exata do CNPJ indicado. Sem essa variável, a conferência depende do RH; não insinuar verificação automática.
+- **Contabilidade**: não há autenticação/integrador contábil nesta versão. RH registra **quem** aprovou externamente e **qual o protocolo**. Não deve marcar aprovação sem evidência.
+- **Pagamento**: somente após aprovação contábil, registrando valor exato, data, meio e referência do pagamento realmente executado; o sistema **não efetua transferências**. O agente ainda confirma ou contesta o efetivo recebimento. Conflitos permanecem visíveis até resolução documentada e confirmação do trabalhador.
+- **Trilha auditável**: tabela `expense_events` registra todas as mudanças relevantes, ator, instante e dados mínimos para auditoria; inserção de evento no mesmo comando SQL da transição. `audit_logs` continua recebendo eventos correlatos.
+- **Migração**: `neon/009_rh_reembolsos.sql` (aplicar **depois** da 008) acrescenta cargo RH, campos de nota física, conferência contábil, pagamento, conciliação e trilha. Não aplicar automaticamente no Neon principal. O armazenamento de comprovantes eletrônicos/XML e sua retenção legal são processos externos até existir storage segregado e política aprovada.
+- **Privacidade**: não armazenar número de conta, chave PIX do colaborador, CPF de terceiros ou foto de nota em observações livres. Apenas identificador de operação, referência fiscal e informações estritamente necessárias.
+- **Homologação**: testar papéis admin/agente/supervisor/cadastro/rh; agente não vê despesas de outros; supervisor e cadastro sem consulta financeira; RH não acessa API de rota; bloqueio de aprovação sem nota física, contabilidade ou pagamento executado; rejeição de dupla confirmação, histórico completo, contestação do agente e resolução.
+- **Fiscal/contábil**: a nota fiscal é emitida pelo fornecedor, não pelo agente nem pelo app. CNPJ do sindicato como destinatário é regra operacional a confirmar com contabilidade conforme tipo de documento. Guardar XML, DANFE/recibo original e comprovante de transferência conforme política de retenção e legislação. Referências: Receita/SEFAZ-SP https://legislacao.fazenda.sp.gov.br/Paginas/RC24860_2021.aspx ; Portal NF-e https://www.nfe.fazenda.gov.br/Portal/perguntasFrequentes.aspx.
