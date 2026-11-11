@@ -4,7 +4,7 @@ import Link from 'next/link';
 import {useParams} from 'next/navigation';
 import {Portal} from '@/components/portal';
 import {FieldNavigationMap,type ActiveLeg,type CurrentPosition,type FieldPlan} from '@/components/field-navigation-map';
-import {ArrowLeft,ArrowRight,Camera,Check,CheckCircle2,ChevronRight,ClipboardCheck,Flag,LocateFixed,MapPin,MapPinned,Navigation,PauseCircle,Play,Route as RouteIcon,ShieldCheck,X,ZoomIn,ZoomOut,RefreshCw,Maximize2,RotateCcw,CornerUpLeft,CornerUpRight,MoveUp,MoreHorizontal,ChevronDown,ChevronUp} from 'lucide-react';
+import {ArrowLeft,ArrowRight,Camera,Check,CheckCircle2,ChevronRight,ClipboardCheck,Flag,LocateFixed,MapPin,MapPinned,Navigation,Play,Route as RouteIcon,ShieldCheck,X,ZoomIn,ZoomOut,RefreshCw,Maximize2,RotateCcw,CornerUpLeft,CornerUpRight,MoveUp,MoreHorizontal} from 'lucide-react';
 import '../jornada.css';
 
 type Stop={
@@ -93,28 +93,6 @@ function straightDistance(a:CurrentPosition|null,b:{lat:number;lon:number}|undef
 function fmtDistance(d:number|null){
  if(d===null)return 'Distância indisponível';
  return d<1000?Math.round(d)+' metros':(d/1000).toLocaleString('pt-BR',{maximumFractionDigits:1})+' km';
-}
-function ArrivalSlider({disabled,onConfirm}:{disabled:boolean;onConfirm:()=>void}){
- const [value,setValue]=useState(0),current=useRef(0);
- const update=(n:number)=>{current.current=n;setValue(n)};
- const release=()=>{const approved=current.current>=92;update(0);if(approved&&!disabled)onConfirm()};
- return <div className="navigator-arrival">
-  <label htmlFor="navigator-arrival-slider">Deslize para confirmar chegada</label>
-  <div className="navigator-slider-line">
-   <input id="navigator-arrival-slider" type="range" min="0" max="100" step="1"
-    value={value} disabled={disabled}
-    onChange={e=>update(Number(e.target.value))}
-    onPointerUp={release} onPointerCancel={()=>update(0)}
-    onKeyUp={e=>{if(e.key==='End'||e.key==='Enter'||e.key===' ')release()}}
-    style={{background:`linear-gradient(to right,#f36a21 ${value}%,#e7eeea ${value}%)`}}
-    aria-label="Arraste o controle para a direita até o final para confirmar chegada"/>
-   <span className="navigator-slider-end" aria-hidden="true"><Check size={21}/></span>
-  </div>
-  <p className="navigator-slider-hint">Arraste até o final <ArrowRight size={17}/></p>
-  <button type="button" className="navigator-text-button" disabled={disabled} onClick={onConfirm}>
-   Não consegue arrastar? Confirmar por toque
-  </button>
- </div>;
 }
 function QuestionView({question,value,onChange}:{question:Question;value:string;onChange:(value:string)=>void}){
  return <fieldset className="navigator-question">
@@ -261,17 +239,11 @@ function CampoGuiadoSession({id}:{id:string}){
   }catch(e){setError(e instanceof Error?e.message:'Não foi possível iniciar a localização.')}
   finally{setBusy(false)}
  }
- async function stopTracking(){
-  setBusy(true);setError('');
-  try{await send('/api/campo/localizacao',{action:'stop'});setStarted(false);setNotice('GPS encerrado. A central não recebe mais posições.')}
-  catch(e){setError(e instanceof Error?e.message:'Falha ao interromper GPS.')}
-  finally{setBusy(false)}
- }
  useEffect(()=>{
   if(!started||!navigator.geolocation)return;
   let watch:number|undefined;
   const ping=(p:CurrentPosition)=>{
-   positionRef.current=p;positionUpdatedAt.current=Date.now();setPosition(p);setError(old=>old.startsWith('GPS')||old.startsWith('Sinal de GPS')?'':old);
+   positionRef.current=p;positionUpdatedAt.current=Date.now();setPosition(p);;setError(old=>old.startsWith('GPS')||old.startsWith('Sinal de GPS')?'':old);
    if(Date.now()-sentAt.current<20000)return;
    sentAt.current=Date.now();
    void send('/api/campo/localizacao',{action:'ping',route_id:id,...p}).catch(e=>setError(e instanceof Error?e.message:'GPS desconectado.'));
