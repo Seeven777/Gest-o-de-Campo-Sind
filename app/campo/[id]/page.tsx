@@ -12,6 +12,7 @@ type Stop={
  city:string|null;state:string|null;cnpj:string;lat:number|null;lon:number|null;
  visit_id:string|null;checkin_at:string|null;checkout_at:string|null;review_status:string|null;review_notes?:string|null;has_photo:boolean;
 };
+type ArrivalPhase='locating'|'saving'|null;
 type RouteData={
  route:{id:string;campaign_name:string;route_date:string;status:string};
  stops:Stop[];
@@ -51,17 +52,17 @@ async function apiResponse<T extends {error?:string}>(response:Response):Promise
  try{return JSON.parse(raw) as T}
  catch{throw Error('A resposta do servidor foi inválida (HTTP '+response.status+'). Tente novamente.')}
 }
-const send=async(path:string,body:unknown)=>{
+const send=async<T extends {error?:string}={error?:string;ok?:boolean}>(path:string,body:unknown):Promise<T>=>{
  const r=await fetch(path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body),cache:'no-store'});
- const data=await apiResponse<{error?:string;ok?:boolean}>(r);
+ const data=await apiResponse<T>(r);
  if(!r.ok)throw Error(data.error||'Não foi possível concluir a operação.');return data;
 };
-const gpsOnce=()=>new Promise<CurrentPosition>((resolve,reject)=>{
+const gpsOnce=(options:PositionOptions={enableHighAccuracy:true,maximumAge:0,timeout:18000})=>new Promise<CurrentPosition>((resolve,reject)=>{
  if(!navigator.geolocation)return reject(Error('Seu celular não disponibiliza GPS.'));
  navigator.geolocation.getCurrentPosition(
   p=>resolve({lat:p.coords.latitude,lon:p.coords.longitude,accuracy:p.coords.accuracy}),
   ()=>reject(Error('Autorize o GPS nas permissões do navegador e tente novamente.')),
-  {enableHighAccuracy:true,maximumAge:0,timeout:18000});
+  options);
 });
 async function compressedPhoto(file:File):Promise<File>{
  let w=0,h=0,draw:(ctx:CanvasRenderingContext2D,width:number,height:number)=>void;
@@ -132,7 +133,8 @@ export default function CampoGuiado(){
  const [busy,setBusy]=useState(false),[photoBusy,setPhotoBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[progress,setProgress]=useState(''),[retryCount,setRetryCount]=useState(0);
  const [showStops,setShowStops]=useState(false),[arrivalDialog,setArrivalDialog]=useState(false),[recenterToken,setRecenterToken]=useState(0);
  const [questionIndex,setQuestionIndex]=useState(0),[answers,setAnswers]=useState<Answers>(blankAnswers),[notes,setNotes]=useState('');
- const sentAt=useRef(0),positionRef=useRef<CurrentPosition|null>(null);
+ const [arrivalPhase,setArrivalPhase]=useState<ArrivalPhase>(null);
+ const sentAt=useRef(0),positionRef=useRef<CurrentPosition|null>(null),positionUpdatedAt=useRef(0);
  const cacheKey='sind-jornada-plan:'+id;
  async function reload(){
   const r=await fetch('/api/campo/'+encodeURIComponent(id),{cache:'no-store'});
@@ -179,7 +181,7 @@ export default function CampoGuiado(){
   setBusy(true);setError('');setNotice('');
   try{
    let start:CurrentPosition|undefined;
-   try{start=await gpsOnce();positionRef.current=start;setPosition(start)}catch{ /* Usa primeira parada quando localização não estiver disponível. */ }
+   try{start=await gpsOnce();positionRef.current=start;positionUpdatedAt.current=Date.now();setPosition(start)}catch{ /* Usa primeira parada quando localização não estiver disponível. */ }
    let saved:FieldPlan|null=null;
    for(let batch=1;batch<=12;batch++){
     setProgress('Preparando endereços · tentativa '+batch);
@@ -201,7 +203,7 @@ export default function CampoGuiado(){
  async function begin(){
   setBusy(true);setError('');setNotice('');
   try{
-   const p=await gpsOnce();positionRef.current=p;setPosition(p);
+   const p=await gpsOnce();positionRef.current=p;positionUpdatedAt.current=Date.now();setPosition(p);
    await send('/api/campo/localizacao',{action:'start',route_id:id,consent:true,...p});
    setStarted(true);setNotice('Jornada iniciada. A central recebe sua posição somente enquanto o GPS está ativo.');
   }catch(e){setError(e instanceof Error?e.message:'Não foi possível iniciar a localização.')}
@@ -217,7 +219,7 @@ export default function CampoGuiado(){
   if(!started||!navigator.geolocation)return;
   let watch:number|undefined;
   const ping=(p:CurrentPosition)=>{
-   positionRef.current=p;setPosition(p);
+   positionRef.current=p;positionUpdatedAt.current=Date.now();setPosition(p);
    if(Date.now()-sentAt.current<20000)return;
    sentAt.current=Date.now();
    void send('/api/campo/localizacao',{action:'ping',route_id:id,...p}).catch(e=>setError(e instanceof Error?e.message:'GPS desconectado.'));
@@ -248,14 +250,27 @@ export default function CampoGuiado(){
  },[started]);
  async function arrive(){
   if(!current||busy)return;
-  setArrivalDialog(false);setBusy(true);setError('');setNotice('');
+  const stopId=current.id;
+  setArrivalDialog(false);setBusy(true);setArrivalPhase('locating');setError('');setNotice('');
   try{
-   const p=await gpsOnce();setPosition(p);positionRef.current=p;
-   await send('/api/campo/visita',{action:'arrive',stop_id:current.id,...p});
-   await reload();
-   setNotice('Chegada registrada. Agora tire uma foto da fachada.');
+   // Acompanhamento GPS já ativo: evite aguardar outra aquisição de até 18 segundos
+   // quando existe uma medição recente e suficientemente precisa.
+   let fix=positionRef.current;
+   if(!fix||Date.now()-positionUpdatedAt.current>12000||fix.accuracy>250){
+    fix=await gpsOnce({enableHighAccuracy:true,maximumAge:5000,timeout:12000});
+    positionRef.current=fix;positionUpdatedAt.current=Date.now();setPosition(fix);
+   }
+   setArrivalPhase('saving');
+   const result=await send<{id?:string;error?:string}>('/api/campo/visita',{action:'arrive',stop_id:stopId,...fix});
+   if(!result.id||!/^[0-9a-f-]{36}$/i.test(result.id))throw Error('O servidor não confirmou o registro. Atualize sua jornada antes de tentar novamente.');
+   // A API já confirmou o check-in. Atualize somente esta parada, sem novo GET bloqueante.
+   const visitId=result.id;
+   setData(previous=>previous?{...previous,stops:previous.stops.map(stop=>
+    stop.id===stopId?{...stop,visit_id:visitId,checkin_at:new Date().toISOString(),has_photo:false}:stop
+   )}:previous);
+   setNotice('Chegada registrada! Agora tire uma foto da fachada.');
   }catch(e){setError(e instanceof Error?e.message:'Não foi possível registrar a chegada.')}
-  finally{setBusy(false)}
+  finally{setArrivalPhase(null);setBusy(false)}
  }
  async function uploadPhoto(file:File|undefined){
   if(!file||!current?.visit_id)return;
@@ -264,22 +279,37 @@ export default function CampoGuiado(){
    const jpeg=await compressedPhoto(file),form=new FormData();form.append('visit_id',current.visit_id);form.append('photo',jpeg);
    const r=await fetch('/api/campo/foto',{method:'POST',body:form}),d=await apiResponse<{error?:string}>(r);
    if(!r.ok)throw Error(d.error||'Não foi possível enviar a foto.');
-   await reload();setNotice('Foto recebida e protegida. Responda às perguntas para concluir.');
+   // O upload confirmado é suficiente para liberar o questionário sem esperar outra consulta.
+   const uploadedId=current.visit_id;
+   setData(previous=>previous?{...previous,stops:previous.stops.map(stop=>
+    stop.visit_id===uploadedId?{...stop,has_photo:true}:stop
+   )}:previous);
+   setNotice('Foto recebida e protegida. Responda às perguntas para concluir.');
   }catch(e){setError(e instanceof Error?e.message:'Erro no envio da fotografia.')}
   finally{setPhotoBusy(false)}
  }
  async function finish(){
   if(!current?.visit_id||questions.some(q=>!answers[q.key]))return;
+  const stopId=current.id,visitId=current.visit_id;
+  const isLast=ordered.every(stop=>stop.id===stopId||!!stop.checkout_at);
   setBusy(true);setError('');setNotice('');
   try{
-   await send('/api/campo/visita',{action:'finish',stop_id:current.id,visit_id:current.visit_id,...answers,notes});
-   const d=await reload();
+   await send('/api/campo/visita',{action:'finish',stop_id:stopId,visit_id:visitId,...answers,notes});
+   // Resposta confirmada: avança diretamente, sem esperar outra consulta de toda a rota.
+   setData(previous=>previous?{...previous,stops:previous.stops.map(stop=>
+    stop.id===stopId?{...stop,checkout_at:new Date().toISOString(),review_status:'pending'}:stop
+   )}:previous);
    setQuestionIndex(0);setAnswers(blankAnswers());setNotes('');
    setFollow(true);setRecenterToken(n=>n+1);setShowStops(false);
-   if(d.stops.every(s=>!!s.checkout_at)){
-    await send('/api/campo/localizacao',{action:'stop'}).catch(()=>{});
-    setStarted(false);setNotice('Todas as visitas foram enviadas. O GPS foi encerrado.');
-   }else setNotice('Visita enviada à central. Próxima parada carregada automaticamente!');
+   if(isLast){
+    setNotice('Todas as visitas foram enviadas à central.');
+    try{
+     await send('/api/campo/localizacao',{action:'stop'});
+     setStarted(false);setNotice('Jornada concluída e GPS encerrado.');
+    }catch{
+     setError('Visitas salvas, mas não foi possível desligar o GPS. Toque em Encerrar localização para tentar novamente.');
+    }
+   }else setNotice('Visita enviada à central. Próxima parada pronta!');
   }catch(e){setError(e instanceof Error?e.message:'Falha ao enviar visita. Suas respostas continuam na tela.')}
   finally{setBusy(false)}
  }
@@ -292,6 +322,16 @@ export default function CampoGuiado(){
     <div className="navigator-empty-map" aria-hidden="true"><MapPinned size={86}/></div>}
   </div>
   {(stage==='photo'||stage==='questions')&&<div className="navigator-map-shade" aria-hidden="true"/>}
+  {arrivalPhase&&<div className="navigator-action-progress" role="status" aria-live="polite" aria-label="Confirmando a chegada">
+   <div className="navigator-action-card">
+    <div className="navigator-action-pulse">{arrivalPhase==='locating'?<LocateFixed size={35}/>:<CheckCircle2 size={35}/>}</div>
+    <strong>{arrivalPhase==='locating'?'Conferindo sua localização...':'Registrando sua chegada...'}</strong>
+    <p>{arrivalPhase==='locating'?'Verificando a posição do celular.':'Enviando a confirmação à central.'}</p>
+    <div className="navigator-action-steps" aria-hidden="true">
+     <span className="active">Localização</span><span className={arrivalPhase==='saving'?'active':''}>Registro</span><span>Foto</span>
+    </div>
+   </div>
+  </div>}
   <header className="navigator-top-panel">
    <div className="navigator-top-line"><span className="navigator-kicker"><RouteIcon size={16}/> ROTA EM CAMPO</span>
     <span className={'navigator-live-tag'+(gpsActive?' on':'')}><span/>{gpsActive?'GPS ativo':'GPS parado'}</span></div>
@@ -316,7 +356,7 @@ export default function CampoGuiado(){
    </li>)}</ol>
   </aside>}
   {(stage==='prepare'||stage==='loading'||stage==='ready'||stage==='travel'||stage==='done')&&
-  <section className="navigator-sheet" aria-label="Próxima ação da jornada">
+  <section key={current?.id+'-'+stage} className="navigator-sheet navigator-sheet-enter" aria-label="Próxima ação da jornada">
    <div className="navigator-sheet-grip" aria-hidden="true"/>
    {error&&<p className="navigator-error" role="alert">{error}</p>}
    {notice&&<p className="navigator-notice" role="status">{notice}</p>}
@@ -355,7 +395,7 @@ export default function CampoGuiado(){
     {started&&<button className="navigator-primary" onClick={()=>void stopTracking()} disabled={busy}><PauseCircle size={23}/> Encerrar localização</button>}
     <Link className="navigator-secondary-link" href="/agente">Voltar ao Meu dia</Link></div>}
   </section>}
-  {(stage==='photo'||stage==='questions')&&<section className="navigator-form-sheet" aria-label="Registro da visita">
+  {(stage==='photo'||stage==='questions')&&<section key={current?.id+'-'+stage} className="navigator-form-sheet navigator-sheet-enter" aria-label="Registro da visita">
    <div className="navigator-sheet-grip" aria-hidden="true"/>
    <div className="navigator-form-header">
     <span><ClipboardCheck size={18}/> VISITA À EMPRESA · {activeIndex}/{ordered.length}</span>
@@ -363,7 +403,7 @@ export default function CampoGuiado(){
    </div>
    {error&&<p className="navigator-error" role="alert">{error}</p>}
    {notice&&<p className="navigator-notice" role="status">{notice}</p>}
-   {stage==='photo'&&<div className="navigator-photo-step">
+   {stage==='photo'&&<div className="navigator-photo-step navigator-step-enter">
     <div className="navigator-photo-emblem"><Camera size={39}/></div>
     <span className="navigator-sheet-eyebrow">ETAPA 1 · COMPROVAÇÃO</span><h2>Fotografe a fachada</h2>
     <p>Inclua a entrada e o nome do estabelecimento, quando visível. Evite fotografar pessoas ou documentos.</p>
@@ -371,9 +411,10 @@ export default function CampoGuiado(){
      <Camera size={25}/>{photoBusy?'Enviando foto...':'Tirar foto ou escolher imagem'}
      <input type="file" accept="image/*" capture="environment" disabled={photoBusy} onChange={e=>{const file=e.target.files?.[0];e.target.value='';void uploadPhoto(file)}}/>
     </label>
+    {photoBusy&&<p className="navigator-upload-progress" role="status"><span className="navigator-mini-spinner"/> Preparando e enviando a foto...</p>}
     <p className="navigator-small">A foto será mantida em armazenamento privado temporário e removida após a análise.</p>
    </div>}
-   {stage==='questions'&&<div className="navigator-question-step">
+   {stage==='questions'&&<div key={questionIndex} className="navigator-question-step navigator-step-enter">
     {current?.review_status==='needs_more'&&current.review_notes&&<p className="navigator-warning">A central solicitou uma correção: {current.review_notes}</p>}
     <div className="navigator-step-counter"><span>{questionnaireEnd?'ETAPA FINAL · OBSERVAÇÕES':'PERGUNTA '+(questionIndex+1)+' DE '+questions.length}</span><span><Check size={15}/> Foto recebida</span></div>
     <div className="navigator-step-track"><span style={{width:(questionIndex/questions.length)*100+'%'}}/></div>
