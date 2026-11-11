@@ -15,7 +15,7 @@ type Expense={id:string;route_id:string|null;agent_id:string;category:string;amo
  receipt_acknowledged_at:string|null;receipt_disputed_at:string|null;receipt_dispute_reason:string|null;
  dispute_resolved_at:string|null;dispute_resolution_reference:string|null;last_review_note:string|null};
 type Event={id:number;action:string;before_status:string|null;after_status:string;note:string|null;created_at:string;actor_name:string;details:Record<string,unknown>};
-type Summary={total:number;awaiting_paper:number;in_review:number;approved:number;awaiting_ack:number;disputed:number;acknowledged:number};
+type Summary={total:number;awaiting_paper:number;in_review:number;approved:number;awaiting_ack:number;legacy_paid:number;disputed:number;acknowledged:number};
 const categories:Record<string,string>={fuel:'Combustível',food:'Alimentação',toll:'Pedágio',parking:'Estacionamento',lodging:'Hospedagem',other:'Outro gasto autorizado'};
 const statuses:Record<string,string>={draft:'Rascunho',submitted:'Aguardando nota física',receipt_received:'Nota recebida pelo RH',accounting_review:'Em conferência contábil',approved:'Aprovado para pagamento',returned:'Correção solicitada',rejected:'Reprovado',paid:'Pagamento informado pelo RH'};
 const eventNames:Record<string,string>={submitted:'Solicitação criada',receive:'Nota física recebida',send_accounting:'Enviado à contabilidade',approve:'Aprovação contábil registrada',return:'Devolvido para correção',reject:'Reprovado',pay:'Pagamento informado',acknowledge:'Recebimento confirmado pelo agente',contest:'Pagamento contestado',resolve_dispute:'Contestação respondida',resubmit:'Solicitação corrigida e reenviada'};
@@ -27,7 +27,7 @@ const today=()=>new Date().toLocaleDateString('sv-SE');
 
 export default function Reembolsos(){
  const [role,setRole]=useState<Role|null>(null),[routes,setRoutes]=useState<RouteOption[]>([]);
- const [rows,setRows]=useState<Expense[]>([]),[summary,setSummary]=useState<Summary>({total:0,awaiting_paper:0,in_review:0,approved:0,awaiting_ack:0,disputed:0,acknowledged:0});
+ const [rows,setRows]=useState<Expense[]>([]),[summary,setSummary]=useState<Summary>({total:0,awaiting_paper:0,in_review:0,approved:0,awaiting_ack:0,legacy_paid:0,disputed:0,acknowledged:0});
  const [loading,setLoading]=useState(true),[error,setError]=useState(''),[notice,setNotice]=useState(''),[busy,setBusy]=useState(false);
  const [page,setPage]=useState(1),[hasMore,setHasMore]=useState(false),[statusFilter,setStatusFilter]=useState('');
  const [route,setRoute]=useState(''),[category,setCategory]=useState('fuel'),[amount,setAmount]=useState(''),[expenseDate,setExpenseDate]=useState(today);
@@ -110,7 +110,7 @@ export default function Reembolsos(){
  const canAct=(x:Expense):string[]=>{
   if(agent){
    if(x.approval_status==='returned')return ['resubmit'];
-   if(x.approval_status==='paid'&&!x.receipt_acknowledged_at&&(!x.receipt_disputed_at||x.dispute_resolved_at))return ['acknowledge','contest'];
+   if(x.approval_status==='paid'&&x.payment_reference&&x.paid_at&&!x.receipt_acknowledged_at&&(!x.receipt_disputed_at||x.dispute_resolved_at))return ['acknowledge','contest'];
    return [];
   }
   if(!rh)return [];
@@ -161,7 +161,7 @@ export default function Reembolsos(){
    </label>}
    {action==='resolve_dispute'&&field('resolution_reference','Referência da solução (comprovante ou protocolo)')}
    {needChecks&&<label className="expense-check"><input type="checkbox" checked={checked} onChange={e=>setChecked(e.target.checked)}/>
-    <span>{action==='receive'?'Recebi a nota física original, conferi o destinatário e o CNPJ do sindicato.':action==='approve'?'Recebi a conferência e aprovação da contabilidade, identificadas acima.':'Confirmo que o pagamento indicado já foi executado e possui comprovação externa.'}</span></label>}
+    <span>{action==='receive'?'Recebi a nota fiscal física, conferi emitente, destinatário, CNPJ sindical e valor correspondente à solicitação.':action==='approve'?'Recebi a conferência e aprovação da contabilidade, identificadas acima.':'Confirmo que o pagamento indicado já foi executado e possui comprovação externa.'}</span></label>}
    <div className="expense-form-actions">
     <button type="button" className="expense-secondary" disabled={busy} onClick={()=>setActive(null)}>Cancelar</button>
     <button type="button" className="expense-primary" disabled={busy||needChecks&&!checked} onClick={()=>void perform(x,action)}>
@@ -196,6 +196,7 @@ export default function Reembolsos(){
     </form>
     {!routes.length&&<p className="expense-hint">Nenhuma rota atribuída está disponível. Solicite a publicação de uma rota à administração.</p>}
    </section>}
+   {rh&&summary.legacy_paid>0&&<p className="expense-warning" role="status"><AlertCircle size={18}/> Existem {summary.legacy_paid} pagamentos antigos sem referência bancária registrada. Devem ser conciliados com o RH e a contabilidade antes de qualquer confirmação de recebimento.</p>}
    {rh&&<p className="expense-guidance"><FileCheck2 size={21}/><span>O RH registra o recebimento físico e documenta a conferência externa da contabilidade. <strong>Não marque como pago antes da transferência ocorrer.</strong> O colaborador ainda poderá confirmar ou contestar o recebimento.</span></p>}
    {admin&&<p className="expense-guidance"><ShieldCheck size={20}/><span>Consulta administrativa: as mudanças de estado são exclusivas do RH e do titular da despesa. Aprovações contábeis e transferências são conferidas fora desta plataforma.</span></p>}
    {error&&<p className="error" role="alert">{error}</p>}
@@ -211,7 +212,7 @@ export default function Reembolsos(){
        <small>{agent?'Minha solicitação':x.agent_name} · {day(x.expense_date)} · {x.campaign_name}</small>
        <span>{x.description||'Sem descrição'}</span>
       </div>
-      <div className="expense-state"><span className={'expense-badge expense-'+x.approval_status}>{x.receipt_acknowledged_at?'Recebimento confirmado':x.receipt_disputed_at&&!x.dispute_resolved_at?'Pagamento contestado':statuses[x.approval_status]||x.approval_status}</span>
+      <div className="expense-state"><span className={'expense-badge expense-'+x.approval_status}>{x.receipt_acknowledged_at?'Recebimento confirmado':x.receipt_disputed_at&&!x.dispute_resolved_at?'Pagamento contestado':x.approval_status==='paid'&&!x.payment_reference?'Pagamento antigo sem comprovação':statuses[x.approval_status]||x.approval_status}</span>
        <button type="button" className="expense-history-link" onClick={()=>void showHistory(x.id)}><History size={15}/>{historyId===x.id?'Fechar histórico':'Ver histórico'}</button></div>
      </div>
      {x.last_review_note&&['returned','rejected'].includes(x.approval_status)&&<p className="expense-warning"><AlertCircle size={16}/> {x.last_review_note}</p>}
