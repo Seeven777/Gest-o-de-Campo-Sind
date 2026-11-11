@@ -21,7 +21,7 @@ export default function Aguardando(){
    if(r.status===401){setSignedIn(false);return;}
    if(!r.ok)throw new Error('Não foi possível consultar a solicitação.');
    let result=await r.json();
-   if(result.authorized){router.replace('/dashboard');router.refresh();return;}
+   if(result.authorized){const me=await fetch('/api/me',{cache:'no-store'});const profile=me.ok?await me.json().catch(()=>null):null;router.replace(profile?.user?.role==='cadastro'?'/cadastros':profile?.user?.role==='agent'?'/agente':'/dashboard');router.refresh();return;}
    if(!result.request){
     r=await fetch('/api/access-requests',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({})});
     if(!r.ok){const info=await r.json().catch(()=>({}));throw new Error(info.error||'Não foi possível registrar a solicitação.');}
