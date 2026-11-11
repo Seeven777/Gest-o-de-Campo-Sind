@@ -58,13 +58,51 @@ const send=async<T extends {error?:string}={error?:string;ok?:boolean}>(path:str
  const data=await apiResponse<T>(r);
  if(!r.ok)throw Error(data.error||'Não foi possível concluir a operação.');return data;
 };
-const gpsOnce=(options:PositionOptions={enableHighAccuracy:true,maximumAge:0,timeout:18000})=>new Promise<CurrentPosition>((resolve,reject)=>{
- if(!navigator.geolocation)return reject(Error('Seu celular não disponibiliza GPS.'));
+type GpsFailure=Error&{geoCode:number};
+let lastGpsFix:{point:CurrentPosition;at:number}|null=null;
+const locationError=(code:number):GpsFailure=>{
+ const message=code===1
+  ?'O navegador não conseguiu acessar a localização. Confira a permissão DESTE site e se a localização do aparelho está ligada.'
+  :code===2
+  ?'O GPS está temporariamente sem sinal. Sua permissão pode estar ativa; tente novamente em local aberto.'
+  :code===3
+  ?'A localização demorou para responder. Isso não significa que a permissão foi negada. Tente localizar novamente.'
+  :'Este navegador não disponibiliza localização por GPS. Abra o aplicativo em HTTPS.';
+ return Object.assign(new Error(message),{geoCode:code});
+};
+function rememberGps(point:CurrentPosition){
+ if(!Number.isFinite(point.lat)||!Number.isFinite(point.lon)||!Number.isFinite(point.accuracy))return;
+ lastGpsFix={point,at:Date.now()};
+}
+async function permissionState():Promise<PermissionState|null>{
+ try{
+  if(!navigator.permissions?.query)return null;
+  const state=await navigator.permissions.query({name:'geolocation'});
+  return state.state;
+ }catch{return null}
+}
+const gpsOnce=(options:PositionOptions={enableHighAccuracy:true,maximumAge:30000,timeout:12000})=>new Promise<CurrentPosition>((resolve,reject)=>{
+ if(!navigator.geolocation)return reject(locationError(0));
  navigator.geolocation.getCurrentPosition(
-  p=>resolve({lat:p.coords.latitude,lon:p.coords.longitude,accuracy:p.coords.accuracy}),
-  ()=>reject(Error('Autorize o GPS nas permissões do navegador e tente novamente.')),
+  p=>{const point={lat:p.coords.latitude,lon:p.coords.longitude,accuracy:p.coords.accuracy,heading:p.coords.heading,speed:p.coords.speed};rememberGps(point);resolve(point)},
+  error=>reject(locationError(error.code)),
   options);
 });
+async function gpsForNavigation(cached:CurrentPosition|null,updatedAt:number):Promise<CurrentPosition>{
+ const previous=cached&&Date.now()-updatedAt<30000?{point:cached,at:updatedAt}:lastGpsFix;
+ if(previous&&Date.now()-previous.at<45000&&previous.point.accuracy<=1000){
+  const permission=await permissionState();
+  if(permission==='denied')throw locationError(1);
+  return previous.point;
+ }
+ try{return await gpsOnce({enableHighAccuracy:true,maximumAge:45000,timeout:12000})}
+ catch(error){
+  if((error as GpsFailure).geoCode===1)throw error;
+  // Em desktop, aparelhos sem receptor de GPS ou após trocar de rota,
+  // uma medição por rede costuma estar disponível antes do sinal preciso.
+  return gpsOnce({enableHighAccuracy:false,maximumAge:60000,timeout:10000});
+ }
+}
 async function compressedPhoto(file:File):Promise<File>{
  let w=0,h=0,draw:(ctx:CanvasRenderingContext2D,width:number,height:number)=>void;
  if(typeof createImageBitmap==='function'){
@@ -111,7 +149,7 @@ export default function CampoGuiado(){
 }
 function CampoGuiadoSession({id}:{id:string}){
  const [data,setData]=useState<RouteData|null>(null),[plan,setPlan]=useState<FieldPlan|null>(null);
- const [started,setStarted]=useState(false),[position,setPosition]=useState<CurrentPosition|null>(null),[follow,setFollow]=useState(true);
+ const [started,setStarted]=useState(false),[position,setPosition]=useState<CurrentPosition|null>(null),[follow,setFollow]=useState(true),[gpsRestart,setGpsRestart]=useState(0);
  const [busy,setBusy]=useState(false),[photoBusy,setPhotoBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[progress,setProgress]=useState(''),[retryCount,setRetryCount]=useState(0);
  const [showStops,setShowStops]=useState(false),[arrivalDialog,setArrivalDialog]=useState(false),[recenterToken,setRecenterToken]=useState(0);
  const [questionIndex,setQuestionIndex]=useState(0),[answers,setAnswers]=useState<Answers>(blankAnswers),[notes,setNotes]=useState('');
@@ -211,7 +249,7 @@ function CampoGuiadoSession({id}:{id:string}){
   setBusy(true);setError('');setNotice('');
   try{
    let start:CurrentPosition|undefined;
-   try{start=await gpsOnce();positionRef.current=start;positionUpdatedAt.current=Date.now();setPosition(start)}catch{ /* Usa primeira parada quando localização não estiver disponível. */ }
+   try{start=await gpsForNavigation(positionRef.current,positionUpdatedAt.current);positionRef.current=start;positionUpdatedAt.current=Date.now();setPosition(start)}catch{ /* A otimização pode usar a primeira parada sem GPS. */ }
    let saved:FieldPlan|null=null;
    for(let batch=1;batch<=12;batch++){
     setProgress('Preparando endereços · tentativa '+batch);
@@ -233,17 +271,19 @@ function CampoGuiadoSession({id}:{id:string}){
  async function begin(){
   setBusy(true);setError('');setNotice('');
   try{
-   const p=await gpsOnce();positionRef.current=p;positionUpdatedAt.current=Date.now();setPosition(p);
+   const p=await gpsForNavigation(positionRef.current,positionUpdatedAt.current);
+   positionRef.current=p;positionUpdatedAt.current=Date.now();setPosition(p);rememberGps(p);
    await send('/api/campo/localizacao',{action:'start',route_id:id,consent:true,...p});
-   sentAt.current=Date.now();setStarted(true);setNotice('GPS ativo durante esta rota.');
+   sentAt.current=Date.now();setStarted(true);setGpsRestart(n=>n+1);setNotice('Localização iniciada. Siga o mapa e pare o veículo antes de confirmar a chegada.');
   }catch(e){setError(e instanceof Error?e.message:'Não foi possível iniciar a localização.')}
   finally{setBusy(false)}
  }
  useEffect(()=>{
   if(!started||!navigator.geolocation)return;
-  let watch:number|undefined;
+  let watch:number|undefined,alive=true;
   const ping=(p:CurrentPosition)=>{
-   positionRef.current=p;positionUpdatedAt.current=Date.now();setPosition(p);;setError(old=>old.startsWith('GPS')||old.startsWith('Sinal de GPS')?'':old);
+   positionRef.current=p;positionUpdatedAt.current=Date.now();rememberGps(p);setPosition(p);
+   setError(old=>old.includes('GPS')||old.includes('localização')||old.includes('navegador')?'':old);
    if(Date.now()-sentAt.current<20000)return;
    sentAt.current=Date.now();
    void send('/api/campo/localizacao',{action:'ping',route_id:id,...p}).catch(e=>setError(e instanceof Error?e.message:'GPS desconectado.'));
@@ -252,7 +292,17 @@ function CampoGuiadoSession({id}:{id:string}){
    if(document.visibilityState==='visible'&&watch===undefined){
     watch=navigator.geolocation.watchPosition(
      p=>ping({lat:p.coords.latitude,lon:p.coords.longitude,accuracy:p.coords.accuracy,heading:p.coords.heading,speed:p.coords.speed}),
-     e=>{if(e.code===1){setStarted(false);setPosition(null);positionRef.current=null;void send('/api/campo/localizacao',{action:'stop',route_id:id}).catch(()=>{});setError('GPS bloqueado pelo navegador. Autorize a localização e toque em Iniciar navegação novamente.');}else setError('Sinal de GPS indisponível. Verifique as permissões e tente novamente.');},
+     e=>{void (async()=>{
+       const state=e.code===1?await permissionState():null;
+       if(!alive)return;
+       if(e.code===1&&state==='denied'){
+        setStarted(false);setPosition(null);positionRef.current=null;
+        void send('/api/campo/localizacao',{action:'stop',route_id:id}).catch(()=>{});
+       }
+       setError(state==='granted'&&e.code===1
+        ?'A permissão deste site está ativa, mas o dispositivo não entregou a localização. Verifique a localização do sistema e toque em Reativar GPS.'
+        :locationError(e.code).message);
+      })()},
      {enableHighAccuracy:true,maximumAge:10000,timeout:18000});
    }else if(document.visibilityState==='hidden'&&watch!==undefined){
     navigator.geolocation.clearWatch(watch);watch=undefined;
@@ -264,8 +314,8 @@ function CampoGuiadoSession({id}:{id:string}){
    sentAt.current=Date.now();
    void send('/api/campo/localizacao',{action:'ping',route_id:id,...positionRef.current}).catch(()=>{});
   },25000);
-  return()=>{document.removeEventListener('visibilitychange',resume);window.clearInterval(heartbeat);if(watch!==undefined)navigator.geolocation.clearWatch(watch)};
- },[started,id]);
+  return()=>{alive=false;document.removeEventListener('visibilitychange',resume);window.clearInterval(heartbeat);if(watch!==undefined)navigator.geolocation.clearWatch(watch)};
+ },[started,id,gpsRestart]);
  useEffect(()=>{
   if(!started)return;
   const leave=()=>{try{navigator.sendBeacon('/api/campo/localizacao',new Blob([JSON.stringify({action:'stop',route_id:id})],{type:'application/json'}))}catch{}};
@@ -281,7 +331,12 @@ function CampoGuiadoSession({id}:{id:string}){
    // quando existe uma medição recente e suficientemente precisa.
    let fix=positionRef.current;
    if(!fix||wallTime()-positionUpdatedAt.current>12000||fix.accuracy>250){
-    fix=await gpsOnce({enableHighAccuracy:true,maximumAge:5000,timeout:12000});
+    try{fix=await gpsOnce({enableHighAccuracy:true,maximumAge:8000,timeout:12000})}
+    catch(e){
+     if((e as GpsFailure).geoCode===1)throw e;
+     fix=await gpsOnce({enableHighAccuracy:false,maximumAge:8000,timeout:10000});
+    }
+    if(fix.accuracy>500)throw Error('O GPS ainda está impreciso. Aguarde a localização estabilizar e confirme novamente com o veículo parado.');
     positionRef.current=fix;positionUpdatedAt.current=wallTime();setPosition(fix);
    }
    setArrivalPhase('saving');
@@ -452,11 +507,11 @@ function CampoGuiadoSession({id}:{id:string}){
     {progress&&<p className="navigator-small" role="status">{progress}</p>}
     <p className="navigator-small">O cálculo não inclui trânsito em tempo real.</p></>}
    {stage==='ready'&&<><span className="navigator-sheet-eyebrow">PASSO 2 · COMEÇAR</span>
-    <h2>Sua próxima parada está no mapa</h2><p>Para iniciar o acompanhamento, permita o uso do GPS.</p>
+    <h2>Sua próxima parada está no mapa</h2><p>A localização será usada durante a rota. Se o sinal demorar, tente novamente sem recarregar a página.</p>
     {plan?.route_warning&&<p className="navigator-warning">Alguns trechos podem não ter rota desenhada. Confira os endereços.</p>}
     <div className="navigator-consent"><ShieldCheck size={22}/><span>A central receberá sua última localização durante a jornada. Você pode interromper a qualquer momento.</span></div>
     <button type="button" className="navigator-primary" disabled={busy} onClick={()=>void begin()}>
-     <Play size={25}/>{busy?'Iniciando...':'Iniciar navegação'}<ChevronRight size={24}/></button>
+     <Play size={25}/>{busy?'Buscando localização...':error?'Tentar GPS novamente':'Iniciar navegação'}<ChevronRight size={24}/></button>
     <button type="button" className="navigator-secondary-link" disabled={busy} onClick={()=>void calculate()}>Recalcular percurso</button></>}
    {stage==='travel'&&<div className="navigator-driving-card">
     <div className="navigator-driving-copy">
@@ -468,7 +523,7 @@ function CampoGuiadoSession({id}:{id:string}){
      <MapPin size={20}/> Cheguei
     </button>
     {!target&&<p className="navigator-driving-alert">Local sem coordenadas precisas. Confirme o endereço antes de registrar a chegada.</p>}
-    {error&&<p className="navigator-driving-alert" role="alert">{error}</p>}
+    {error&&<div className="navigator-gps-recovery" role="alert"><p>{error}</p><button type="button" disabled={busy} onClick={()=>void begin()}><LocateFixed size={16}/>{busy?'Localizando...':'Reativar GPS'}</button><small>Faça isso somente com o veículo parado.</small></div>}
     {legError&&<p className="navigator-driving-alert" role="status">Percurso viário indisponível. Confira o endereço.</p>}
    </div>}
    {stage==='done'&&<div className="navigator-finished"><CheckCircle2 size={54}/>
