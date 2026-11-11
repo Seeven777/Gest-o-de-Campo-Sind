@@ -100,3 +100,9 @@ Atualizada em 11/11/2026. Branch: `fix/modo-roteirizador-auditoria-ux`. Registro
 - O link da marca retorna o agente a **Meu dia** sem abrir o dashboard administrativo primeiro.
 - Depois de login aprovado, a navegação reconhece o perfil e encaminha o agente diretamente a `/agente`.
 - Nova validação: TypeScript, lint, build, smoke e Preview; confirmar funcionamento autenticado por perfil antes de merge.
+
+### Correções de telas de planejamento e campo (11/11/2026)
+- Empresas: ação de importação visível somente para administração/supervisão; listagem não mantém resultados antigos quando uma consulta falha; legenda diferencia base de trabalho de dados definitivos; maior legibilidade dos nomes.
+- Rotas: etiquetas de situação em português e ações coerentes com jornada iniciada/concluída; campo de busca adapta-se no celular e seleção de empresas tem linhas de toque maiores.
+- Reembolsos: ações de aprovação exigem perfil confirmado de admin/supervisor, sem assumir autorização em caso de falha da sessão; erros ao carregar campanhas deixam de ser silenciosos; situações em português e aviso quando não há campanhas atribuídas.
+- Nenhum acesso administrativo foi concedido no cliente: as restrições de servidor continuam sendo a fonte de verdade.
