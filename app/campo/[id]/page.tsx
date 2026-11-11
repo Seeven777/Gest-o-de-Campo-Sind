@@ -4,7 +4,7 @@ import Link from 'next/link';
 import {useParams} from 'next/navigation';
 import {Portal} from '@/components/portal';
 import {FieldNavigationMap,type ActiveLeg,type CurrentPosition,type FieldPlan} from '@/components/field-navigation-map';
-import {ArrowLeft,ArrowRight,Camera,Check,CheckCircle2,ChevronRight,ClipboardCheck,Flag,LocateFixed,MapPin,MapPinned,Navigation,PauseCircle,Play,Route as RouteIcon,ShieldCheck,X,ZoomIn,ZoomOut,RefreshCw,Maximize2,RotateCcw,CornerUpLeft,CornerUpRight,MoveUp} from 'lucide-react';
+import {ArrowLeft,ArrowRight,Camera,Check,CheckCircle2,ChevronRight,ClipboardCheck,Flag,LocateFixed,MapPin,MapPinned,Navigation,PauseCircle,Play,Route as RouteIcon,ShieldCheck,X,ZoomIn,ZoomOut,RefreshCw,Maximize2,RotateCcw,CornerUpLeft,CornerUpRight,MoveUp,MoreHorizontal,ChevronDown,ChevronUp} from 'lucide-react';
 import '../jornada.css';
 
 type Stop={
@@ -137,7 +137,7 @@ export default function CampoGuiado(){
  const [arrivalPhase,setArrivalPhase]=useState<ArrivalPhase>(null);
  const [leg,setLeg]=useState<ActiveLeg|null>(null),[legBusy,setLegBusy]=useState(false),[legError,setLegError]=useState('');
  const [rerouteToken,setRerouteToken]=useState(0),[fitToken,setFitToken]=useState(0),[zoomCommand,setZoomCommand]=useState<{id:number;delta:1|-1}|undefined>(undefined);
- const [showGuide,setShowGuide]=useState(true),[mapToolsOpen,setMapToolsOpen]=useState(false);
+ const [showGuide,setShowGuide]=useState(true),[mapToolsOpen,setMapToolsOpen]=useState(false),[mobileDetailsOpen,setMobileDetailsOpen]=useState(false);
  const sentAt=useRef(0),positionRef=useRef<CurrentPosition|null>(null),positionUpdatedAt=useRef(0);
  const cacheKey='sind-jornada-plan:'+id;
  async function reload(){
@@ -300,7 +300,7 @@ export default function CampoGuiado(){
  async function arrive(){
   if(!current||busy)return;
   const stopId=current.id;
-  setArrivalDialog(false);setBusy(true);setArrivalPhase('locating');setError('');setNotice('');
+  setArrivalDialog(false);setMapToolsOpen(false);setBusy(true);setArrivalPhase('locating');setError('');setNotice('');
   try{
    // Acompanhamento GPS já ativo: evite aguardar outra aquisição de até 18 segundos
    // quando existe uma medição recente e suficientemente precisa.
@@ -349,7 +349,7 @@ export default function CampoGuiado(){
     stop.id===stopId?{...stop,checkout_at:new Date().toISOString(),review_status:'pending'}:stop
    )}:previous);
    setQuestionIndex(0);setAnswers(blankAnswers());setNotes('');
-   setFollow(true);setRecenterToken(n=>n+1);setShowStops(false);setShowGuide(true);setMapToolsOpen(false);
+   setFollow(true);setRecenterToken(n=>n+1);setShowStops(false);setShowGuide(true);setMapToolsOpen(false);setMobileDetailsOpen(false);
    if(isLast){
     setNotice('Todas as visitas foram enviadas à central.');
     try{
@@ -364,7 +364,13 @@ export default function CampoGuiado(){
  }
  const answer=(key:AnswerKey,value:string)=>setAnswers(old=>({...old,[key]:value}));
  return <Portal title="Minha jornada" subtitle="Navegação e confirmação de visitas" immersive>
- <div className="navigator-root">
+ <div className={'navigator-root'+((stage==='photo'||stage==='questions')?' navigator-form-mode':'')}>
+   <div className="navigator-mobile-top">
+    <Link href="/agente" className="navigator-mobile-back" aria-label="Voltar para Meu dia"><ArrowLeft size={22}/></Link>
+    <div className="navigator-mobile-top-copy"><strong>Minha jornada</strong>
+     <span>{current?'Parada '+activeIndex+' de '+ordered.length:stage==='done'?'Concluída':'Organizar percurso'}</span></div>
+    <span className={'navigator-mobile-gps'+(gpsActive?' active':'')}><span/>{gpsActive?'GPS ativo':'GPS parado'}</span>
+   </div>
   <div className="navigator-map-frame">
    {plan?<FieldNavigationMap plan={plan} targetId={current?.id} current={position} follow={follow}
     immersive completedIds={ordered.filter(s=>!!s.checkout_at).map(s=>s.id)} recenterToken={recenterToken}
@@ -405,7 +411,32 @@ export default function CampoGuiado(){
    <small>{navigationStatus.offRoute?'Use Recalcular para traçar um novo caminho.':navigationStatus.distanceToTurn!==null?'Próxima orientação a '+fmtDistance(navigationStatus.distanceToTurn):'Acompanhe o GPS no mapa'}</small></div>
    <button type="button" aria-label="Ocultar orientação" title="Ocultar orientação" onClick={()=>setShowGuide(false)}><X size={18}/></button>
   </div>}
-  {plan&&(stage==='ready'||stage==='travel')&&<nav className={'navigator-map-actions'+(mapToolsOpen?' expanded':'')} aria-label="Controles do mapa">
+  {plan&&(stage==='ready'||stage==='travel')&&<nav className="navigator-mobile-map-actions" aria-label="Controles rápidos do mapa">
+    <button type="button" className={follow?'following':''} disabled={!position}
+     title="Centralizar no GPS" aria-label="Centralizar no GPS"
+     onClick={()=>{setFollow(true);setRecenterToken(n=>n+1)}}><LocateFixed size={24}/></button>
+    <button type="button" aria-label="Mais ferramentas do mapa" aria-expanded={mapToolsOpen} title="Mais opções"
+     onClick={()=>setMapToolsOpen(open=>!open)}><MoreHorizontal size={26}/></button>
+   </nav>}
+   {plan&&(stage==='ready'||stage==='travel')&&mapToolsOpen&&<>
+    <button type="button" className="navigator-mobile-tools-scrim" aria-label="Fechar ferramentas" onClick={()=>setMapToolsOpen(false)}/>
+    <section className="navigator-mobile-tools" role="dialog" aria-modal="true" aria-labelledby="navigator-tools-title">
+     <div className="navigator-mobile-tools-heading"><strong id="navigator-tools-title">Opções do mapa</strong>
+      <button type="button" aria-label="Fechar opções" onClick={()=>setMapToolsOpen(false)}><X size={22}/></button></div>
+     <div className="navigator-mobile-tools-grid">
+      <button type="button" onClick={()=>{setFollow(false);setFitToken(n=>n+1);setMapToolsOpen(false)}}><Maximize2 size={21}/> Ver todo o percurso</button>
+      <button type="button" onClick={()=>{setShowStops(true);setMapToolsOpen(false)}}><RouteIcon size={21}/> Lista de empresas</button>
+      <button type="button" onClick={()=>setZoomCommand(x=>({id:(x?.id||0)+1,delta:1}))}><ZoomIn size={21}/> Aproximar mapa</button>
+      <button type="button" onClick={()=>setZoomCommand(x=>({id:(x?.id||0)+1,delta:-1}))}><ZoomOut size={21}/> Afastar mapa</button>
+      {started&&current&&target&&<button type="button" disabled={legBusy}
+       onClick={()=>{setShowGuide(true);setRerouteToken(n=>n+1);setMapToolsOpen(false)}}><RefreshCw size={21}/> Recalcular trajeto</button>}
+      {!showGuide&&leg&&<button type="button" onClick={()=>{setShowGuide(true);setMapToolsOpen(false)}}><Navigation size={21}/> Mostrar orientações</button>}
+      {started&&<button type="button" className="navigator-mobile-tools-stop" disabled={busy}
+       onClick={()=>{setMapToolsOpen(false);void stopTracking()}}><PauseCircle size={21}/> Parar compartilhamento de GPS</button>}
+     </div>
+    </section>
+   </>}
+   {plan&&(stage==='ready'||stage==='travel')&&<nav className={'navigator-map-actions'+(mapToolsOpen?' expanded':'')} aria-label="Controles do mapa">
    <button type="button" onClick={()=>{setFollow(true);setRecenterToken(n=>n+1)}} title="Acompanhar minha posição" disabled={!position} className={follow?'navigator-following':''}>
     <LocateFixed size={24}/><span>{follow?'Seguindo':'Seguir GPS'}</span></button>
    <button type="button" className="navigator-more-tools" onClick={()=>setMapToolsOpen(x=>!x)} aria-expanded={mapToolsOpen} title={mapToolsOpen?'Fechar ferramentas':'Abrir ferramentas do mapa'}>
@@ -422,14 +453,16 @@ export default function CampoGuiado(){
     <RefreshCw size={23}/><span>Recalcular</span></button>}
    {!showGuide&&leg&&<button type="button" onClick={()=>setShowGuide(true)} title="Mostrar orientação"><Navigation size={22}/><span>Orientações</span></button>}
   </nav>}
-  {showStops&&plan&&(stage==='ready'||stage==='travel')&&<aside className="navigator-stops-panel" aria-label="Lista de paradas">
+  {showStops&&plan&&(stage==='ready'||stage==='travel')&&<>
+   <button type="button" className="navigator-mobile-stops-scrim" aria-label="Fechar lista de empresas" onClick={()=>setShowStops(false)}/>
+   <aside className="navigator-stops-panel" aria-label="Lista de paradas">
    <div className="navigator-stops-heading"><strong>Empresas da jornada</strong><button aria-label="Fechar lista de paradas" onClick={()=>setShowStops(false)}><X size={22}/></button></div>
    <ol>{ordered.map((s,i)=><li key={s.id} className={s.checkout_at?'done':s.id===current?.id?'active':''}>
     <span>{s.checkout_at?<Check size={18}/>:i+1}</span><div><strong>{s.trade_name||s.legal_name}</strong><small>{[s.street,s.street_number,s.city].filter(Boolean).join(', ')}</small></div>
    </li>)}</ol>
-  </aside>}
+  </aside></>}
   {(stage==='prepare'||stage==='loading'||stage==='ready'||stage==='travel'||stage==='done')&&
-  <section key={current?.id+'-'+stage} className="navigator-sheet navigator-sheet-enter" aria-label="Próxima ação da jornada">
+  <section key={current?.id+'-'+stage} className={'navigator-sheet navigator-sheet-enter'+(stage==='travel'?' navigator-travel-sheet':'')} aria-label="Próxima ação da jornada">
    <div className="navigator-sheet-grip" aria-hidden="true"/>
    {error&&<p className="navigator-error" role="alert">{error}</p>}
    {notice&&<p className="navigator-notice" role="status">{notice}</p>}
@@ -451,16 +484,34 @@ export default function CampoGuiado(){
     <button type="button" className="navigator-primary" disabled={busy} onClick={()=>void begin()}>
      <Play size={25}/>{busy?'Iniciando...':'Iniciar navegação'}<ChevronRight size={24}/></button>
     <button type="button" className="navigator-secondary-link" disabled={busy} onClick={()=>void calculate()}>Recalcular percurso</button></>}
-   {stage==='travel'&&<><div className="navigator-arrival-meta">
+   {stage==='travel'&&<><div className="navigator-arrival-meta navigator-desktop-travel">
     <span><MapPin size={19}/> PRÓXIMA PARADA</span>
     <strong>{fmtDistance(distance)}</strong>
     <small>{distance===null?'Aguardando coordenadas':'Distância em linha reta, não é o trajeto pelas ruas'}</small>
    </div>
-    {!target&&<p className="navigator-warning">Endereço sem posição exata no mapa. Confira cuidadosamente o local antes de registrar a chegada.</p>}
+   <div className="navigator-mobile-next-stop">
+    <div className="navigator-mobile-stop-heading">
+     <span>PRÓXIMA PARADA · {activeIndex}/{ordered.length}</span>
+     {leg?<strong>{fmtDistance(leg.distance_m)}</strong>:distance!==null?<strong>{fmtDistance(distance)}</strong>:<strong>—</strong>}
+    </div>
+    <strong className="navigator-mobile-company">{current?.trade_name||current?.legal_name||'Empresa'}</strong>
+    <button type="button" className="navigator-mobile-detail-toggle" aria-expanded={mobileDetailsOpen}
+     onClick={()=>setMobileDetailsOpen(open=>!open)}>
+     <span>{mobileDetailsOpen?'Ocultar detalhes':'Endereço e detalhes'}</span>
+     {mobileDetailsOpen?<ChevronUp size={18}/>:<ChevronDown size={18}/>}
+    </button>
+    {mobileDetailsOpen&&<div className="navigator-mobile-detail-content">
+     <span><MapPin size={17}/>{[current?.street,current?.street_number,current?.city,current?.state].filter(Boolean).join(', ')||'Endereço não informado'}</span>
+     <small>{leg?'Distância pela rota sugerida, sem trânsito em tempo real.':'Distância em linha reta; trajeto viário indisponível.'}</small>
+     {legError&&<p className="navigator-warning" role="status">{legError}</p>}
+     {plan?.route_warning&&!leg&&<p className="navigator-warning">O mapa pode mostrar apenas os pontos cadastrados.</p>}
+    </div>}
+   </div>
+    {!target&&<p className="navigator-warning navigator-map-target-warning">Endereço sem posição exata no mapa. Confira cuidadosamente o local antes de registrar a chegada.</p>}
     {legError&&<p className="navigator-warning" role="status">{legError} O mapa de paradas permanece disponível.</p>}
     {plan?.route_warning&&!leg&&<p className="navigator-warning">O trajeto nas ruas não foi calculado. Os pontos no mapa são apenas referências.</p>}
     <ArrivalSlider disabled={busy} onConfirm={()=>setArrivalDialog(true)}/>
-    <button type="button" className="navigator-stop-link" onClick={()=>void stopTracking()} disabled={busy}>
+    <button type="button" className="navigator-stop-link navigator-desktop-travel" onClick={()=>void stopTracking()} disabled={busy}>
      <PauseCircle size={19}/> Parar compartilhamento de GPS</button>
    </>}
    {stage==='done'&&<div className="navigator-finished"><CheckCircle2 size={54}/>
@@ -471,7 +522,8 @@ export default function CampoGuiado(){
   </section>}
   {(stage==='photo'||stage==='questions')&&<section key={current?.id+'-'+stage} className="navigator-form-sheet navigator-sheet-enter" aria-label="Registro da visita">
    <div className="navigator-sheet-grip" aria-hidden="true"/>
-   <div className="navigator-form-header">
+   <div className="navigator-mobile-form-back"><Link href="/agente"><ArrowLeft size={19}/> Meu dia</Link><span>Visita {activeIndex}/{ordered.length}</span></div>
+    <div className="navigator-form-header">
     <span><ClipboardCheck size={18}/> VISITA À EMPRESA · {activeIndex}/{ordered.length}</span>
     <strong>{current?.trade_name||current?.legal_name}</strong>
    </div>
