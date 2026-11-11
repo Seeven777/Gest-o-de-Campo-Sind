@@ -186,3 +186,40 @@
 @media(prefers-reduced-motion:reduce){
  .auth-submit{transition:none}
 }
+
+/* Sprint 2: imagem do petshop como fundo integral, formulário legível e proporcional. */
+.auth-page-login .auth-hero{
+ height:100%;min-height:100%;
+ background-image:linear-gradient(180deg,rgba(5,5,5,.05) 5%,rgba(7,7,7,.15) 29%,rgba(5,5,5,.65) 57%,#050505 97%),url('/sind-login-desktop.webp');
+ background-position:center,center 35%;background-size:cover,cover;
+}
+.auth-page-login .auth-dark-base{display:none}
+.auth-page-login .auth-panel{padding:clamp(205px,32dvh,370px) 0 100px;width:min(470px,calc(100% - 36px));min-height:100dvh}
+.auth-page-login .auth-main{background:rgba(8,8,8,.79);border:1px solid #ffffff30;border-radius:21px;padding:clamp(18px,3vw,29px);box-shadow:0 20px 60px #0008;backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.auth-page-login .auth-intro{position:static;clip-path:none;width:auto;height:auto;overflow:visible;white-space:normal;margin:0 0 18px}
+.auth-page-login .auth-intro h1{font-size:clamp(22px,3vw,29px);margin:5px 0 8px}
+.auth-page-login .auth-intro p{font-size:13px;font-weight:500;color:#edeae7}
+.auth-page-login .auth-section-label{font-size:10px}
+.auth-page-login .auth-form{gap:12px}
+.auth-page-login .auth-form-group>label{font-size:15px;line-height:1.4;font-weight:750;text-shadow:none}
+.auth-page-login .auth-input-wrap{height:52px;border-radius:12px}
+.auth-page-login .auth-input-wrap input::placeholder{color:#89938b}
+.auth-page-login .auth-submit{font-size:17px;border-radius:12px;min-height:52px;margin:4px 0 0}
+.auth-page-login .auth-submit svg{display:block}
+.auth-page-login .auth-links{margin:9px 0 0}
+.auth-page-login .auth-secondary-action{font-size:14px}
+.auth-page-login .auth-help-note{margin:10px 0 0;color:#c7c7c7;font-size:11px;font-weight:500}
+.auth-page-login .auth-access-check{font-size:12px;color:#ffbe8c}
+.auth-page-login .auth-signature{font-size:14px;bottom:12px;opacity:.9}
+@media(max-width:800px){
+ .auth-page-login .auth-hero{background-image:linear-gradient(180deg,rgba(5,5,5,.04) 3%,rgba(7,7,7,.27) 31%,rgba(6,6,6,.83) 58%,#050505 100%),url('/sind-login-mobile.webp');background-position:center,center 24%;background-size:cover,cover}
+ .auth-page-login .auth-panel{padding:clamp(210px,36dvh,360px) 0 86px;width:min(430px,calc(100% - 28px));min-height:100dvh}
+ .auth-page-login .auth-main{padding:19px;border-radius:18px}
+ .auth-page-login .auth-intro h1{font-size:22px}
+ .auth-page-login .auth-form-group>label{font-size:15px}
+ .auth-page-login .auth-submit{font-size:17px}
+ .auth-page-login .auth-links{margin-top:12px}
+ .auth-page-login .auth-secondary-action{font-size:13px}
+}
+@media(max-width:390px){.auth-page-login .auth-panel{padding-top:clamp(192px,33dvh,310px)}.auth-page-login .auth-main{padding:16px}.auth-page-login .auth-links{gap:6px}}
+@media(max-height:680px){.auth-page-login{min-height:680px}.auth-page-login .auth-hero{height:100%;min-height:100%}.auth-page-login .auth-panel{min-height:680px;padding-top:170px}.auth-page-login .auth-signature{bottom:12px}}
