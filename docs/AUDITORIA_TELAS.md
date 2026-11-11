@@ -100,3 +100,15 @@ Atualizada em 11/11/2026. Branch: `fix/modo-roteirizador-auditoria-ux`. Registro
 - O link da marca retorna o agente a **Meu dia** sem abrir o dashboard administrativo primeiro.
 - Depois de login aprovado, a navegação reconhece o perfil e encaminha o agente diretamente a `/agente`.
 - Nova validação: TypeScript, lint, build, smoke e Preview; confirmar funcionamento autenticado por perfil antes de merge.
+
+### Correções de telas de planejamento e campo (11/11/2026)
+- Empresas: ação de importação visível somente para administração/supervisão; listagem não mantém resultados antigos quando uma consulta falha; legenda diferencia base de trabalho de dados definitivos; maior legibilidade dos nomes.
+- Rotas: etiquetas de situação em português e ações coerentes com jornada iniciada/concluída; campo de busca adapta-se no celular e seleção de empresas tem linhas de toque maiores.
+- Reembolsos: ações de aprovação exigem perfil confirmado de admin/supervisor, sem assumir autorização em caso de falha da sessão; erros ao carregar campanhas deixam de ser silenciosos; situações em português e aviso quando não há campanhas atribuídas.
+- Nenhum acesso administrativo foi concedido no cliente: as restrições de servidor continuam sendo a fonte de verdade.
+
+### Conclusão e reabertura de jornada; segurança de convites (11/11/2026)
+- A última parada concluída marca a rota como `completed` no mesmo SQL que registra as respostas, desde que todas as demais paradas estejam `visited`. O dashboard passa a mostrar a rota como concluída.
+- Quando a central solicita ajustes (`needs_more`), a parada volta para `arrived` e uma rota antes concluída é reaberta em `in_progress` no mesmo comando que registra a decisão. Isso permite ao agente reenviar as respostas e retomar o GPS mediante consentimento.
+- Aceitar um convite exige uma conta Neon Auth com **e-mail verificado** e exatamente igual ao convite. O critério é aplicado dentro do próprio SQL que consome o token, protegendo inclusive convites de administrador.
+- Mudanças pendentes de CI, de homologação autenticada e de Preview, sem aplicação de migrações ou alterações em bancos.

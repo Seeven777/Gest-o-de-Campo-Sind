@@ -33,6 +33,14 @@ export async function PATCH(req:Request){
  update visits set review_status=$2,review_notes=$4,reviewed_by=$3,reviewed_at=now(),
  checkout_at=case when $2='needs_more' then null else checkout_at end
  where id=$1 and checkout_at is not null and review_status='pending' returning stop_id,result
+ ), reopened_stop as (
+  update route_stops s set status='arrived'
+  where $2='needs_more' and s.id in (select stop_id from changed)
+  returning s.route_id
+ ), resumed_route as (
+  update routes r set status='in_progress'
+  where r.status='completed' and r.id in (select route_id from reopened_stop)
+  returning r.id
  )
  update establishments e set
  field_status=case

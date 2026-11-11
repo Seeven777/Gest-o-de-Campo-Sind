@@ -58,12 +58,23 @@ export async function POST(req:Request){
   ), marked as (
    update route_stops s set status='visited' where s.id in (select stop_id from completed)
    returning s.id
+  ), closed_route as (
+   update routes r set status='completed'
+   where r.id=(select s.route_id from route_stops s where s.id=$2)
+     and r.agent_id=$3 and r.status in ('published','in_progress')
+     and exists (select 1 from marked)
+     and not exists (
+      select 1 from route_stops other_stop
+      where other_stop.route_id=r.id and other_stop.id<>$2 and other_stop.status<>'visited'
+     )
+   returning r.id
   ), audited as (
    insert into audit_logs(actor_id,action,details)
    select $3,'field.submitted',jsonb_build_object('visit_id',$1::uuid,'result',$4::text) from marked
    returning id
-  ) select completed.id from completed join marked on marked.id=completed.stop_id join audited on true`,
+  ) select completed.id,exists(select 1 from closed_route) as route_completed
+    from completed join marked on marked.id=completed.stop_id join audited on true`,
   [visit,stop,u.id,result,notes,operating,signage,regularity,addressMatch,petActivity]);
  if(!rows.length)return fail('Visita já finalizada ou fora da sua rota.',409);
- return NextResponse.json({ok:true,id:visit});
+ return NextResponse.json({ok:true,id:visit,route_completed:rows[0].route_completed===true});
 }
