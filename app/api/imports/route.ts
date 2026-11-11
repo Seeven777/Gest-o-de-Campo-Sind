@@ -6,9 +6,9 @@ type Incoming={cnpj:string;legal_name:string;trade_name?:string;street?:string;n
 const clean=(s:unknown,max:number)=>String(s??'').trim().slice(0,max);
 export async function POST(req:Request){return withRole(['admin','supervisor'],async(user)=>{
  const payload=await req.json();const items=payload?.items as Incoming[];
- if(!Array.isArray(items)||items.length<1||items.length>100)throw new Error('Lote inválido');
+ if(!Array.isArray(items)||items.length<1||items.length>100)return {error:'O lote deve conter de 1 a 100 empresas.'};
  const seen=new Set<string>();let count=0,invalid=0;
- for(const item of items){const cnpj=digits(clean(item.cnpj,32));if(!validCnpj(cnpj)||!clean(item.legal_name,255)||seen.has(cnpj)){invalid++;continue}seen.add(cnpj);
+ for(const item of items){if(!item||typeof item!=='object'){invalid++;continue}const cnpj=digits(clean(item.cnpj,32));if(!validCnpj(cnpj)||!clean(item.legal_name,255)||seen.has(cnpj)){invalid++;continue}seen.add(cnpj);
    await db().query(`insert into establishments (cnpj,legal_name,trade_name,street,street_number,district,city,state,postal_code,main_cnae,source)
       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'import_csv') on conflict (cnpj) do update set
       legal_name=excluded.legal_name,trade_name=excluded.trade_name,street=excluded.street,street_number=excluded.street_number,
