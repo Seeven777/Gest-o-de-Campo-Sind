@@ -9,7 +9,10 @@ export async function POST(req:Request){const u=await currentIdentity();if(!u)re
  const d=await req.json().catch(()=>({}));const campaign=String(d.campaign_id||''),category=String(d.category||'');
  const amount=Number(d.amount),date=String(d.expense_date||'');
  if(!/^[0-9a-f-]{36}$/i.test(campaign)||!['fuel','food','toll','parking','lodging','other'].includes(category)||!Number.isFinite(amount)||amount<=0||amount>50000||!/^\d{4}-\d{2}-\d{2}$/.test(date))return fail('Despesa inválida.');
- const [c]=await db().query('select id from campaigns where id=$1',[campaign]);if(!c)return fail('Campanha inexistente');
+ const [c]=await db().query(`select c.id from campaigns c where c.id=$1
+ and ($2::bool=false or exists (select 1 from routes r where r.campaign_id=c.id and r.agent_id=$3))`,
+ [campaign,u.role==='agent',u.id]);
+ if(!c)return fail('Campanha inexistente ou não atribuída ao usuário.',403);
  const [row]=await db().query(`insert into expenses(campaign_id,agent_id,category,amount,expense_date,approval_status) values($1,$2,$3,$4,$5,'submitted') returning id`,[campaign,u.id,category,amount,date]);
  await db().query('insert into audit_logs(actor_id,action,details) values($1,$2,$3::jsonb)',[u.id,'expense.submitted',JSON.stringify({id:row.id,amount})]);
  return NextResponse.json({item:row});
