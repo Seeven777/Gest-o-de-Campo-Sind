@@ -17,7 +17,7 @@ export async function GET(req:Request){
  count(*) filter (where e.field_status='pending')::int as pending,
  count(*) filter (where e.field_status='review')::int as review,
  count(*) filter (where e.field_status='invalid')::int as invalid,
- count(*) filter (where e.field_status='validated' and rr.state='confirmed' and rr.confirmed_at is not null)::int as registered
+ count(*) filter (where e.field_status='validated' and rr.state='confirmed' and rr.confirmed_at is not null and rr.official_verified_at is not null)::int as registered
  from establishments e left join registration_records rr on rr.establishment_id=e.id
  where (e.state is null or upper(e.state)='SP')
  and ($1::date is null or e.created_at >= $1::date)
