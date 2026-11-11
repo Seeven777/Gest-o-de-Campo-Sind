@@ -6,7 +6,7 @@ import { db } from '@/lib/db';
 export const runtime = 'nodejs';
 export const dynamic = 'force-dynamic';
 
-const isRole = (role: string): role is 'admin'|'supervisor'|'agent'|'cadastro' => ['admin','supervisor','agent','cadastro'].includes(role);
+const isRole = (role: string): role is 'admin'|'supervisor'|'agent'|'cadastro'|'rh' => ['admin','supervisor','agent','cadastro','rh'].includes(role);
 const genericError = () => NextResponse.json({error:'Não foi possível concluir a solicitação.'}, {status:500});
 
 async function authenticated() {
