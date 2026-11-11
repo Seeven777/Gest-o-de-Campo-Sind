@@ -5,9 +5,9 @@ import {usePathname,useRouter} from 'next/navigation';
 import {ArrowUpRight,Bell,ChevronRight,LogOut,Menu,PanelLeftClose,X} from 'lucide-react';
 import {RoleDock} from '@/components/role-dock';
 import {BrandMark} from '@/components/brand-mark';
-import {adminMenu,agentMenu,cadastroMenu} from '@/lib/menu';
+import {adminMenu,agentMenu,cadastroMenu,rhMenu} from '@/lib/menu';
 import {authClient} from '@/lib/auth/client';
-type User={id:string;name:string;email:string;role:'admin'|'supervisor'|'agent'|'cadastro'};
+type User={id:string;name:string;email:string;role:'admin'|'supervisor'|'agent'|'cadastro'|'rh'};
 export function Portal({title,subtitle,children,action,immersive=false}:{title:string;subtitle?:string;children:React.ReactNode;action?:React.ReactNode;immersive?:boolean}){
  const [user,setUser]=useState<User|null>(null),[loading,setLoading]=useState(true),[sessionError,setSessionError]=useState(false),[retry,setRetry]=useState(0),[drawer,setDrawer]=useState(false),[collapsed,setCollapsed]=useState(false),[moreOpen,setMoreOpen]=useState(false);
  const router=useRouter(),pathname=usePathname();
@@ -25,6 +25,7 @@ export function Portal({title,subtitle,children,action,immersive=false}:{title:s
     setSessionError(false);setUser(data.user);
     if(data.user.role==='agent'&&pathname==='/dashboard')router.replace('/agente');
     if(data.user.role==='cadastro'&&!['/cadastros','/configuracoes'].includes(pathname))router.replace('/cadastros');
+    if(data.user.role==='rh'&&!['/reembolsos','/configuracoes'].includes(pathname))router.replace('/reembolsos');
    })
    .catch(()=>{if(live)setSessionError(true)})
    .finally(()=>{if(live)setLoading(false)});
@@ -32,8 +33,9 @@ export function Portal({title,subtitle,children,action,immersive=false}:{title:s
  },[router,pathname,retry]);
  const agent=user?.role==='agent';
  const registrar=user?.role==='cadastro';
+ const rh=user?.role==='rh';
  const supervisorLinks=new Set(['/dashboard','/empresas','/campanhas','/rotas','/visitas','/reembolsos','/mapa','/localizacoes','/relatorios','/configuracoes']);
- const items=registrar?cadastroMenu:agent?agentMenu:adminMenu.filter(item=>user?.role==='admin'||supervisorLinks.has(item.href));
+ const items=rh?rhMenu:registrar?cadastroMenu:agent?agentMenu:adminMenu.filter(item=>user?.role==='admin'||supervisorLinks.has(item.href));
  const groups=[['principal','Área de trabalho'],['operacao','Trabalho de campo'],['inteligencia','Inteligência'],['sistema','Sistema']] as const;
  if(loading)return <div className="loading-screen"><BrandMark size={52}/><p>Preparando seu espaço de trabalho...</p></div>;
  if(!user)return <div className="loading-screen"><BrandMark size={52}/>
@@ -42,13 +44,14 @@ export function Portal({title,subtitle,children,action,immersive=false}:{title:s
   {sessionError&&<button type="button" className="button" onClick={()=>{setLoading(true);setRetry(n=>n+1)}}>Tentar novamente</button>}
   <Link className="button" href="/login">Ir para o acesso</Link>
  </div>;
+ if(rh&&!['/reembolsos','/configuracoes'].includes(pathname))return <div className="loading-screen"><BrandMark size={45}/><p>Direcionando para a área do RH...</p></div>;
  if(registrar&&!['/cadastros','/configuracoes'].includes(pathname))return <div className="loading-screen"><BrandMark size={45}/><p>Direcionando para a área de cadastro...</p></div>;
  return <div className={`app-shell ${collapsed?'collapsed':''} ${immersive?'journey-shell':''}`}>
   <aside className={`side ${drawer?'shown':''}`}>
-    <div className="side-head"><Link href={agent?'/agente':registrar?'/cadastros':'/dashboard'} className="brand"><BrandMark size={42}/><div><strong>SindPetshop<span>-SP</span></strong><small>Campo & Território</small></div></Link><button className="icon-btn side-close" aria-label="Fechar" onClick={()=>setDrawer(false)}><X size={19}/></button></div>
-    <div className="side-scroll"><div className="side-unit"><span className="eyebrow">{agent?'ESPAÇO DO AGENTE':registrar?'EQUIPE DE CADASTRO':'CENTRAL DE OPERAÇÕES'}</span><strong>{agent?'Sua jornada de campo':registrar?'Confirmação na base sindical':'Onde a presença vira resultado.'}</strong></div>
+    <div className="side-head"><Link href={agent?'/agente':registrar?'/cadastros':rh?'/reembolsos':'/dashboard'} className="brand"><BrandMark size={42}/><div><strong>SindPetshop<span>-SP</span></strong><small>Campo & Território</small></div></Link><button className="icon-btn side-close" aria-label="Fechar" onClick={()=>setDrawer(false)}><X size={19}/></button></div>
+    <div className="side-scroll"><div className="side-unit"><span className="eyebrow">{agent?'ESPAÇO DO AGENTE':registrar?'EQUIPE DE CADASTRO':rh?'RECURSOS HUMANOS':'CENTRAL DE OPERAÇÕES'}</span><strong>{agent?'Sua jornada de campo':registrar?'Confirmação na base sindical':rh?'Conferência e pagamento de reembolsos':'Onde a presença vira resultado.'}</strong></div>
     <nav aria-label="Navegação principal">{['principal','operacao','inteligencia','sistema'].map(g=>{const subset=items.filter(i=>i.group===g);return subset.length?<div className="nav-section" key={g}><span className="nav-caption">{{principal:'Área de trabalho',operacao:'Trabalho de campo',inteligencia:'Inteligência',sistema:'Sistema'}[g]}</span>{subset.map(({href,label,icon:Icon})=><Link key={href} href={href} title={label} onClick={()=>setDrawer(false)} className={`side-link ${pathname===href?'active':''}`}><Icon size={19} strokeWidth={1.9}/><span>{label}</span>{pathname===href&&<span className="active-pin"/>}</Link>)}</div>:null})}</nav></div>
-    <div className="side-footer"><div className="avatar">{user.name.charAt(0).toUpperCase()}</div><div className="user-info"><strong>{user.name}</strong><small>{user.role==='admin'?'Administração':user.role==='supervisor'?'Supervisão':registrar?'Cadastro sindical':'Agente de campo'}</small></div><button aria-label="Sair" className="icon-btn" onClick={async()=>{await authClient.signOut();router.replace('/login')}}><LogOut size={18}/></button></div>
+    <div className="side-footer"><div className="avatar">{user.name.charAt(0).toUpperCase()}</div><div className="user-info"><strong>{user.name}</strong><small>{user.role==='admin'?'Administração':user.role==='supervisor'?'Supervisão':registrar?'Cadastro sindical':rh?'Recursos Humanos':'Agente de campo'}</small></div><button aria-label="Sair" className="icon-btn" onClick={async()=>{await authClient.signOut();router.replace('/login')}}><LogOut size={18}/></button></div>
   </aside>
   {drawer&&<button aria-label="Fechar menu" className="scrim" onClick={()=>setDrawer(false)}/>}
   {moreOpen&&<div className="dock-more-root" id="role-dock-more-panel" onKeyDown={e=>{if(e.key==='Escape')setMoreOpen(false)}}>
@@ -75,7 +78,7 @@ export function Portal({title,subtitle,children,action,immersive=false}:{title:s
     })}</div>
     <div className="dock-more-profile">
      <div className="avatar">{user.name.charAt(0).toUpperCase()}</div>
-     <div><strong>{user.name}</strong><span>{user.role==='admin'?'Administrador':user.role==='supervisor'?'Supervisor':registrar?'Cadastro sindical':'Agente de campo'}</span></div>
+     <div><strong>{user.name}</strong><span>{user.role==='admin'?'Administrador':user.role==='supervisor'?'Supervisor':registrar?'Cadastro sindical':rh?'Recursos Humanos':'Agente de campo'}</span></div>
      <button type="button" aria-label="Sair da conta" onClick={async()=>{setMoreOpen(false);await authClient.signOut();router.replace('/login')}}><LogOut size={21}/></button>
     </div>
    </section>
