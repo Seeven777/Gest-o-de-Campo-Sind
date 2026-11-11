@@ -1,7 +1,10 @@
 import { db } from '@/lib/db';
 import { withRole } from '@/lib/api';
+import {NextResponse} from 'next/server';
+import {isSchemaReady,schemaPendingMessage} from '@/lib/schema-readiness';
 export const dynamic='force-dynamic';
 export async function GET(){return withRole(['admin','supervisor'], async()=>{
+ if(!(await isSchemaReady('cadastro')))return NextResponse.json({error:schemaPendingMessage('cadastro')},{status:503});
  const [row] = await db().query(`select
    (select count(*)::int from establishments) as establishments,
    (select count(*)::int from campaigns) as campaigns,
