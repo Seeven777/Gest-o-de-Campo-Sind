@@ -123,3 +123,11 @@ Atualizada em 11/11/2026. Branch: `fix/modo-roteirizador-auditoria-ux`. Registro
 - Acesso de mapa e detalhes somente admin/supervisor; agente mantém acesso às rotas atribuídas.
 - **Não houve migração de banco nem importação das ~200 mil empresas externas.** Integração ngrok permanece fora de escopo desta sprint.
 - **Homologação obrigatória:** teste real troca de rotas, permissões do navegador, comportamento com GPS negado, 645 polígonos recebidos no Preview, fluxos administrativos e foto em Blob separado antes de merge. CI e build não equivalem a E2E autenticado.
+
+## Correção GPS entre jornadas — 11/11/2026
+
+- **Reprodução relatada pelo agente:** após concluir uma rota e abrir outra, a tela exibiu “Autorize o GPS...” apesar de a localização estar autorizada e ter funcionado anteriormente. Exigia refresh.
+- **Causa identificada no código:** `gpsOnce` tratava os códigos de erro 1, 2 e 3 do navegador como uma única falha de permissão. Cada nova rota exigia medição GPS de alta precisão, com `maximumAge:0`, sem reaproveitamento de posição válida recente. Falha do `watchPosition` podia manter badge “GPS ativo”.
+- **Correções:** mensagens específicas para permissão, indisponibilidade e timeout; uso de última medição somente por período curto e após consentimento, quando a permissão continua concedida; fallback de precisão; botão “Reativar GPS” sem atualizar a página, com solicitação nova e nova geração de watch; estado explícito “Sinal GPS instável”; checagem de precisão no check-in; otimização da rota não bloqueia o usuário esperando sinal; stop/beacon permanece isolado por rota.
+- **Login:** menor escurecimento do fundo, ajustes de posicionamento/contraste; fontes das imagens no GitHub continuam com resolução 980×402 desktop e 560×534 mobile. Para alta definição genuína, substituir a fotografia por original com pelo menos 1920px de largura. Não distorcer nem trocar a identidade visual da imagem.
+- **QA pendente:** navegador com GPS permitido, sem posição, timeout, bloqueio efetivo, aba oculta/visível, troca imediata entre rotas e confirmação de chegada parado; avaliar desktop e celular. Homologação deve ser em Preview com Neon isolado. Não testar fotos com Blob compartilhado.
