@@ -1,3 +1,4 @@
+import {isSchemaReady,schemaPendingMessage} from '@/lib/schema-readiness';
 import {NextResponse} from 'next/server';
 import {currentIdentity} from '@/lib/access';
 import {db} from '@/lib/db';
@@ -19,6 +20,7 @@ export async function GET(req:Request){
  const user=await currentIdentity();
  if(!user)return fail('Entre em sua conta.',401);
  if(!['admin','rh','agent'].includes(user.role))return fail('Reembolsos reservados aos agentes e ao RH.',403);
+ if(!(await isSchemaReady('rh')))return fail(schemaPendingMessage('rh'),503);
  const p=new URL(req.url).searchParams;
  const status=p.get('status')||'';
  if(status&&!statuses.has(status))return fail('Situação inválida.');
@@ -55,6 +57,7 @@ export async function POST(req:Request){
  const user=await currentIdentity();
  if(!user)return fail('Entre em sua conta.',401);
  if(user.role!=='agent')return fail('A solicitação de despesa deve ser registrada pelo próprio agente.',403);
+ if(!(await isSchemaReady('rh')))return fail(schemaPendingMessage('rh'),503);
  const origin=req.headers.get('origin');
  if(origin&&new URL(origin).origin!==new URL(req.url).origin)return fail('Origem não autorizada.',403);
  const d=await req.json().catch(()=>({})) as Record<string,unknown>;
