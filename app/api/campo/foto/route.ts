@@ -18,7 +18,7 @@ export async function POST(req:Request){
  where v.id=$1 and v.agent_id=$2 and r.agent_id=$2 and v.checkin_at is not null
  and v.checkout_at is null and r.status in ('published','in_progress')`,[visitId,u.id]);
  if(!v)return bad('Chegada não registrada ou visita já concluída.',403);
- const [existing]=await db().query('select id from visit_evidence where visit_id=$1 and deleted_at is null limit 1',[visitId]);
+ const [existing]=await db().query('select id from visit_evidence where visit_id=$1 and deleted_at is null and expires_at>now() limit 1',[visitId]);
  if(existing)return bad('A visita já possui uma fotografia. Não envie novamente.',409);
  let pathname='';
  try{

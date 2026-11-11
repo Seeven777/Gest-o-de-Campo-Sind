@@ -7,7 +7,7 @@ export async function GET(req:Request){return withRole(['admin','supervisor','ag
  if(status&&!['pending','validated','review','invalid'].includes(status))return {error:'Filtro de situação inválido'};
  const limit=25,offset=(page-1)*limit;
  // Agentes veem somente estabelecimentos com parada atribuída em campanhas.
- const scope=user.role==='agent'?`and exists (select 1 from route_stops rs join routes r on r.id=rs.route_id where rs.establishment_id=e.id and r.agent_id=$7)` : '';
+ const scope=user.role==='agent'?`and exists (select 1 from route_stops rs join routes r on r.id=rs.route_id where rs.establishment_id=e.id and r.agent_id=$7 and r.status in ('published','in_progress','completed'))` : '';
  const query=`select e.id,e.cnpj,e.legal_name,e.trade_name,e.city,e.state,e.field_status from establishments e
    where ($1='' or e.cnpj like '%'||$1||'%' or unaccent(e.legal_name) ilike '%'||unaccent($1)||'%'::text or unaccent(coalesce(e.trade_name,'')) ilike '%'||unaccent($1)||'%' or unaccent(coalesce(e.city,'')) ilike '%'||unaccent($1)||'%')
    and ($4='' or unaccent(coalesce(e.city,'')) ilike '%'||unaccent($4)||'%')

@@ -16,8 +16,8 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
  if(!uuid.test(id))return fail('Rota inválida.');
  const body=await req.json().catch(()=>({})) as Record<string,unknown>;
  const stopId=String(body.stop_id||'');
- const lat=Number(body.lat),lon=Number(body.lon);
- if(!uuid.test(stopId)||!Number.isFinite(lat)||!Number.isFinite(lon)||Math.abs(lat)>90||Math.abs(lon)>180)
+ const lat=body.lat,lon=body.lon;
+ if(!uuid.test(stopId)||typeof lat!=='number'||typeof lon!=='number'||!Number.isFinite(lat)||!Number.isFinite(lon)||Math.abs(lat)>90||Math.abs(lon)>180)
   return fail('Localização ou parada inválida.');
  const [target]=await db().query(`select st_y(e.position::geometry) as lat,st_x(e.position::geometry) as lon
  from route_stops s join routes r on r.id=s.route_id join establishments e on e.id=s.establishment_id

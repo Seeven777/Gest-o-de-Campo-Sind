@@ -84,3 +84,13 @@ Atualizada em 11/11/2026. Branch: `fix/modo-roteirizador-auditoria-ux`. Registro
 - **Pendência confirmada:** `admin_delete_test_record(text,uuid,text)` não existe nem no Neon principal nem no Preview. O endpoint passou a informar `deletion_available=false` e a interface desabilita exclusões em vez de apresentar erro genérico. Aplicação de `neon/005_limpeza_segura.sql` permanece para etapa futura, após backup e aprovação.
 - **Tela Visitas do agente corrigida:** além da lista de jornadas para novo registro, apresenta agora o histórico próprio de visitas e o status de revisão.
 - A limitação diária da Vercel impediu novo deploy manual do commit mais recente (HTTP 402 `api-deployments-free-per-day`). Deploy anterior READY não equivale à versão atual. CI no GitHub permanece como validação não autenticada.
+
+## Continuação: consistência e segurança operacional (11/11/2026)
+
+- **Check-in simultâneo:** reserva da parada via atualização condicional `pending → arrived` e criação de visita/log no mesmo comando SQL. Segundo check-in recebe conflito; migração com unicidade em `visits(stop_id)` segue recomendada como defesa adicional, apenas após análise dos dados.
+- **Finalização:** respostas, conclusão e status da parada + log gravados atomicamente. Ao reenviar visita solicitada para ajuste, limpa metadados da decisão anterior.
+- **GPS de navegação:** endpoint de trecho rejeita `null` e campos ausentes em vez de convertê-los em coordenadas zero. Ping após 15 minutos sem atualização não responde falsamente como posição transmitida; exige reiniciar com consentimento.
+- **Fotos:** foto expirada não conta como foto válida; o agente pode reenviar a fachada se ela expirou durante uma visita aberta. Limpeza programada elimina só imagens vencidas de visitas pendentes, preservando eventual imagem nova; análise concluída continua removendo todas as imagens.
+- **Empresas para agente:** listagem não revela empresas associadas apenas a rotas em rascunho ou canceladas.
+
+**Validação:** revisão estática do código; executar CI no commit e repetir os testes autenticados no Preview antes de qualquer merge. Nenhum banco ou dado de produção foi modificado nesta correção.
