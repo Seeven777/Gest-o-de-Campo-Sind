@@ -2,7 +2,7 @@
 import {useEffect,useMemo,useRef,useState} from 'react';
 export type FieldPoint={id:string;lat:number;lon:number};
 export type FieldPlan={order:string[];points:FieldPoint[];geometry:{type:'LineString';coordinates:[number,number][]};route_warning?:string;partial?:boolean;missing?:{id:string;name:string;address:string}[];distance_m?:number|null;duration_s?:number|null};
-export type CurrentPosition={lat:number;lon:number;accuracy:number;heading?:number|null;speed?:number|null};
+export type CurrentPosition={lat:number;lon:number;accuracy:number;heading?:number|null;speed?:number|null;timestamp?:number};
 export type RouteStep={instruction:string;type:number;distance_m:number;duration_s:number;at:[number,number];route_index:number};
 export type ActiveLeg={geometry:{type:'LineString';coordinates:[number,number][]};steps:RouteStep[];distance_m:number;duration_s:number;estimated:true};
 type LMap={remove:()=>void;fitBounds:(b:unknown,o?:unknown)=>void;setView:(c:number[],zoom:number,o?:unknown)=>void;invalidateSize:()=>void;
