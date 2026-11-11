@@ -1,0 +1,57 @@
+.registration-workspace{max-width:1180px;margin:0 auto;display:grid;gap:16px;color:#234333}
+.registration-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.registration-summary>div{background:#fff;border:1px solid #e3ece4;border-radius:18px;padding:19px 23px;box-shadow:0 6px 18px #19432909}
+.registration-summary span{display:flex;gap:8px;align-items:center;font-size:13px;font-weight:800;color:#4f7960}
+.registration-summary strong{display:block;font-size:clamp(27px,3vw,38px);line-height:1.25;margin:10px 0 2px;color:#163f2b}
+.registration-summary small{font-size:12px;color:#758a7a}
+.registration-panel{padding:22px}
+.registration-heading{display:flex;gap:20px;justify-content:space-between;align-items:flex-start}
+.registration-heading>svg{flex-shrink:0;color:#2a7a4f}
+.registration-eyebrow{font-size:11px;letter-spacing:.1em;color:#cc6c2c;font-weight:900}
+.registration-heading h2{font-size:24px;letter-spacing:-.04em;color:#1d3f2e;margin:6px 0}
+.registration-heading p{font-size:14px;line-height:1.6;color:#708678;max-width:760px;margin:0}
+.registration-tabs{display:flex;gap:8px;flex-wrap:wrap;margin:20px 0 15px}
+.registration-tabs button{display:flex;align-items:center;gap:8px;background:#f5f9f5;color:#466e56;border:1px solid #dce8df;border-radius:25px;padding:10px 17px;font-size:13px;font-weight:800;min-height:45px}
+.registration-tabs button.active{background:#1f5c40;border-color:#1f5c40;color:#fff}
+.registration-instruction{display:flex;align-items:flex-start;gap:13px;background:#f7f9f6;border:1px solid #e1eae3;border-radius:14px;padding:14px 16px;margin:8px 0 16px}
+.registration-instruction>span{display:grid;place-items:center;color:#477258;flex-shrink:0;margin-top:3px}
+.registration-instruction p{margin:0;color:#5f7565;font-size:13px;line-height:1.55}
+.registration-instruction strong{color:#2b543e}
+.registration-search{display:flex;gap:9px;align-items:center;background:#f9fbf8;border:1px solid #dfe9df;border-radius:13px;padding:5px 5px 5px 13px;margin:14px 0 17px}
+.registration-search>svg{color:#748f7a;flex-shrink:0}
+.registration-search input{flex:1;min-width:0;background:transparent;border:0;outline:0;min-height:43px;font-size:15px;color:#253e2e}
+.registration-search button{border:0;border-radius:10px;background:#e3f1e7;color:#275d3f;font-size:13px;font-weight:850;padding:12px 16px;min-height:44px}
+.registration-list{display:grid;gap:10px}
+.registration-item{display:flex;align-items:center;justify-content:space-between;gap:14px;flex-wrap:wrap;background:#fff;border:1px solid #e5ece5;border-radius:14px;padding:15px 16px}
+.registration-company{display:flex;gap:13px;align-items:flex-start;flex:1 1 310px;min-width:0}
+.registration-avatar{width:45px;height:45px;flex-shrink:0;border-radius:12px;background:#fff0e5;color:#c76427;display:grid;place-items:center}
+.registration-company>div{min-width:0}
+.registration-company strong{display:block;font-weight:850;color:#234e37;font-size:15px;line-height:1.3;overflow-wrap:anywhere}
+.registration-company small{display:block;color:#7b897f;font-size:12px;margin:4px 0}
+.registration-company div>span{display:block;font-size:13px;color:#728577;margin-top:5px}
+.registration-item-actions,.registration-proof{display:grid;justify-items:end;gap:8px;align-content:center}
+.registration-pill{display:flex;align-items:center;gap:5px;border-radius:9px;padding:6px 10px;font-size:12px;font-weight:850}
+.registration-pill.waiting{background:#fff4e9;color:#a76224}
+.registration-pill.confirmed{background:#e5f5eb;color:#287245}
+.registration-open,.registration-confirm{border:0;border-radius:10px;background:#f36c26;color:#fff;font-size:13px;font-weight:850;min-height:44px;padding:10px 14px;display:flex;align-items:center;gap:8px;justify-content:center}
+.registration-proof p{font-size:13px;font-weight:600;margin:0;color:#344f3e;text-align:right;overflow-wrap:anywhere}
+.registration-proof small{font-size:11px;color:#829183}
+.registration-confirm-form{flex:1 1 100%;display:grid;gap:10px;border-top:1px solid #e6ede7;padding-top:15px}
+.registration-confirm-form>label:first-child{font-size:13px;font-weight:800;color:#345a41}
+.registration-confirm-form>label:first-child span{color:#bd5b24}
+.registration-confirm-form>.field{max-width:650px;min-height:48px}
+.registration-check{display:flex;align-items:flex-start;gap:10px;max-width:790px;cursor:pointer;color:#4d6b55;font-size:13px;line-height:1.45;font-weight:600}
+.registration-check input{width:19px;height:19px;flex-shrink:0;accent-color:#2f804d;margin-top:1px}
+.registration-confirm-actions{display:flex;gap:9px;justify-content:flex-end;flex-wrap:wrap}
+.registration-cancel{border:1px solid #dce8df;border-radius:10px;color:#566e5d;background:#fff;padding:9px 15px;min-height:44px;font-weight:800}
+.registration-confirm:disabled{opacity:.48;cursor:not-allowed}
+.registration-empty{padding:35px 16px;display:grid;gap:8px;justify-items:center;text-align:center;color:#68836e}
+.registration-empty strong{font-size:16px;color:#436b4f}
+.registration-empty p{font-size:13px;margin:0}
+.registration-pagination{display:flex;gap:9px;align-items:center;justify-content:space-between;margin-top:16px}
+.registration-pagination button{display:flex;align-items:center;gap:4px;border:1px solid #dde8df;border-radius:10px;background:#f7fbf7;color:#325e44;min-height:43px;padding:9px 12px;font-weight:800}
+.registration-pagination button:disabled{opacity:.42}
+.registration-pagination span{font-size:12px;color:#7b8b7e}
+.registration-workspace button:focus-visible,.registration-workspace input:focus-visible{outline:3px solid #ef772e;outline-offset:2px}
+@media(max-width:750px){.registration-summary{gap:9px}.registration-summary>div{padding:14px}.registration-summary span{font-size:11px}.registration-summary small{font-size:11px}.registration-panel{padding:14px}.registration-heading h2{font-size:21px}.registration-item{align-items:stretch;padding:12px}.registration-item-actions,.registration-proof{justify-items:start;width:100%;padding-left:57px}.registration-proof p{text-align:left}.registration-confirm-actions{flex-direction:column}.registration-confirm-actions button{width:100%}}
+@media(max-width:420px){.registration-summary{grid-template-columns:1fr}.registration-search input{font-size:13px}.registration-search button{padding:9px}.registration-company{flex-basis:100%}.registration-item-actions,.registration-proof{padding-left:0}}
