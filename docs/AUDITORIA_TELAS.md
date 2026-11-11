@@ -112,3 +112,14 @@ Atualizada em 11/11/2026. Branch: `fix/modo-roteirizador-auditoria-ux`. Registro
 - Quando a central solicita ajustes (`needs_more`), a parada volta para `arrived` e uma rota antes concluída é reaberta em `in_progress` no mesmo comando que registra a decisão. Isso permite ao agente reenviar as respostas e retomar o GPS mediante consentimento.
 - Aceitar um convite exige uma conta Neon Auth com **e-mail verificado** e exatamente igual ao convite. O critério é aplicado dentro do próprio SQL que consome o token, protegendo inclusive convites de administrador.
 - Mudanças pendentes de CI, de homologação autenticada e de Preview, sem aplicação de migrações ou alterações em bancos.
+
+## Sprint 2 — navegação de campo, rotas e inteligência territorial (11/11/2026)
+- Relato de homologação real: agente precisava recarregar a página ao sair de uma rota e iniciar outra; o GPS podia estar indisponível enquanto a interface indicava navegação ativa. Ajustado componente da rota com identidade `key={id}`, limpeza de listeners e atualização do trecho ao mudar de parada.
+- Modo direção: prioriza mapa, instrução e destino, com confirmação discreta de chegada; removeu controles explícitos de parar GPS da interface. Permissão do navegador continua obrigatória. Agente deve usar o celular somente com veículo parado.
+- Login: composição responsiva revisada, fotografia local preservada, contraste e legibilidade; qualidade intrínseca da foto original pode requerer substituição por asset de maior resolução.
+- Plano/agrupamento técnico `campaigns` preservado por compatibilidade, mas rota pode ser criada diretamente sem campanha manual. Área legada `/campanhas` redireciona a `/rotas`.
+- Cadastros sindicais: apenas `field_status='validated'` + registro administrativo `confirmed` com data efetiva. Confirmação administrativa passa a ser realizada em Empresas e exige referência.
+- Mapa de cobertura: 645 polígonos oficiais de SP (IBGE/geodata-br, CC0) sob consulta remota cacheada, métricas de captação por município/período e detalhes por status de cada empresa. Período é `establishments.created_at`, NÃO data de abertura de empresa ou data de conversão.
+- Acesso de mapa e detalhes somente admin/supervisor; agente mantém acesso às rotas atribuídas.
+- **Não houve migração de banco nem importação das ~200 mil empresas externas.** Integração ngrok permanece fora de escopo desta sprint.
+- **Homologação obrigatória:** teste real troca de rotas, permissões do navegador, comportamento com GPS negado, 645 polígonos recebidos no Preview, fluxos administrativos e foto em Blob separado antes de merge. CI e build não equivalem a E2E autenticado.

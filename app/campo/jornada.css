@@ -438,3 +438,32 @@
 }
 @keyframes navigator-tools-in{from{transform:translateY(22px);opacity:.5}to{transform:translateY(0);opacity:1}}
 @media(prefers-reduced-motion:reduce){.navigator-mobile-tools{animation:none}}
+
+/* Sprint 2: navegacao enxuta, mapa sempre dominante, chegada apenas ao parar. */
+.navigator-root:has(.navigator-driving-card) .navigator-top-panel{width:min(410px,calc(100% - 120px));padding:12px 15px;gap:4px;border-radius:16px}
+.navigator-root:has(.navigator-driving-card) .navigator-top-title{font-size:17px;line-height:1.2}
+.navigator-root:has(.navigator-driving-card) .navigator-progress-bar,.navigator-root:has(.navigator-driving-card) .navigator-directions-summary,.navigator-root:has(.navigator-driving-card) .navigator-progress-line{display:none}
+.navigator-root:has(.navigator-driving-card) .navigator-turn-banner{top:125px;width:min(410px,calc(100% - 130px));box-shadow:0 6px 15px #143c2833}
+.navigator-root:has(.navigator-driving-card) .navigator-map-actions{gap:6px}
+.navigator-root:has(.navigator-driving-card) .navigator-map-actions button{min-height:51px;min-width:70px;padding:5px;font-size:11px}
+.navigator-root:has(.navigator-driving-card) .navigator-map-actions button:nth-child(n+4){display:none}
+.navigator-root:has(.navigator-driving-card) .navigator-sheet{width:min(475px,calc(100% - 24px));padding:13px 18px;bottom:12px;max-height:38vh;overflow:visible}
+.navigator-root:has(.navigator-driving-card) .navigator-sheet-grip{display:none}
+.navigator-driving-card{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px 14px;align-items:center}
+.navigator-driving-copy{min-width:0;display:flex;flex-direction:column;gap:2px}
+.navigator-driving-copy>span{font-size:10px;font-weight:800;color:#6d7d71;letter-spacing:.08em}
+.navigator-driving-copy>strong{font-size:17px;line-height:1.2;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#213b30}
+.navigator-driving-copy>small{font-size:13px;font-weight:700;color:#335a48}
+.navigator-arrived-button{border:0;border-radius:13px;padding:11px 15px;min-height:50px;background:#f36a21;color:white;font-size:15px;font-weight:800;display:flex;align-items:center;justify-content:center;gap:7px;white-space:nowrap;box-shadow:0 4px 12px #f36a2133}
+.navigator-driving-alert{grid-column:1/-1;font-size:12px!important;margin:0!important;color:#a0432e!important}
+@media(max-width:800px){
+ .navigator-root:has(.navigator-driving-card) .navigator-top-panel{display:none}
+ .navigator-root:has(.navigator-driving-card) .navigator-turn-banner{top:calc(68px + env(safe-area-inset-top,0px))!important;left:8px!important;width:calc(100% - 77px)!important;min-height:60px;padding:9px 11px;border-radius:14px}
+ .navigator-root:has(.navigator-driving-card) .navigator-mobile-map-actions{top:calc(68px + env(safe-area-inset-top,0px))!important;right:8px;gap:7px}
+ .navigator-root:has(.navigator-driving-card) .navigator-mobile-map-actions button{width:46px;height:46px}
+ .navigator-root:has(.navigator-driving-card) .navigator-sheet{max-height:42dvh!important;bottom:0!important;width:100%!important;padding:13px 16px calc(14px + env(safe-area-inset-bottom,0px))!important;border-radius:18px 18px 0 0}
+ .navigator-root:has(.navigator-driving-card) .navigator-sheet-grip{display:none!important}
+ .navigator-driving-card{gap:7px 12px}
+ .navigator-driving-copy>strong{font-size:16px}
+ .navigator-arrived-button{min-height:49px;padding:10px 15px}
+}

@@ -21,19 +21,19 @@ export default function Agent(){
  }),[routes]);
  const next=ordered.find(r=>r.status==='published'||r.status==='in_progress');
  const upcoming=ordered.filter(r=>r.id!==next?.id&&r.status!=='completed').slice(0,5);
- return <Portal title="Meu dia em campo" subtitle="Sua próxima tarefa está aqui. Siga o passo a passo com calma.">
+ return <Portal title="Meu dia em campo" subtitle="Sua próxima tarefa está aqui. Abra a próxima rota e acompanhe o trajeto no mapa.">
  <div className="field-guide">
  {error&&<p className="field-error" role="alert">{error}</p>}
  {loading?<section className="field-stage"><strong>Carregando sua agenda...</strong></section>:
  next?<section className="field-stage">
- <span className="field-step">SUA PRÓXIMA JORNADA</span>
+ <span className="field-step">PRÓXIMA ROTA</span>
  <h2>{next.campaign_name}</h2>
  <p className="field-muted"><CalendarDays size={18} style={{verticalAlign:'middle',marginRight:8}}/>{String(next.route_date).slice(0,10).split('-').reverse().join('/')} · {label(next.status)}</p>
  <div className="field-big-number">{next.stops} <span>empresas na rota</span></div>
  <p>Você verá cada endereço no mapa. Ao chegar, o aplicativo solicitará uma foto e algumas respostas simples.</p>
  <Link href={'/campo/'+next.id} className="field-primary" style={{textDecoration:'none'}}><Navigation size={25}/> {next.status==='in_progress'?'Continuar minha jornada':'Iniciar minha jornada'} <ChevronRight size={23}/></Link>
  </section>:
- <section className="field-stage"><div className="field-step">SUA AGENDA</div><MapPin size={44} color="#658773"/><h2>Nenhuma jornada disponível</h2><p>Quando a administração publicar uma rota para você, ela aparecerá aqui automaticamente.</p></section>}
+ <section className="field-stage"><div className="field-step">MINHAS ROTAS</div><MapPin size={44} color="#658773"/><h2>Nenhuma jornada disponível</h2><p>Quando a administração publicar uma rota para você, ela aparecerá aqui automaticamente.</p></section>}
  {upcoming.length>0&&<section className="field-stage"><span className="field-step">OUTRAS ROTAS ATRIBUÍDAS</span><h2>Próximas jornadas</h2>
  <div style={{display:'grid',gap:12}}>{upcoming.map(r=><Link href={'/campo/'+r.id} key={r.id} style={{display:'flex',justifyContent:'space-between',alignItems:'center',gap:12,border:'2px solid #dce9df',padding:17,borderRadius:14,color:'#18392b',textDecoration:'none',minHeight:64}}>
  <div><strong style={{fontSize:19}}>{r.campaign_name}</strong><small style={{display:'block',fontSize:14,color:'#658071'}}>{r.stops} empresas · {String(r.route_date).slice(0,10).split('-').reverse().join('/')}</small></div><ChevronRight size={23}/></Link>)}</div></section>}

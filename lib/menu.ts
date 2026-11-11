@@ -2,14 +2,13 @@ import { LayoutDashboard, Building2, CalendarDays, Route, ClipboardCheck, CheckC
 export const adminMenu = [
  {label:'Visão geral',href:'/dashboard',icon:LayoutDashboard,group:'principal'},
  {label:'Empresas',href:'/empresas',icon:Building2,group:'principal'},
- {label:'Campanhas',href:'/campanhas',icon:CalendarDays,group:'principal'},
  {label:'Cadastros sindicais',href:'/cadastros',icon:ClipboardCheck,group:'principal'},
  {label:'Rotas',href:'/rotas',icon:Route,group:'principal'},
  {label:'Visitas',href:'/visitas',icon:ClipboardCheck,group:'operacao'},
  {label:'Validações',href:'/validacoes',icon:CheckCheck,group:'operacao'},
- {label:'Reembolsos',href:'/reembolsos',icon:Receipt,group:'operacao'},
+ {label:'Reembolsos',href:'/reembolsos',icon:Receipt,group:'sistema'},
  {label:'Mapa de cobertura',href:'/mapa',icon:Map,group:'inteligencia'},
- {label:'Localização da equipe',href:'/localizacoes',icon:RadioTower,group:'inteligencia'},
+ {label:'Localização da equipe',href:'/localizacoes',icon:RadioTower,group:'sistema'},
  {label:'Equipes',href:'/equipes',icon:Users,group:'inteligencia'},
  {label:'Relatórios',href:'/relatorios',icon:ChartNoAxesCombined,group:'inteligencia'},
  {label:'Importações',href:'/importacoes',icon:FileUp,group:'sistema'},
@@ -19,8 +18,8 @@ export const adminMenu = [
 export const agentMenu = [
  {label:'Meu dia',href:'/agente',icon:CalendarDays,group:'principal'},
  {label:'Minha jornada',href:'/rotas',icon:Navigation,group:'principal'},
- {label:'Registrar visita',href:'/visitas',icon:Camera,group:'principal'},
- {label:'Minhas despesas',href:'/reembolsos',icon:Wallet,group:'principal'},
+ {label:'Minhas visitas',href:'/visitas',icon:Camera,group:'principal'},
+ {label:'Minhas despesas',href:'/reembolsos',icon:Wallet,group:'sistema'},
  {label:'Meus resultados',href:'/relatorios',icon:ChartNoAxesCombined,group:'principal'},
  {label:'Meu perfil',href:'/configuracoes',icon:UserRound,group:'sistema'},
 ];

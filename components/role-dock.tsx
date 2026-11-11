@@ -8,21 +8,21 @@ type NavItem={href:string;label:string;icon:LucideIcon;featured?:boolean};
 const destinations:Record<DockRole,NavItem[]>={
  admin:[
   {href:'/dashboard',label:'Início',icon:House},
-  {href:'/empresas',label:'Empresas',icon:Building2},
   {href:'/rotas',label:'Rotas',icon:Route,featured:true},
-  {href:'/validacoes',label:'Validar',icon:CheckCheck}
+  {href:'/empresas',label:'Empresas',icon:Building2},
+  {href:'/mapa',label:'Cobertura',icon:ChartNoAxesCombined}
  ],
  supervisor:[
   {href:'/dashboard',label:'Início',icon:House},
-  {href:'/rotas',label:'Rotas',icon:Route},
-  {href:'/visitas',label:'Visitas',icon:Camera,featured:true},
-  {href:'/relatorios',label:'Relatórios',icon:ChartNoAxesCombined}
+  {href:'/rotas',label:'Rotas',icon:Route,featured:true},
+  {href:'/validacoes',label:'Validar',icon:CheckCheck},
+  {href:'/mapa',label:'Cobertura',icon:ChartNoAxesCombined}
  ],
  agent:[
   {href:'/agente',label:'Meu dia',icon:House},
   {href:'/rotas',label:'Rotas',icon:Route},
-  {href:'/visitas',label:'Registrar',icon:Camera,featured:true},
-  {href:'/reembolsos',label:'Despesas',icon:Wallet}
+  {href:'/visitas',label:'Visitas',icon:Camera},
+  {href:'/relatorios',label:'Resultados',icon:ChartNoAxesCombined,featured:true}
  ]
 };
 function isCurrent(pathname:string,href:string){

@@ -84,7 +84,7 @@ export function FieldNavigationMap({plan,targetId,current,follow=true,compact=fa
    window.requestAnimationFrame(()=>{if(!disposed){instance.invalidateSize();makeBounds(all.length?all:route,instance,L);setReady(true)}});
    return ()=>{instance.off('dragstart',panListener);observer?.disconnect()};
   }).then(cleanup=>{if(disposed)cleanup?.();else cleanupRef.current=cleanup||null}).catch(e=>{if(!disposed)setError(e instanceof Error?e.message:'Falha no mapa')});
-  return()=>{disposed=true;cleanupRef.current?.();cleanupRef.current=null;map.current?.remove();map.current=null;gpsMarker.current=null;gpsAccuracy.current=null;legLayer.current=null;legOutline.current=null;markers.current.clear();leafletApi.current=null};
+  return()=>{disposed=true;cleanupRef.current?.();cleanupRef.current=null;map.current?.remove();map.current=null;lastCenter.current=0;gpsMarker.current=null;gpsAccuracy.current=null;legLayer.current=null;legOutline.current=null;markers.current.clear();leafletApi.current=null};
  // A montagem do mapa depende da rota, mas não deve reiniciar a cada ping, alteração de etapa ou check-in.
  // eslint-disable-next-line react-hooks/exhaustive-deps
  },[plan,kind,immersive]);
@@ -117,7 +117,9 @@ export function FieldNavigationMap({plan,targetId,current,follow=true,compact=fa
   if(!gpsAccuracy.current)gpsAccuracy.current=L.circle(latlng,{radius:Math.max(15,Math.min(300,current.accuracy)),weight:1,color:'#267bcb',fillColor:'#458adc',fillOpacity:.1}).addTo(instance);
   else {gpsAccuracy.current.setLatLng(latlng);gpsAccuracy.current.setRadius?.(Math.max(15,Math.min(300,current.accuracy)))}
   if(follow&&Date.now()-lastCenter.current>1800){
-   instance.panTo(latlng,{animate:true,duration:.35});lastCenter.current=Date.now();
+   if(!lastCenter.current)instance.setView(latlng,16,{animate:false});
+   else instance.panTo(latlng,{animate:true,duration:.35});
+   lastCenter.current=Date.now();
   }
  },[ready,current,follow]);
  useEffect(()=>{
