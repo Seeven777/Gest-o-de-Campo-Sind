@@ -474,7 +474,7 @@ function CampoGuiadoSession({id}:{id:string}){
   // O histórico é acessório: falha na consulta não impede o novo registro.
   try{
    const r=await fetch('/api/campo/parada?route_id='+encodeURIComponent(id),{cache:'no-store'});
-   const d=await apiResponse<{items?:{id:string;reason_label:string;created_at:string}[]}>(r);
+   const d=await apiResponse<{error?:string;items?:{id:string;reason_label:string;created_at:string}[]}>(r);
    if(r.ok)setRecentBreaks((d.items||[]).slice(0,3));
   }catch{}
  }
@@ -485,7 +485,7 @@ function CampoGuiadoSession({id}:{id:string}){
    if(!breakRequestIdRef.current)breakRequestIdRef.current=crypto.randomUUID();
    const p=positionRef.current;
    const fresh=p?.timestamp&&Date.now()-p.timestamp<30000?p:null;
-   const r=await send<{id:string;status:string;created_at:string;already_registered?:boolean}>('/api/campo/parada',
+   const r=await send<{error?:string;id:string;status:string;created_at:string;already_registered?:boolean}>('/api/campo/parada',
     {route_id:id,client_request_id:breakRequestIdRef.current,reason:breakReason,
      note:breakNotes,expense_hint:breakExpenseHint,
      ...(fresh?{lat:fresh.lat,lon:fresh.lon,accuracy:fresh.accuracy,gps_timestamp:fresh.timestamp}:{})});
