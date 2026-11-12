@@ -23,6 +23,11 @@ test('ordena sugestões de mesmo CEP sem presumir quilômetros',()=>{
  assert.deepEqual(ranked.map(x=>x.id),['b']);assert.equal(ranked[0].nearest_km,null);
  assert.equal(ranked[0].similar_postal,true);
 });
+test('faixas de CEP distintas exigem revisão, sem criar quilômetros artificiais',()=>{
+ const x=evaluateRoute([c('a','São Paulo',null,null,'01310000'),c('b','São Paulo',null,null,'05209000')]);
+ assert.equal(x.postal_zones,2);assert.equal(x.span_km,null);
+ assert.ok(x.warnings.some(w=>w.includes('faixas de CEP')));
+});
 test('mantém a sequência definida pelo administrador',()=>{
  const x=evaluateRoute([c('b','São Paulo'),c('a','São Paulo')]);
  assert.equal(x.selected,2);assert.deepEqual(x.points,[]);
