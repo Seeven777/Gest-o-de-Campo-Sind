@@ -14,3 +14,22 @@ test('termo vazio e caracteres de pontuação não injetam coringas SQL',()=>{
  assert.equal(normalizeCnpjSearch(''), '');
  assert.equal(normalizeCnpjSearch('%%__-./'), '');
 });
+
+import {canReadCadastroHistory,canConfirmCadastro} from '../lib/cadastro-permissions.ts';
+
+test('apenas Cadastro e Admin confirmam e visualizam a fila',()=>{
+ for(const role of ['admin','cadastro']){
+  assert.equal(canConfirmCadastro(role),true,role);
+  assert.equal(canReadCadastroHistory(role),true,role);
+ }
+});
+test('Supervisor lê histórico mas não pode confirmar',()=>{
+ assert.equal(canReadCadastroHistory('supervisor'),true);
+ assert.equal(canConfirmCadastro('supervisor'),false);
+});
+test('Agente e RH não acessam dados de Cadastro',()=>{
+ for(const role of ['agent','rh','', 'unknown']){
+  assert.equal(canReadCadastroHistory(role),false,role);
+  assert.equal(canConfirmCadastro(role),false,role);
+ }
+});
