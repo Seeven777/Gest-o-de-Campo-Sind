@@ -30,3 +30,6 @@ Antes das migrações de produção, requer aprovação específica, snapshot re
 
 ## Limites deste ciclo
 A conexão externa com a base de >200 mil empresas segue **não implementada**. A confirmação do Cadastro é **manual**. Nenhuma pessoa recebeu cargo novo, nenhum pagamento foi registrado, nenhuma migração foi executada em produção e nenhuma alteração foi aplicada ao banco QA nesta verificação.
+
+## Isolamento do novo PR #34
+As variáveis `DATABASE_URL` e `DATABASE_NEON_AUTH_BASE_URL` foram configuradas exclusivamente para o Git branch `fix/cadastro-busca-cnpj-homologacao-20261112` em Vercel Preview, com hosts verificados da branch QA `br-quiet-morning-b62b1q3e`. O commit posterior a essa configuração força novo build/Preview; **não usar deployment criado antes dessa configuração para escritas**. As variáveis de Production permanecem inalteradas.
