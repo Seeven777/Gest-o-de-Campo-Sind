@@ -4,8 +4,8 @@ import {Portal} from '@/components/portal';
 import {Building2,CheckCircle2,MapPin,Search,Layers,CalendarDays,ChevronLeft,ChevronRight} from 'lucide-react';
 import './territorio.css';
 type Metric='total'|'pending'|'review'|'validated'|'invalid'|'registered';
-type Row={city:string;ibge_code:string|null;total:number;pending:number;review:number;validated:number;invalid:number;registered:number};
-type Company={id:string;cnpj:string;legal_name:string;trade_name:string|null;field_status:string;registered:boolean};
+type Row={city:string;ibge_code:string|null;total:number;pending:number;review:number;validated:number;invalid:number;registered:number|null};
+type Company={id:string;cnpj:string;legal_name:string;trade_name:string|null;field_status:string;registered:boolean|null};
 type Shape={type:'FeatureCollection';features:{type:'Feature';properties:{id:string;name:string};geometry:unknown}[]};
 type MapInstance={remove:()=>void;fitBounds:(bounds:unknown,opts?:unknown)=>void};
 type Layer={addTo:(map:MapInstance)=>Layer;getBounds:()=>unknown;on:(event:string,listener:()=>void)=>void;bindTooltip:(text:string)=>Layer};
@@ -67,6 +67,7 @@ function TerritoryMap({shape,metrics,metric,onSelect}:{shape:Shape;metrics:Map<s
 }
 export default function Territorio(){
  const [shape,setShape]=useState<Shape|null>(null),[rows,setRows]=useState<Row[]>([]),[loading,setLoading]=useState(true),[mapError,setMapError]=useState(''),[error,setError]=useState('');
+ const [registrationReady,setRegistrationReady]=useState(false);
  const [metric,setMetric]=useState<Metric>('total'),[from,setFrom]=useState(''),[to,setTo]=useState(''),[citySearch,setCitySearch]=useState(''),[selected,setSelected]=useState<string|null>(null);
  const [companies,setCompanies]=useState<Company[]>([]),[companiesPage,setCompaniesPage]=useState(1),[companiesMore,setCompaniesMore]=useState(false),[companiesError,setCompaniesError]=useState(''),[companiesLoading,setCompaniesLoading]=useState(false);
  useEffect(()=>{let alive=true;
@@ -74,7 +75,7 @@ export default function Territorio(){
   return()=>{alive=false};
  },[]);
  useEffect(()=>{let alive=true;setLoading(true);setError('');
-  fetch('/api/territorio?'+new URLSearchParams({from,to}).toString(),{cache:'no-store'}).then(async response=>{const d=await response.json();if(!response.ok)throw Error(d.error||'Falha nos indicadores');if(alive)setRows(d.items||[])})
+  fetch('/api/territorio?'+new URLSearchParams({from,to}).toString(),{cache:'no-store'}).then(async response=>{const d=await response.json();if(!response.ok)throw Error(d.error||'Falha nos indicadores');if(alive){setRows(d.items||[]);setRegistrationReady(Boolean(d.registration_ready));if(!d.registration_ready)setMetric(m=>m==='registered'?'total':m)}})
   .catch(e=>{if(alive)setError(e instanceof Error?e.message:'Indicadores indisponíveis')}).finally(()=>{if(alive)setLoading(false)});
   return()=>{alive=false};
  },[from,to]);
@@ -82,7 +83,7 @@ export default function Territorio(){
   const map=new Map<string,Row>();
   for(const row of rows){
    const key=row.ibge_code||normalize(row.city),current=map.get(key);
-   if(current){for(const field of ['total','pending','review','validated','invalid','registered'] as Metric[])current[field]+=Number(row[field]||0)}
+   if(current){for(const field of ['total','pending','review','validated','invalid','registered'] as Metric[])current[field]=Number(current[field]||0)+Number(row[field]||0)}
    else map.set(key,{...row,total:Number(row.total),pending:Number(row.pending),review:Number(row.review),validated:Number(row.validated),invalid:Number(row.invalid),registered:Number(row.registered)});
   }
   return map;
@@ -106,18 +107,19 @@ export default function Territorio(){
    <section className="territory-stats" aria-label="Resumo da base">
     <div><span><Building2 size={17}/> Empresas na base</span><strong>{fmt(totals.total)}</strong></div>
     <div><span>Validadas</span><strong>{fmt(totals.validated)}</strong></div>
-    <div><span>Cadastros confirmados</span><strong>{fmt(totals.registered)}</strong></div>
+    <div><span>Cadastros confirmados</span><strong>{registrationReady?fmt(totals.registered):'—'}</strong></div>
     <div><span>Cidades com registros</span><strong>{fmt(new Set(rows.map(r=>normalize(r.city)).filter(c=>c!=='nao informado')).size)} <small>/ 645</small></strong></div>
    </section>
    <section className="territory-toolbar" aria-label="Filtros territoriais">
     <label><Layers size={17}/> Visualizar
-     <select value={metric} onChange={e=>setMetric(e.target.value as Metric)}>{(Object.entries(labels) as [Metric,string][]).map(([value,label])=><option key={value} value={value}>{label}</option>)}</select>
+     <select value={metric} onChange={e=>setMetric(e.target.value as Metric)}>{(Object.entries(labels) as [Metric,string][]).map(([value,label])=><option key={value} value={value} disabled={value==='registered'&&!registrationReady}>{label}</option>)}</select>
     </label>
     <label><CalendarDays size={17}/> De<input type="date" value={from} max={to||undefined} onChange={e=>setFrom(e.target.value)}/></label>
     <label>Até<input type="date" value={to} min={from||undefined} onChange={e=>setTo(e.target.value)}/></label>
     {(from||to)&&<button className="territory-clear" onClick={()=>{setFrom('');setTo('')}} type="button">Limpar período</button>}
    </section>
    {error&&<p className="error" role="alert">{error}</p>}
+   {!registrationReady&&!loading&&<p className="territory-muted" role="status">O mapa e os totais de empresas estão disponíveis. A métrica de cadastros confirmados será habilitada após a migração 008.</p>}
    <div className="territory-layout">
     <div className="territory-map-panel">
      {shape?<TerritoryMap shape={shape} metrics={metrics} metric={metric} onSelect={choose}/>:<div className="territory-map-placeholder">{mapError||'Carregando mapa dos municípios...'}</div>}
@@ -134,7 +136,7 @@ export default function Territorio(){
       <div className="territory-selected-stats">
        <div><span>Empresas</span><strong>{fmt(Number(selectedMetric?.total||0))}</strong></div>
        <div><span>Validadas</span><strong>{fmt(Number(selectedMetric?.validated||0))}</strong></div>
-       <div><span>Cadastros confirmados</span><strong>{fmt(Number(selectedMetric?.registered||0))}</strong></div>
+       <div><span>Cadastros confirmados</span><strong>{registrationReady?fmt(Number(selectedMetric?.registered||0)):'—'}</strong></div>
        <div><span>Pendentes</span><strong>{fmt(Number(selectedMetric?.pending||0))}</strong></div>
       </div>
       <h3>Situação das empresas</h3>
@@ -142,7 +144,7 @@ export default function Territorio(){
       <div className="territory-company-list">{companies.map(company=><div key={company.id} className="territory-company">
        <strong>{company.trade_name||company.legal_name}</strong>
        <span>{company.cnpj}</span>
-       <small>{company.registered?<><CheckCircle2 size={13}/> Cadastro confirmado</>:statusLabels[company.field_status]||company.field_status}</small>
+       <small>{company.registered===null?'Conferência sindical indisponível':company.registered?<><CheckCircle2 size={13}/> Cadastro confirmado</>:statusLabels[company.field_status]||company.field_status}</small>
       </div>)}
       {!companies.length&&<p className="territory-muted">{companiesLoading?'Consultando empresas...':'Nenhuma empresa nessa cidade para o período selecionado.'}</p>}
       </div>

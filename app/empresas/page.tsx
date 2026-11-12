@@ -49,7 +49,7 @@ export default function Empresas(){
      <td><strong>{e.trade_name||e.legal_name}</strong>{e.trade_name&&<small style={{display:'block'}}>{e.legal_name}</small>}</td>
      <td>{pretty(e.cnpj)}</td><td>{e.city||'Não informado'}{e.state?' / '+e.state:''}</td>
      <td><span className={'pill'+(e.field_status==='validated'?'':' warn')}>{statusNames[e.field_status]||e.field_status}</span></td>
-     <td>{e.registration_state==='confirmed'?<span className="pill"><ShieldCheck size={14}/> Confirmado</span>:<span className="muted">Não confirmado</span>}</td>
+     <td>{e.registration_state==='confirmed'?<span className="pill"><ShieldCheck size={14}/> Confirmado</span>:e.registration_state==='unavailable'?<span className="muted">Conferência pendente de configuração</span>:<span className="muted">Não confirmado</span>}</td>
     </tr>)}
     {!items.length&&<tr><td colSpan={5}><div className="empty"><div><Building2 size={32} color="#d8732b"/>
      <strong>{loading?'Carregando empresas...':'Nenhuma empresa encontrada'}</strong><p>Experimente outros filtros.</p>

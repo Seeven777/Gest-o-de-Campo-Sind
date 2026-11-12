@@ -165,3 +165,23 @@
  .app-shell:not(.journey-shell) .page-heading{min-width:0}
  .app-shell:not(.journey-shell) .panel h2{overflow-wrap:anywhere}
 }
+
+/* Grupos por tarefas: navegação mais enxuta, módulos preservados em abas locais. */
+.role-dock-count-3{grid-template-columns:repeat(3,minmax(0,1fr))}
+.role-dock-count-5{grid-template-columns:repeat(5,minmax(0,1fr))}
+.workspace-tabs{display:flex;align-items:center;gap:16px;margin:0 0 22px;padding:11px 14px;
+ background:#fff;border:1px solid #e8e9e6;border-radius:17px;box-shadow:0 3px 15px #1111110a;min-width:0}
+.workspace-tabs-label{color:#cc641e;font-size:11px;letter-spacing:.07em;text-transform:uppercase;font-weight:850;flex-shrink:0}
+.workspace-tabs-items{display:flex;align-items:center;gap:6px;flex:1;min-width:0;flex-wrap:wrap}
+.workspace-tab{display:inline-flex;gap:7px;align-items:center;justify-content:center;min-height:43px;
+ color:#56665c;background:transparent;border-radius:12px;padding:9px 14px;font-size:13px;font-weight:800;text-decoration:none;white-space:nowrap;transition:background .15s,color .15s}
+.workspace-tab:hover{background:#f3f5f2;color:#254b38}
+.workspace-tab.active{background:#fff0e4;color:#b95618}
+.workspace-tab.active svg{color:#e96b22}
+.workspace-tab:focus-visible{outline:3px solid #f47d34;outline-offset:2px}
+@media(max-width:800px){
+ .workspace-tabs{display:block;padding:9px;margin:0 0 16px;border-radius:14px}
+ .workspace-tabs-label{display:block;margin:3px 9px 8px;font-size:10px}
+ .workspace-tabs-items{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:thin;overscroll-behavior-x:contain;padding-bottom:3px}
+ .workspace-tab{padding:10px 12px;min-height:45px;flex-shrink:0;font-size:12px}
+}
