@@ -464,7 +464,7 @@ function CampoGuiadoSession({id}:{id:string}){
   const stopId=current.id,visitId=current.visit_id;
   setBusy(true);setError('');setNotice('');
   try{
-   const result=await send<{ok?:boolean;route_completed?:boolean;already_registered?:boolean}>('/api/campo/visita',{action:'finish',stop_id:stopId,visit_id:visitId,...answers,regularity_note:answers.regularity_note||'not_evaluated',notes});
+   const result=await send<{error?:string;ok?:boolean;route_completed?:boolean;already_registered?:boolean}>('/api/campo/visita',{action:'finish',stop_id:stopId,visit_id:visitId,...answers,regularity_note:answers.regularity_note||'not_evaluated',notes});
    // Resposta confirmada: avança diretamente, sem esperar outra consulta de toda a rota.
    setData(previous=>previous?{...previous,stops:previous.stops.map(stop=>
     stop.id===stopId?{...stop,checkout_at:new Date().toISOString(),review_status:'pending'}:stop
