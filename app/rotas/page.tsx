@@ -4,6 +4,8 @@ import Link from 'next/link';
 import {Portal} from '@/components/portal';
 import {Route as RouteIcon,Plus,Search,ChevronLeft,ChevronRight,CalendarDays,UserRound,MapPin,ArrowRight,Layers,Send} from 'lucide-react';
 import './rotas.css';
+import {RouteProximityPanel,type NearbyCompany} from '@/components/route-proximity-panel';
+import {RouteChosenList} from '@/components/route-chosen-list';
 type RouteRow={id:string;route_date:string;campaign_name:string;agent_name:string;status:string;stops:number};
 type Pick={id:string;name:string};
 type Company={id:string;legal_name:string;trade_name?:string|null;city:string|null;cnpj?:string};
@@ -48,6 +50,14 @@ export default function Rotas(){
    return [...previous,company.id];
   });
  }
+ const moveSelected=(index:number,direction:-1|1)=>setSelected(previous=>{
+  const next=[...previous],at=index+direction;if(at<0||at>=next.length)return previous;
+  [next[index],next[at]]=[next[at],next[index]];return next;
+ });
+ const addNearby=(company:NearbyCompany)=>{
+  setSelectedNames(names=>({...names,[company.id]:company.trade_name||company.legal_name}));
+  setSelected(previous=>previous.includes(company.id)||previous.length>=49?previous:[...previous,company.id]);
+ };
  async function create(e:React.FormEvent){
   e.preventDefault();if(!agent||!selected.length||!date)return;
   setBusy(true);setError('');setMessage('');
@@ -60,9 +70,25 @@ export default function Rotas(){
  }
  async function publish(id:string){
   setBusy(true);setError('');setMessage('');
-  try{const res=await fetch('/api/rotas',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});const d=await res.json();if(!res.ok)throw Error(d.error||'Não foi possível publicar');
-   setMessage('Rota publicada. O responsável já pode iniciar a jornada.');await reload();
-  }catch(e){setError(e instanceof Error?e.message:'Falha ao publicar')}finally{setBusy(false)}
+  try{
+   const detailRes=await fetch('/api/rotas/'+encodeURIComponent(id),{cache:'no-store'});
+   const detail=await detailRes.json();if(!detailRes.ok)throw Error(detail.error||'Não foi possível conferir a rota.');
+   const ids=(detail.stops||[]).map((s:{establishment_id:string})=>s.establishment_id);
+   if(!ids.length)throw Error('Adicione empresas antes de publicar a rota.');
+   const checkRes=await fetch('/api/rotas/planejamento',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({establishment_ids:ids,date:String(detail.route.route_date).slice(0,10),route_id:id}),cache:'no-store'});
+   const check=await checkRes.json();
+   if(!checkRes.ok)throw Error(check.error||'Falha ao verificar a concentração geográfica.');
+   const assessment=check.assessment as {risk:string;cities:{city:string}[];coverage:number;warnings:string[]};
+   const attention=assessment.risk==='high'||assessment.risk==='attention'||assessment.cities.length>1||ids.length>1&&assessment.coverage<100;
+   if(attention&&!window.confirm('Revisão territorial antes da publicação:\n\n'+
+      (assessment.warnings.length?assessment.warnings.join('\n'):'Confirme a distribuição das empresas.')+
+      '\n\nA rota está pronta para o deslocamento real?'))return;
+   const res=await fetch('/api/rotas',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
+   const data=await res.json();if(!res.ok)throw Error(data.error||'Não foi possível publicar');
+   setMessage('Rota publicada após conferência territorial. O responsável já pode iniciar a jornada.');await reload();
+  }catch(e){setError(e instanceof Error?e.message:'Falha ao publicar')}
+  finally{setBusy(false)}
  }
  const visible=useMemo(()=>rows.filter(r=>filter==='all'||filter==='active'&&['published','in_progress'].includes(r.status)||filter===r.status),[rows,filter]);
  const active=rows.filter(r=>['published','in_progress'].includes(r.status)).length,drafts=rows.filter(r=>r.status==='draft').length,done=rows.filter(r=>r.status==='completed').length;
@@ -97,7 +123,10 @@ export default function Rotas(){
      </label>)}
      {!companies.length&&<p className="routes-empty">Nenhuma empresa encontrada. Experimente outra busca.</p>}</div>
      <div className="routes-pagination"><button type="button" disabled={page===1} onClick={()=>void findCompanies(page-1).catch(e=>setError(e.message))}><ChevronLeft size={17}/> Anterior</button><span>Página {page}</span><button type="button" disabled={!hasMore} onClick={()=>void findCompanies(page+1).catch(e=>setError(e.message))}>Próxima <ChevronRight size={17}/></button></div>
-     {selected.length>0&&<p className="routes-picked">{selected.length} empresa(s) pronta(s) para a rota. {selected.slice(0,3).map(id=>selectedNames[id]).filter(Boolean).join(', ')}{selected.length>3?'...':''}</p>}
+     <RouteChosenList ids={selected} names={selectedNames} onMove={moveSelected}
+      onRemove={id=>setSelected(previous=>previous.filter(x=>x!==id))}/>
+     <RouteProximityPanel selectedIds={selected} date={date} onAdd={addNearby}/>
+     <p className="routes-proximity-disclaimer">Confira a proximidade antes de salvar. A nova rota será criada em rascunho; a publicação exige outra confirmação.</p>
      <button className="routes-create" disabled={busy||!selected.length||!agent||!date} type="submit"><RouteIcon size={19}/>{busy?'Salvando rota...':'Criar rota com '+selected.length+' empresa(s)'}<ArrowRight size={20}/></button>
     </form>}
    </section>}
@@ -114,7 +143,7 @@ export default function Rotas(){
      </div>
      <div className="routes-item-actions">
       {canPlan&&r.status==='draft'&&<button type="button" className="routes-publish" disabled={busy} onClick={()=>void publish(r.id)}><Send size={16}/> Publicar</button>}
-      <Link href={(role==='agent'?'/campo/':'/rotas/')+r.id} className="routes-open">{role==='agent'?'Abrir jornada':'Ver percurso'}<ChevronRight size={17}/></Link>
+      <Link href={(role==='agent'?'/campo/':'/rotas/')+r.id} className="routes-open">{role==='agent'?'Abrir jornada':'Ver percurso e editar'}<ChevronRight size={17}/></Link>
      </div>
     </article>)}
      {!visible.length&&<div className="routes-empty"><Layers size={29}/><strong>{loading?'Carregando rotas...':'Nenhuma rota neste filtro'}</strong><p>{role==='agent'?'Sua equipe visualizará as rotas aqui quando forem publicadas.':'Crie uma rota ou selecione outro filtro.'}</p></div>}
