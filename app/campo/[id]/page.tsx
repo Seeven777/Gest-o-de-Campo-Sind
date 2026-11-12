@@ -104,6 +104,39 @@ async function gpsForNavigation(cached:CurrentPosition|null,updatedAt:number,for
   return gpsOnce({enableHighAccuracy:false,maximumAge:forceFresh?12000:60000,timeout:10000});
  }
 }
+/** Espera por leituras de precisão: estimativas por rede não comprovam chegada. */
+const gpsAccurateFix=(previous:CurrentPosition|null=null):Promise<CurrentPosition>=>{
+ if(!navigator.geolocation)return Promise.reject(locationError(0));
+ if(previous?.timestamp&&Date.now()-previous.timestamp<8000&&previous.accuracy<=250)
+  return Promise.resolve(previous);
+ return new Promise((resolve,reject)=>{
+  let done=false,best:CurrentPosition|null=null;
+  const finish=(point?:CurrentPosition,error?:Error)=>{
+   if(done)return;done=true;
+   window.clearTimeout(timeout);
+   navigator.geolocation.clearWatch(watch);
+   if(point)resolve(point);else reject(error||new Error('Não foi possível obter GPS preciso.'));
+  };
+  const timeout=window.setTimeout(()=>{
+   if(best&&best.accuracy<=500)finish(best);
+   else finish(undefined,new Error(best?
+    'Localização aproximada (margem de '+Math.ceil(best.accuracy)+' m). Ative a localização precisa do aparelho e tente novamente com o veículo parado.':
+    'O celular ainda não enviou uma localização precisa. Verifique a localização do sistema, aguarde o sinal e tente novamente com o veículo parado.'));
+  },22000);
+  const watch=navigator.geolocation.watchPosition(
+   raw=>{
+    const point:CurrentPosition={lat:raw.coords.latitude,lon:raw.coords.longitude,
+     accuracy:raw.coords.accuracy,heading:raw.coords.heading,speed:raw.coords.speed,timestamp:raw.timestamp};
+    if(!Number.isFinite(point.accuracy)||point.accuracy<0||Date.now()-raw.timestamp>15000)return;
+    if(!best||point.accuracy<best.accuracy)best=point;
+    rememberGps(point);
+    if(point.accuracy<=250)finish(point);
+   },
+   error=>{if(error.code===1)finish(undefined,locationError(1));},
+   {enableHighAccuracy:true,maximumAge:0,timeout:18000}
+  );
+ });
+};
 async function compressedPhoto(file:File):Promise<File>{
  let w=0,h=0,draw:(ctx:CanvasRenderingContext2D,width:number,height:number)=>void;
  if(typeof createImageBitmap==='function'){
@@ -201,7 +234,9 @@ function CampoGuiadoSession({id}:{id:string}){
  const gpsStale=started&&!!position&&signalTick>0&&signalTick-lastGpsAt>90000;
  const gpsNeedsRecovery=started&&(gpsIssue||gpsStale);
  const gpsActive=started&&!!position&&!gpsNeedsRecovery;
- const gpsLabel=!started?'GPS parado':gpsNeedsRecovery?'GPS instável':position?'GPS ativo':'Buscando GPS';
+ const gpsLowAccuracy=started&&(!position||position.accuracy>500||gpsNeedsRecovery);
+ const gpsAccuracyText=position&&Number.isFinite(position.accuracy)?'Precisão estimada: ±'+Math.round(position.accuracy).toLocaleString('pt-BR')+' m':'';
+ const gpsLabel=!started?'GPS parado':gpsNeedsRecovery?'GPS instável':!position?'Buscando GPS':position.accuracy>500?'GPS aproximado':'GPS ativo';
  const remaining=ordered.length-complete;
  const currentStopId=current?.id;
  const havePosition=!!position;
@@ -282,6 +317,18 @@ function CampoGuiadoSession({id}:{id:string}){
   }catch(e){if((e as GpsFailure)?.geoCode!==undefined)setGpsIssue(true);setError(e instanceof Error?e.message:'Não foi possível iniciar a localização.')}
   finally{setBusy(false)}
  }
+ async function improveGps(){
+  if(busy||!started)return;
+  setBusy(true);setError('');setNotice('');
+  try{
+   const fix=await gpsAccurateFix(positionRef.current);
+   positionRef.current=fix;positionUpdatedAt.current=fix.timestamp||Date.now();
+   setLastGpsAt(positionUpdatedAt.current);setPosition(fix);setGpsIssue(false);
+   setNotice('Sinal GPS atualizado. Confirme a chegada somente na empresa, com o veículo parado.');
+   void send('/api/campo/localizacao',{action:'ping',route_id:id,...fix}).catch(()=>{});
+  }catch(e){setError(e instanceof Error?e.message:'Não foi possível melhorar o GPS.');}
+  finally{setBusy(false)}
+ }
  useEffect(()=>{
   if(!started)return;
   setSignalTick(Date.now());
@@ -341,14 +388,9 @@ function CampoGuiadoSession({id}:{id:string}){
    // Acompanhamento GPS já ativo: evite aguardar outra aquisição de até 18 segundos
    // quando existe uma medição recente e suficientemente precisa.
    let fix=positionRef.current;
-   if(!fix||wallTime()-positionUpdatedAt.current>12000||fix.accuracy>250){
-    try{fix=await gpsOnce({enableHighAccuracy:true,maximumAge:8000,timeout:12000})}
-    catch(e){
-     if((e as GpsFailure).geoCode===1)throw e;
-     fix=await gpsOnce({enableHighAccuracy:false,maximumAge:8000,timeout:10000});
-    }
-    if(fix.accuracy>500)throw Error('O GPS ainda está impreciso. Aguarde a localização estabilizar e confirme novamente com o veículo parado.');
-    positionRef.current=fix;positionUpdatedAt.current=fix.timestamp||wallTime();setLastGpsAt(positionUpdatedAt.current);setPosition(fix);
+   if(!fix||wallTime()-positionUpdatedAt.current>12000||fix.accuracy>500){
+    fix=await gpsAccurateFix(fix);
+    positionRef.current=fix;positionUpdatedAt.current=fix.timestamp||wallTime();setLastGpsAt(positionUpdatedAt.current);setPosition(fix);setGpsIssue(false);
    }
    setArrivalPhase('saving');
    const result=await send<{id?:string;error?:string}>('/api/campo/visita',{action:'arrive',stop_id:stopId,...fix});
@@ -530,9 +572,15 @@ function CampoGuiadoSession({id}:{id:string}){
      <strong>{current?.trade_name||current?.legal_name||'Empresa'}</strong>
      <small>{leg?fmtDistance(leg.distance_m)+' pela rota':distance!==null?fmtDistance(distance)+' em linha reta':'Aguardando localização'}</small>
     </div>
-    <button type="button" className="navigator-arrived-button" disabled={busy} onClick={()=>setArrivalDialog(true)}>
+    {gpsLowAccuracy?<button type="button" className="navigator-arrived-button" disabled={busy}
+     onClick={()=>void improveGps()} aria-label="Melhorar o sinal de GPS com o veículo parado">
+     <LocateFixed size={20}/>{busy?'Localizando...':'Ajustar GPS'}
+    </button>:<button type="button" className="navigator-arrived-button" disabled={busy} onClick={()=>setArrivalDialog(true)}>
      <MapPin size={20}/> Cheguei
-    </button>
+    </button>}
+    {gpsLowAccuracy&&!gpsNeedsRecovery&&<p className="navigator-driving-alert" role="status">
+     {gpsAccuracyText||'Aguardando sinal GPS'}. Para registrar a chegada, obtenha uma localização precisa. Ajuste o GPS somente com o veículo parado.
+    </p>}
     {!target&&<p className="navigator-driving-alert">Local sem coordenadas precisas. Confirme o endereço antes de registrar a chegada.</p>}
     {gpsNeedsRecovery&&<div className="navigator-gps-recovery" role="alert"><p>{error||'O GPS parou de atualizar a posição. Você pode recuperar o sinal sem recarregar a página.'}</p><button type="button" disabled={busy} onClick={()=>void begin(true)}><LocateFixed size={16}/>{busy?'Localizando...':'Reativar GPS'}</button><small>Faça isso somente com o veículo parado.</small></div>}
     {error&&!gpsNeedsRecovery&&<p className="navigator-driving-alert" role="alert">{error}</p>}
