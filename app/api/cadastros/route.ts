@@ -3,23 +3,23 @@ import {NextResponse} from 'next/server';
 import {currentIdentity} from '@/lib/access';
 import {db} from '@/lib/db';
 import {normalizeCnpjSearch} from '@/lib/cadastro-search';
+import {canReadCadastroHistory,canConfirmCadastro} from '@/lib/cadastro-permissions';
 
 export const dynamic='force-dynamic';
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const fail=(error:string,status=400)=>NextResponse.json({error},{status,headers:{'Cache-Control':'no-store'}});
-const canConfirm=(role:string)=>role==='admin'||role==='cadastro';
 
 // Duas etapas independentes: a validação é feita pela supervisão,
 // a confirmação sindical é uma conferência humana na base oficial do sindicato.
 export async function GET(req:Request){
  const user=await currentIdentity();
  if(!user)return fail('Entre em sua conta.',401);
- if(!['admin','supervisor','cadastro'].includes(user.role))return fail('Acesso restrito.',403);
+ if(!canReadCadastroHistory(user.role))return fail('Acesso restrito.',403);
  if(!(await isSchemaReady('cadastro')))return fail(schemaPendingMessage('cadastro'),503);
  const params=new URL(req.url).searchParams;
  const view=params.get('view')||'confirmed';
  if(!['pending','confirmed'].includes(view))return fail('Situação de cadastro inválida.');
- if(view==='pending'&&!canConfirm(user.role))return fail('Fila de conferência reservada à equipe de Cadastro.',403);
+ if(view==='pending'&&!canConfirmCadastro(user.role))return fail('Fila de conferência reservada à equipe de Cadastro.',403);
  const q=(params.get('q')||'').slice(0,100).trim();
  const cnpjQuery=normalizeCnpjSearch(q);
  const rawPage=Number(params.get('page')||1);
@@ -54,7 +54,7 @@ export async function GET(req:Request){
 export async function POST(req:Request){
  const user=await currentIdentity();
  if(!user)return fail('Entre em sua conta.',401);
- if(!canConfirm(user.role))return fail('A confirmação sindical é restrita ao perfil Cadastro e à administração.',403);
+ if(!canConfirmCadastro(user.role))return fail('A confirmação sindical é restrita ao perfil Cadastro e à administração.',403);
  if(!(await isSchemaReady('cadastro')))return fail(schemaPendingMessage('cadastro'),503);
  const origin=req.headers.get('origin');
  if(origin&&new URL(origin).origin!==new URL(req.url).origin)return fail('Origem não autorizada.',403);
