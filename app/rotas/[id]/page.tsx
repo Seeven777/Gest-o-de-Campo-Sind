@@ -3,9 +3,12 @@ import {useEffect,useRef,useState} from 'react';
 import {useParams} from 'next/navigation';
 import {Portal} from '@/components/portal';
 import Link from 'next/link';
-import {MapPinned,Route as RouteIcon,RefreshCw,Navigation} from 'lucide-react';
+import {MapPinned,Route as RouteIcon,RefreshCw,Navigation,Edit3,LockKeyhole} from 'lucide-react';
+import {RouteCompanyEditor} from '@/components/route-company-editor';
+import '../rotas.css';
 
-type Stop={id:string;position_order:number;legal_name:string;trade_name:string|null;street:string|null;street_number:string|null;city:string|null;state:string|null;postal_code:string|null;cnpj:string};
+type Stop={id:string;establishment_id:string;position_order:number;legal_name:string;trade_name:string|null;street:string|null;street_number:string|null;city:string|null;state:string|null;postal_code:string|null;cnpj:string};
+type RouteMeta={id:string;route_date:string;status:string;stored_status:string;campaign_name:string;can_edit:boolean;edit_token:string};
 type Point={id:string;lat:number;lon:number};
 type Missing={id:string;name:string;address:string};
 type Calculation={order:string[];points:Point[];geometry:{type:'LineString';coordinates:[number,number][]};distance_m:number|null;duration_s:number|null;estimated:boolean;geocoded:number;route_warning?:string;origin?:{lat:number;lon:number}|null;partial?:boolean;missing?:Missing[];total?:number;located?:number};
@@ -58,10 +61,20 @@ const fmtDuration=(n:number)=>Math.round(n/60).toLocaleString('pt-BR')+' min';
 
 export default function DetalheRota(){
  const {id}=useParams<{id:string}>();const [stops,setStops]=useState<Stop[]>([]),[title,setTitle]=useState(''),[error,setError]=useState(''),[routeError,setRouteError]=useState(''),[loading,setLoading]=useState(true),[calculating,setCalculating]=useState(false),[progress,setProgress]=useState(''),[useGps,setUseGps]=useState(false),[data,setData]=useState<Calculation|null>(null);
+ const [meta,setMeta]=useState<RouteMeta|null>(null),[canManage,setCanManage]=useState(false),[editing,setEditing]=useState(false),[saved,setSaved]=useState('');
  useEffect(()=>{let current=true;fetch('/api/rotas/'+encodeURIComponent(id),{cache:'no-store'})
- .then(async r=>{const d=await r.json();if(!r.ok)throw Error(d.error);if(current){setStops(d.stops||[]);setTitle(d.route.campaign_name)}})
+ .then(async r=>{const d=await r.json();if(!r.ok)throw Error(d.error);if(current){setStops(d.stops||[]);setTitle(d.route.campaign_name);setMeta(d.route)}})
  .catch(e=>{if(current)setError(e instanceof Error?e.message:'Falha ao carregar rota')}).finally(()=>{if(current)setLoading(false)});
  return()=>{current=false}},[id]);
+ useEffect(()=>{let mounted=true;fetch('/api/me',{cache:'no-store'}).then(async r=>r.ok?r.json():null)
+ .then(d=>{if(mounted)setCanManage(['admin','supervisor'].includes(d?.user?.role))})
+ .catch(()=>{if(mounted)setCanManage(false)});return()=>{mounted=false}},[]);
+ async function refreshAfterEdit(){
+  const response=await fetch('/api/rotas/'+encodeURIComponent(id),{cache:'no-store'});
+  const d=await response.json();if(!response.ok)throw Error(d.error||'Não foi possível atualizar o percurso.');
+  setStops(d.stops||[]);setTitle(d.route.campaign_name);setMeta(d.route);setData(null);setRouteError('');
+  setEditing(false);setSaved('Empresas e ordem atualizadas com sucesso. Recalcule o trajeto antes da saída do agente.');
+ }
  async function optimize(){
   setCalculating(true);setRouteError('');setProgress('Preparando endereços...');
   try{let start: {lat:number;lon:number}|undefined;
@@ -85,6 +98,17 @@ export default function DetalheRota(){
  const sorted=data?[...data.order.map(i=>byId.get(i)).filter((s):s is Stop=>Boolean(s)),...stops.filter(s=>!data.order.includes(s.id))]:stops;
  return <Portal title="Percurso de campo" subtitle={title||'Empresas atribuídas à rota'}>
  {error&&<p className="error" role="alert">{error}</p>}
+ {saved&&<p className="success" role="status">{saved}</p>}
+ {canManage&&meta&&<section className="panel" style={{marginBottom:18}}>
+  <div className="panel-title"><div><small>GESTÃO DAS PARADAS</small><h2>Empresas da rota e ordem de visita</h2></div><Edit3 size={22} color="#d66b26"/></div>
+  <p className="muted" style={{lineHeight:1.65}}>Adicione empresas próximas, retire paradas desnecessárias ou reorganize o percurso antes de enviá-lo para o agente.</p>
+  {meta.can_edit?<div style={{marginTop:13}}>
+   {!editing&&<button className="button" type="button" onClick={()=>{setEditing(true);setSaved('')}}><Edit3 size={17}/> Adicionar ou editar empresas</button>}
+   {editing&&<RouteCompanyEditor key={meta.edit_token} routeId={id} date={String(meta.route_date).slice(0,10)}
+    editToken={meta.edit_token} published={meta.stored_status==='published'} stops={stops}
+    onCancel={()=>setEditing(false)} onSaved={refreshAfterEdit}/>}
+  </div>:<p className="routes-editor-note"><LockKeyhole size={17}/> Rota em execução, concluída ou com check-in/GPS já iniciado. Para preservar os registros da equipe, suas paradas não podem mais ser editadas.</p>}
+ </section>}
  <section className="panel" style={{marginBottom:18}}>
  <div className="panel-title"><div><small>MAPA DO PERCURSO</small><h2>Melhor sequência de visitas</h2></div><MapPinned size={22} color="#ef702c"/></div>
  <p className="muted" style={{lineHeight:1.7}}>Consulte as empresas no próprio mapa. O cálculo usa a malha viária, mantém a primeira empresa como início ou utiliza o GPS, caso autorizado, e sugere a ordem das demais, sem considerar trânsito em tempo real.</p>
