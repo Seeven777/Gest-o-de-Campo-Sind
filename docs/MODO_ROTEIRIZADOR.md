@@ -235,3 +235,16 @@ O agente informou que a tela de navegação ficou visualmente sobrecarregada. O 
 - A detecção de velocidade não comprova que o veículo está parado. Mesmo quando os botões aparecem, **toda interação deve acontecer com o veículo estacionado**. Waze oferece a navegação por voz, quando disponível.
 - Não alterar login e não alterar contratos de GPS, foto, validação, RH, Cadastro nem estrutura do Neon por motivos de aparência.
 - Validar em iPhone Safari, Android Chrome e tablet em retrato/paisagem: tamanho dos toques, mapa não coberto, teclado virtual, transições com fluxo real, contraste, ausência de travamentos e retorno do Waze.
+
+## Finalização de UI/UX profissional da Equipe (12/11/2026)
+
+Rodada dedicada a acabamento, **sem redesenhar a interface aprovada**, alterar o login, cadastrar empresas nem modificar permissões e esquemas.
+
+- **Home**: cartão de rota com indicador de estado real (disponível/em andamento), data e quantidade de empresas bem separados; carregamento explícito; seletor de rotas múltiplas com áreas de toque acessíveis e fechamento via Escape.
+- **Percurso**: painel inferior mantém um único CTA principal; usa linha de progresso real baseada no número de visitas enviadas; tipografia, espaçamento, botões e sombras consistentes; controles extras recolhidos.
+- **Distância da rota**: durante um trecho viário válido, a métrica é estimada com base na geometria restante e na posição de GPS recente, em vez de reutilizar a distância integral obtida no início do trecho; se não for possível determinar proximidade ao trajeto com precisão, mostra distância em linha reta com rótulo claro. As instruções viárias continuam dependentes do serviço existente.
+- **Foto/perguntas**: campos contrastantes, opções com estados visuais reconhecíveis, indicadores de progresso, foco de teclado, alvos grandes e confirmações de envio.
+- **Tablets**: preservar espaço do mapa em paisagem; painel lateral e diálogo com limite de altura; orientação retrato e celulares pequenos recebem tipografia e alvos responsivos.
+- **Segurança**: animações continuam respeitando `prefers-reduced-motion` e são desativadas ao detectar movimento; **nenhuma interação é segura enquanto o motorista conduz**, mesmo se o GPS não detectar velocidade. Usar Waze com orientação por voz e operar o sistema com o veículo estacionado.
+- **Sem nova dependência ou migração**: camada de acabamento isolada em `app/campo/equipe-finish.css`; evita alterar o design de outras funções.
+- **Homologação**: CI valida build, lint e TypeScript; exige inspeção visual real no celular/tablet e testes autenticados de GPS/Waze/fotografia/reembolso antes de produção. Não usar fotos reais no Preview até isolar o armazenamento Blob.

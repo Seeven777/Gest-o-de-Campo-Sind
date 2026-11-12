@@ -3,7 +3,7 @@ import {useState} from 'react';
 import {ChevronDown,ExternalLink,LocateFixed,MapPin,MoreHorizontal,Navigation} from 'lucide-react';
 
 type Props={
- stopId:string;index:number;total:number;name:string;distanceLabel:string;distanceKind:string;
+ stopId:string;index:number;total:number;completed:number;name:string;distanceLabel:string;distanceKind:string;
  wazeUrl:string|null;driving:boolean;busy:boolean;gpsUnavailable:boolean;
  gpsMessage:string;navigationError:boolean;error:string;
  onArrive:()=>void;onGpsFix:()=>void;onReport:()=>void;onBreak:()=>void;
@@ -16,9 +16,13 @@ export function CrewTravelPanel(p:Props){
  return <section className="crew-travel-footer crew-modern-footer" aria-label="Próxima empresa">
   <div className="crew-bottom-sheet">
    <span className="crew-sheet-grip" aria-hidden="true"/>
+   <div className="crew-sheet-progress" role="progressbar" aria-label="Visitas realizadas"
+    aria-valuemin={0} aria-valuemax={p.total} aria-valuenow={p.completed}>
+    <span style={{width:(p.total?Math.min(100,Math.max(0,p.completed/p.total*100)):0)+'%'}}/>
+   </div>
    <div className="crew-sheet-heading">
     <div className="crew-sheet-company">
-     <span>PRÓXIMA PARADA · {p.index} DE {p.total}</span>
+     <span className="crew-sheet-eyebrow"><span className="crew-status-dot" aria-hidden="true"/> PARADA {p.index} DE {p.total}</span>
      <strong title={p.name}>{p.name}</strong>
     </div>
     <div className="crew-sheet-distance">
@@ -36,7 +40,7 @@ export function CrewTravelPanel(p:Props){
       onClick={p.onArrive}><MapPin size={22}/> CHEGUEI!</button>}
     {p.wazeUrl&&<a className={'crew-waze-link crew-sheet-waze'+(p.driving?' is-driving':'')}
      href={p.wazeUrl} target="_blank" rel="noopener noreferrer" tabIndex={p.driving?-1:0}
-     aria-disabled={p.driving} title="Abrir o Waze com o veículo parado, para orientação por voz"
+     aria-disabled={p.driving} title="Abrir o Waze com o veículo parado, para orientação por voz" aria-label="Abrir a próxima empresa no Waze"
      onClick={e=>{if(p.driving){e.preventDefault();p.onBlockedWaze()}}}>
      <Navigation size={19} aria-hidden="true"/><span>WAZE</span>
      <ExternalLink size={14} aria-hidden="true"/></a>}
@@ -46,11 +50,12 @@ export function CrewTravelPanel(p:Props){
    {p.navigationError&&<p className="crew-sheet-note">Confira o endereço antes de seguir. O trajeto viário está indisponível.</p>}
    {p.error&&!p.gpsUnavailable&&<p className="crew-sheet-alert" role="alert">{p.error}</p>}
    <button type="button" className="crew-more-trigger" aria-expanded={expanded&&!p.driving}
-    disabled={p.driving} onClick={()=>setExpanded(v=>!v)}>
+    aria-controls={'crew-more-'+p.stopId} disabled={p.driving}
+    onClick={()=>setExpanded(v=>!v)}>
     <MoreHorizontal size={18} aria-hidden="true"/> Outras opções
     <ChevronDown className={expanded&&!p.driving?'crew-chevron-up':''} size={17} aria-hidden="true"/>
    </button>
-   {expanded&&!p.driving&&<div className="crew-extra-actions">
+   {expanded&&!p.driving&&<div id={'crew-more-'+p.stopId} className="crew-extra-actions">
     <button type="button" onClick={()=>{setExpanded(false);p.onReport()}}>Relatório pessoal</button>
     <button type="button" onClick={()=>{setExpanded(false);p.onBreak()}}>Registrar parada</button>
    </div>}
