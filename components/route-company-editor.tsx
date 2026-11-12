@@ -3,6 +3,7 @@ import {useEffect,useState,type FormEvent} from 'react';
 import {ChevronLeft,ChevronRight,Search,Save,ShieldAlert,X} from 'lucide-react';
 import {RouteProximityPanel,type NearbyCompany} from '@/components/route-proximity-panel';
 import {RouteChosenList} from '@/components/route-chosen-list';
+import {readRouteEditResponse} from '@/lib/route-edit-response';
 type Stop={establishment_id:string;legal_name:string;trade_name:string|null};
 type Company={id:string;legal_name:string;trade_name:string|null;city:string|null;cnpj?:string};
 export function RouteCompanyEditor({routeId,date,editToken,stops,published,onCancel,onSaved}:{
@@ -52,10 +53,10 @@ export function RouteCompanyEditor({routeId,date,editToken,stops,published,onCan
     method:'PUT',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({establishment_ids:ids,edit_token:editToken}),cache:'no-store'
    });
-   const data=await response.json();
-   if(!response.ok)throw Error(data.error||'Não foi possível salvar esta rota.');
-   setMessage('Alterações confirmadas. Atualizando a rota...');
-   await onSaved();
+   await readRouteEditResponse(response);
+   setMessage('Rota salva com sucesso. Atualizando a lista...');
+   try {await onSaved()}
+   catch {setError('As alterações foram salvas, mas não foi possível atualizar a tela. Recarregue a página para visualizar a rota atualizada.')}
   }catch(e){setError(e instanceof Error?e.message:'Falha ao salvar empresas.')}
   finally{setBusy(false)}
  }
