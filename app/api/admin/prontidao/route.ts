@@ -12,6 +12,7 @@ export async function GET(){
   const ready=schema.cadastro&&schema.rh&&schema.rolesCadastro&&schema.rolesRh;
   return NextResponse.json({
    ready,
+   environment:process.env.VERCEL_ENV==='production'?'production':process.env.VERCEL_ENV==='preview'?'preview':'development',
    checks:[
     {label:'Migração 008 — confirmação sindical',ready:schema.cadastro&&schema.rolesCadastro},
     {label:'Migração 009 — RH e reembolsos',ready:schema.rh&&schema.rolesRh},
