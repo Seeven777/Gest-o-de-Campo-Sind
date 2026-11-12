@@ -57,3 +57,66 @@
 .routes-shell button:focus-visible,.routes-shell a:focus-visible,.routes-shell input:focus-visible,.routes-shell select:focus-visible{outline:3px solid #f87b2f;outline-offset:3px}
 @media(max-width:800px){.routes-shell{gap:12px}.routes-summary{gap:7px}.routes-summary>div{padding:11px 10px;display:block}.routes-summary span{font-size:11px;line-height:1.3;display:block;min-height:29px}.routes-summary strong{font-size:25px}.routes-builder,.routes-list-section{padding:15px;border-radius:16px}.routes-item{flex-wrap:wrap;gap:9px}.routes-item-actions{width:100%;padding-left:55px;justify-content:flex-end}.routes-form-top{grid-template-columns:1fr}.routes-item-icon{height:45px;width:45px}.routes-item-content strong{font-size:15px}.routes-section-top h2{font-size:20px}}
 @media(max-width:410px){.routes-summary{grid-template-columns:repeat(3,1fr)}.routes-primary-action{width:100%}.routes-item-actions{padding-left:0}.routes-open,.routes-publish{flex:1}.routes-company-heading p{font-size:12px}}
+
+/* Planejamento territorial: leitura rápida, sem afirmar distâncias viárias inexistentes. */
+.routes-proximity{margin:19px 0;padding:17px;border:1px solid #dbe7dd;background:#fff;border-radius:17px;min-width:0}
+.routes-proximity-idle{background:#f8faf8}
+.routes-proximity-heading{display:flex;align-items:center;gap:11px}
+.routes-proximity-heading>svg{color:#d46825;flex-shrink:0}
+.routes-proximity-heading>div{flex:1;min-width:0}
+.routes-proximity-heading strong{display:block;font-size:16px;color:#254b36}
+.routes-proximity-heading small{font-size:12px;color:#73867a}
+.routes-proximity-loading{font-size:12px;color:#a6531b;font-weight:750}
+.routes-proximity-error{border-left:3px solid #b4473d;color:#9a3932;padding:9px 12px;font-size:13px}
+.routes-proximity-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:9px;margin-top:16px}
+.routes-proximity-stats>div{background:#f6f9f6;padding:12px;border-radius:11px;min-width:0}
+.routes-proximity-stats span{display:block;font-size:11px;color:#708376;font-weight:750}
+.routes-proximity-stats strong{display:block;margin-top:4px;font-size:21px;letter-spacing:-.04em;color:#28533c}
+.routes-proximity-result{display:flex;align-items:flex-start;gap:10px;border:1px solid #e4eae4;border-radius:12px;padding:12px 13px;margin-top:11px;color:#40604d}
+.routes-proximity-result svg{flex-shrink:0}
+.routes-proximity-result strong{display:block;font-size:13px}
+.routes-proximity-result p{font-size:12px;line-height:1.55;margin:5px 0 0}
+.routes-proximity-high,.routes-proximity-attention{border-color:#e9d5bb;color:#87521e}
+.routes-proximity-compact{border-color:#c6dfcc;color:#2a6845}
+.routes-city-group{display:flex;align-items:flex-start;gap:11px;flex-wrap:wrap;margin:15px 0}
+.routes-city-group>span{font-size:12px;color:#778e7d;font-weight:800}
+.routes-city-group>div{display:flex;flex-wrap:wrap;gap:6px}
+.routes-city-group small{font-size:12px;background:#eff5f0;border-radius:8px;padding:5px 8px;color:#345845}
+.routes-city-group small b{display:inline-block;margin-left:5px;color:#bb5b21}
+.routes-geo-map{margin-top:15px}
+.routes-geo-map .field-map-wrap{position:relative;margin:0}
+.routes-geo-map .field-map{height:285px;min-height:285px;border-radius:14px;overflow:hidden;background:#e7efe8}
+.routes-geo-map>small{display:flex;align-items:center;gap:6px;font-size:11px;color:#7a8b80;margin:8px 0 0;line-height:1.5}
+.routes-geo-help{display:flex;align-items:flex-start;gap:8px;margin:14px 0;font-size:12px;line-height:1.6;color:#667e6d}
+.routes-geo-help svg{flex-shrink:0;margin-top:1px}
+.routes-suggestions-title{margin:18px 0 10px}
+.routes-suggestions-title strong{font-size:14px;color:#28513c}
+.routes-suggestions-title p{font-size:12px;color:#799083;margin:3px 0 0}
+.routes-suggestions{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.routes-suggestion{border:1px solid #e4eae4;border-radius:11px;padding:12px;display:flex;gap:8px;align-items:center;min-width:0}
+.routes-suggestion>div{min-width:0;flex:1}
+.routes-suggestion strong{font-size:12px;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#294c37}
+.routes-suggestion small{display:block;font-size:11px;color:#738779;margin-top:4px}
+.routes-suggestion span{display:inline-block;font-size:11px;color:#c36524;margin-top:5px;font-weight:800}
+.routes-suggestion button{display:inline-flex;gap:5px;align-items:center;justify-content:center;min-height:44px;padding:9px;border:1px solid #ddae87;background:#fff8f1;color:#aa581d;border-radius:9px;font-size:12px;font-weight:850;cursor:pointer}
+.routes-suggestion button:disabled{opacity:.45;cursor:not-allowed}
+.routes-proximity-disclaimer{display:flex;align-items:flex-start;gap:8px;color:#7a8c7e;font-size:11px;line-height:1.6;margin:16px 0 0}
+.routes-proximity-disclaimer svg{flex-shrink:0;margin-top:1px}
+.routes-chosen-list{margin-top:18px;border:1px solid #dfe8df;border-radius:14px;padding:12px}
+.routes-chosen-list>strong{font-size:14px;color:#29513c;display:block;margin-bottom:9px}
+.routes-chosen-list ol{margin:0;padding:0;list-style:none;display:grid;gap:6px}
+.routes-chosen-list li{display:flex;align-items:center;gap:8px;border:1px solid #edf1eb;border-radius:10px;padding:6px}
+.routes-chosen-index{display:grid;place-items:center;background:#fbe8dd;color:#be5e21;width:29px;height:29px;flex-shrink:0;border-radius:8px;font-weight:850;font-size:12px}
+.routes-chosen-list li>span:nth-child(2){font-size:12px;font-weight:750;color:#365b43;min-width:0;flex:1;overflow-wrap:anywhere}
+.routes-chosen-list li button{border:1px solid #dce6de;border-radius:8px;background:#fff;min-width:38px;min-height:38px;color:#50715b;display:grid;place-items:center;cursor:pointer}
+.routes-chosen-list li button:disabled{opacity:.32;cursor:not-allowed}
+.routes-chosen-list li .routes-remove{color:#a54b36}
+.routes-editor-card{margin:18px 0 0;border:1px solid #deeadf;border-radius:16px;padding:17px;background:#fbfdfb}
+.routes-editor-header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.routes-editor-header h3{font-size:18px;color:#244b35;margin:0}
+.routes-editor-header p{font-size:13px;color:#718477;margin:5px 0 0}
+.routes-editor-actions{display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:13px}
+.routes-editor-actions button{min-height:46px}
+.routes-editor-note{font-size:12px;color:#7f6b50;line-height:1.6;margin:14px 0}
+@media(max-width:740px){.routes-suggestions{grid-template-columns:1fr}.routes-proximity-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.routes-proximity{padding:12px}.routes-geo-map .field-map{height:255px;min-height:255px}.routes-editor-card{padding:12px}}
+@media(prefers-reduced-motion:reduce){.routes-suggestion button,.routes-chosen-list button{transition:none}}
