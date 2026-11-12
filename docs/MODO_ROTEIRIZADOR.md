@@ -204,3 +204,23 @@ flowchart TD
 - No recebimento da nota física, RH registra CNPJ do **emitente**, CNPJ do **destinatário** (sindicato), referência da nota e, quando disponível, **chave fiscal de 44 caracteres**. O banco impede usar a mesma chave fiscal em duas despesas ativas. Sem chave, continuam obrigatórias a conferência humana e a política de controle de duplicatas da contabilidade.
 - Não consultar chave fiscal automaticamente em portais com CAPTCHA ou sistemas externos sem integração autorizada; o campo registra evidência declarada e requer conferência manual.
 - A variável `SINDPETSHOP_CNPJ` é opcional: quando configurada no servidor, além da declaração do RH, ocorre checagem de igualdade do destinatário. Sem ela, o código não promete validação automática.
+
+## Diretriz permanente — Equipe em tablet dentro do veículo (12/11/2026)
+
+**Contexto informado pelo responsável:** o agente de campo utiliza a ferramenta em um **tablet instalado no veículo** durante o expediente. Segurança viária e baixa carga cognitiva são **requisitos permanentes do produto**, com prioridade sobre quantidade de botões e densidade de dados.
+
+### Regras obrigatórias de design e operação
+- Nunca pressupor que o motorista pode manipular a interface enquanto conduz. Qualquer operação de toque (iniciar navegação, confirmar chegada, fotografar, preencher perguntas, registrar pausas ou despesas) deve ser feita **somente com veículo estacionado em local seguro**; se houver indício confiável de movimento via GPS, desabilitar ações acessórias. Não afirmar que detecção de velocidade comprova imobilidade.
+- A navegação viária por voz deve ser delegada preferencialmente ao **Waze** no tablet, via deep link oficial `https://waze.com/ul?ll=<latitude>,<longitude>&navigate=yes&utm_source=sindpetshop-sp`; somente a **próxima parada** da rota é encaminhada. Se coordenadas não estiverem disponíveis, usar `q=<endereco>` devidamente codificado. Nunca enviar localização atual do agente como destino.
+- Waze é um aplicativo externo; **abrir Waze não registra chegada e não garante GPS contínuo do navegador em segundo plano**. Voltar ao sistema em local seguro para registrar check-in, foto e respostas. Se o tablet/navegador suspender o compartilhamento, a aplicação deve permitir recuperar a localização sem recarregar.
+- Na tela de percurso usar mapa legível, uma única ação primária `CHEGUEI!`, Waze em destaque secundário e somente dois atalhos discretos: relatório da própria jornada e **Registrar parada**. Não exibir menus gerenciais nem exigir digitação durante deslocamento.
+- Parada é **autônoma e registrada**, não depende de autorização da central e não suspende a rota. Guardar data/hora do servidor, agente, rota, motivo, observação opcional, coordenadas/precisão do GPS se disponíveis, e indicação de possível gasto. A pessoa não precisa de GPS para registrar a parada se estiver sem sinal, mas isso deve ser distinguido do registro de presença na empresa.
+- Reembolso é processo separado e documentado: parada com gasto **não é solicitação financeira**; botão opcional leva ao formulário de reembolso com rota/categoria previamente selecionadas, e ainda exige nota fiscal, entrega ao RH e tramitação contábil.
+- A central pode **consultar histórico de paradas**, mas não autoriza/nega pausa nessa ferramenta. Intervê apenas em mudanças operacionais de rota por outros meios, se necessário. Os intervalos trabalhistas e direitos da equipe são independentes da aplicação.
+- Ergonomia para tablets, inclusive em orientação horizontal: tipografia legível, alto contraste, botões de toque com 56+ px em ações principais, layout sem sobreposição do mapa, suporte a modo paisagem e redução de animações. Evitar interações que dependam de gestos precisos ou leitura prolongada.
+- **Nunca retirar controles de autorização de GPS, check-in por proximidade, histórico de auditoria, validação de visita ou restrições por cargo** em nome da simplicidade visual.
+- Não modificar login nessa fase. Agrupar alterações em um commit/PR e evitar deployments Vercel repetidos por ajustes cosméticos. Não usar Production como ambiente de QA.
+- Referência de integração do Waze: https://developers.google.com/waze/deeplinks
+
+### Estado da homologação
+A CI verifica tipo, lint e compilação, **não substitui teste real em tablet estacionado, autorização GPS, funcionamento do Waze instalado, troca de aplicativo e retomada da rota**. Esse percurso precisa ser testado com equipe de campo em ambiente controlado antes de liberar a nova tela.

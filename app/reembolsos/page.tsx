@@ -50,7 +50,15 @@ export default function Reembolsos(){
    if(data.user.role==='agent'){
     const resp=await fetch('/api/rotas',{cache:'no-store'});const d=await resp.json();
     if(!resp.ok)throw Error(d.error||'Não foi possível consultar suas rotas.');
-    if(live)setRoutes((d.items||[]).filter((x:RouteOption)=>['published','in_progress','completed'].includes(x.status)));
+    if(live){
+      const available=(d.items||[]).filter((x:RouteOption)=>['published','in_progress','completed'].includes(x.status)) as RouteOption[];
+      setRoutes(available);
+      const query=new URLSearchParams(window.location.search);
+      const desired=query.get('rota')||'';
+      if(available.some(x=>x.id===desired))setRoute(desired);
+      const intended=query.get('categoria')||'';
+      if(['fuel','food','toll','parking','lodging','other'].includes(intended))setCategory(intended);
+     }
    }
   }catch(e){if(live)setError(e instanceof Error?e.message:'Falha ao identificar sua conta.')}})();
   return()=>{live=false};

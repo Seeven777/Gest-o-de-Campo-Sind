@@ -155,3 +155,67 @@
 .crew-session-button:hover{color:#c4601e;background:white}
 @media(max-width:390px){.crew-session-button{top:calc(17px + env(safe-area-inset-top,0px));right:9px;width:39px;height:39px}}
 .crew-gps-consent{display:block;color:#737373;font-size:11px;line-height:1.4;margin-top:4px;max-width:300px}
+
+/* Tablet no veículo — diretriz permanente: orientação por áudio, ações só parado. */
+.crew-journey .leaflet-tile-pane{filter:grayscale(.72) contrast(1.12) brightness(1.04)}
+.crew-waze-link{position:absolute;z-index:1120;right:20px;top:calc(118px + env(safe-area-inset-top,0px));
+ display:flex;align-items:center;justify-content:center;gap:10px;min-height:64px;
+ padding:12px 19px;background:#fff;color:#205842!important;border:2px solid #d3e5d9;
+ border-radius:18px;box-shadow:0 6px 24px #10231922;text-decoration:none!important;
+ font-size:15px;font-weight:950;letter-spacing:.015em;pointer-events:auto}
+.crew-waze-link>svg{flex-shrink:0}
+.crew-waze-link:not(.is-driving):hover{background:#f2fff4;border-color:#90c6a4}
+.crew-waze-link.is-driving{opacity:.55;cursor:not-allowed;pointer-events:none}
+.crew-waze-link:focus-visible{outline:4px solid #f7832e;outline-offset:3px}
+.crew-break-intro{font-size:14px!important;line-height:1.55!important;color:#5b6c62!important}
+.crew-break-caption{font-size:12px!important;line-height:1.5!important;color:#697b6e!important}
+.crew-break-expense{display:flex;align-items:center;gap:12px;padding:14px 15px;
+ background:#fbf7f0;border:1px solid #eddcc4;border-radius:13px;
+ color:#574733;font-size:14px;font-weight:800;line-height:1.4;cursor:pointer}
+.crew-break-expense input{width:22px;height:22px;flex-shrink:0;accent-color:#e66f0c}
+.crew-break-status{display:grid;justify-items:center;gap:9px;text-align:center;padding:22px}
+.crew-break-status>svg{color:#29845e}
+.crew-break-status strong{font-size:20px;color:#1f734a}
+.crew-break-status p{font-size:14px!important}
+.crew-break-history{display:grid;gap:6px;margin-top:9px;padding:12px 13px;border-radius:13px;
+ border:1px solid #e7ebdf;background:#f9faf6;font-size:12px;color:#577263;line-height:1.45}
+.crew-break-history strong{font-size:12px;color:#24583c}
+.crew-travel-shortcuts button:disabled{opacity:.42;cursor:not-allowed}
+.crew-journey .crew-instructions{box-shadow:0 5px 20px #15211c21}
+.crew-journey .crew-next-company{box-shadow:0 7px 24px #112b1e25}
+.crew-journey .crew-arrived{box-shadow:0 7px 22px #9846142b}
+.crew-journey .crew-top-badge{box-shadow:0 4px 18px #e3651540}
+.crew-journey .crew-dialog .crew-primary{min-height:64px}
+.crew-journey .crew-form-footer{box-shadow:0 -6px 20px #2221}
+@media(max-width:799px){
+ .crew-waze-link{top:auto;right:14px;bottom:calc(318px + env(safe-area-inset-bottom,0px));
+  min-height:58px;padding:11px 14px;font-size:13px;border-radius:15px;max-width:calc(100% - 30px)}
+}
+@media(min-width:800px) and (orientation:landscape){
+ .crew-waze-link{right:clamp(16px,3vw,40px);top:calc(124px + env(safe-area-inset-top,0px))}
+ .crew-journey .crew-instructions{max-width:54vw}
+ .crew-journey .crew-next-company{max-width:300px}
+ .crew-journey .crew-distance{width:112px;height:112px;font-size:19px}
+ .crew-journey .crew-travel-shortcuts{min-height:84px}
+ .crew-journey .crew-travel-shortcuts button{min-height:56px;padding-inline:24px;font-size:15px}
+}
+@media(max-width:799px) and (orientation:landscape) and (max-height:540px){
+ .crew-waze-link{top:115px;bottom:auto;right:10px}
+ .crew-journey .crew-instructions{width:min(430px,calc(100% - 230px));min-height:80px}
+ .crew-journey .crew-distance{width:74px;height:74px;bottom:99px}
+ .crew-journey .crew-next-company{bottom:115px;max-width:210px}
+ .crew-journey .crew-gps-help{display:none}
+}
+@media(max-height:610px) and (min-width:800px){
+ .crew-journey .crew-instructions{min-height:76px;padding:9px 17px;top:88px}
+ .crew-waze-link{top:92px;min-height:55px}
+ .crew-journey .crew-distance{bottom:125px;width:85px;height:85px}
+ .crew-journey .crew-next-company{bottom:138px}
+ .crew-journey .crew-gps-help{display:none}
+}
+
+.crew-expense-link{display:inline-flex;align-items:center;justify-content:center;gap:8px;
+ min-height:49px;margin-top:6px;padding:10px 14px;border-radius:14px;background:#fff;
+ color:#285d43!important;border:1px solid #add0b9;font-size:13px;font-weight:850;
+ text-decoration:none!important}
+.crew-expense-link:hover{background:#eaf8ee}
