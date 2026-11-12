@@ -93,7 +93,7 @@ export async function PUT(req:Request,{params}:{params:Promise<{id:string}>}){
   sql.query(`insert into audit_logs(actor_id,action,details)
    select $1,'route.stops_edited',jsonb_build_object('route_id',$2::uuid,'count',$3::integer,'status',$4::text)
    where current_setting('app.route_edit_permitted',true)='yes'`,[user.id,id,ids.length,route.status])
- ],{isolationMode:'ReadCommitted'});
+ ]);
  if(results[0][0]?.permitted!=='yes')return fail('A rota foi modificada ou o agente iniciou a jornada. Atualize a tela.',409);
  if(results[3].length!==ids.length)return fail('Confira a rota: a alteração não retornou todas as paradas.',500);
  return NextResponse.json({ok:true,count:ids.length},{headers:{'Cache-Control':'no-store'}});
