@@ -1,7 +1,9 @@
 'use client';
 import {useCallback,useEffect,useState} from 'react';
 import {Portal} from '@/components/portal';
-import {CheckCircle2,Clock3,ShieldCheck,UserCheck,UsersRound,XCircle} from 'lucide-react';
+import {CheckCircle2,Clock3,ShieldCheck,UserCheck,UsersRound,XCircle,Info,ExternalLink} from 'lucide-react';
+import {getRoleReadinessStatus} from '@/lib/role-editor';
+import './equipes.css';
 
 type Role='admin'|'supervisor'|'agent'|'cadastro'|'rh';
 type Request={id:string;auth_user_id:string;email:string;full_name:string;status:'pending'|'approved'|'rejected';assigned_role:Role|null;email_verified:boolean;created_at:string};
@@ -16,13 +18,14 @@ export default function Equipes(){
  const [error,setError]=useState(''),[message,setMessage]=useState('');
  const [roles,setRoles]=useState<Record<string,Role>>({});
  const [profileRoles,setProfileRoles]=useState<Record<string,Role>>({});
+ const [roleIssues,setRoleIssues]=useState<Record<string,string>>({});
  const load=useCallback(async()=>{
   try{
    const r=await fetch('/api/access-requests',{cache:'no-store'});
    if(r.status===401||r.status===403){setDenied(true);return;}
    const json=await r.json();if(!r.ok)throw new Error(json.error||'Falha ao consultar solicitações.');
    if(!('requests' in json)){setDenied(true);return;}
-   setRequests(json.requests||[]);setProfiles(json.profiles||[]);setVerifiedWithoutRequest(json.verifiedWithoutRequest||[]);
+   setRequests(json.requests||[]);setProfiles(json.profiles||[]);setVerifiedWithoutRequest(json.verifiedWithoutRequest||[]);setError('');
   }catch(e){setError(e instanceof Error?e.message:'Falha ao consultar equipes.');}
   finally{setLoading(false);}
  },[]);
@@ -34,7 +37,11 @@ export default function Equipes(){
  async function decide(request:Request, action:'approve'|'reject'){
   const role=roles[request.id]||'agent';
   const prompt=action==='approve'?`Aprovar ${request.full_name} como ${labels[role]}?`:`Recusar a solicitação de ${request.full_name}?`;
+  if(action==='approve'&&!roleAvailable(role)){
+   setRoleIssues(p=>({...p,[request.id]:roleHelp(role)}));return;
+  }
   if(!window.confirm(prompt))return;
+  setRoleIssues(p=>({...p,[request.id]:''}));
   setBusy(request.id);setMessage('');setError('');
   try{
    const r=await fetch('/api/access-requests',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id:request.id,action,role})});
@@ -47,16 +54,20 @@ export default function Equipes(){
  async function changeProfileRole(profile:Profile){
   const nextRole=profileRoles[profile.auth_user_id]||profile.role;
   if(nextRole===profile.role)return;
-  if(!roleAvailable(nextRole)){setError('Este cargo não está disponível no Neon conectado. Para testar Cadastro ou RH, abra o Preview QA.');return;}
+  if(!roleAvailable(nextRole)){
+   setRoleIssues(p=>({...p,[profile.auth_user_id]:roleHelp(nextRole)}));return;
+  }
   if(!window.confirm('Alterar o cargo de '+profile.full_name+' para '+labels[nextRole]+'? O acesso será atualizado após a nova consulta ao servidor.'))return;
-  setBusy(profile.auth_user_id);setError('');setMessage('');
+  setBusy(profile.auth_user_id);setError('');setMessage('');setRoleIssues(p=>({...p,[profile.auth_user_id]:''}));
   try{
    const r=await fetch('/api/access-requests',{method:'PATCH',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({action:'change-role',profile_id:profile.auth_user_id,role:nextRole})});
    const data=await r.json();if(!r.ok)throw Error(data.error||'Não foi possível alterar o cargo.');
-   setMessage('Cargo atualizado para '+labels[nextRole]+'.');setProfileRoles(prev=>({...prev,[profile.auth_user_id]:nextRole}));
+   setMessage('Cargo atualizado para '+labels[nextRole]+'.');
+   setProfiles(prev=>prev.map(p=>p.auth_user_id===profile.auth_user_id?{...p,role:nextRole}:p));
+   setProfileRoles(prev=>{const updated={...prev};delete updated[profile.auth_user_id];return updated});
    await load();
-  }catch(e){setError(e instanceof Error?e.message:'Não foi possível alterar o cargo.')}
+  }catch(e){const msg=e instanceof Error?e.message:'Não foi possível alterar o cargo.';setError(msg);setRoleIssues(p=>({...p,[profile.auth_user_id]:msg}))}
   finally{setBusy(null)}
  }
  async function queueVerified(account:VerifiedAccount){
@@ -71,7 +82,16 @@ export default function Equipes(){
   finally{setBusy(null)}
  }
  const pending=requests.filter(r=>r.status==='pending');
- const roleAvailable=(role:Role)=>(role!=='cadastro'||readiness?.cadastro===true)&&(role!=='rh'||readiness?.rh===true);
+ const roleStatus=(role:Role)=>getRoleReadinessStatus(role,readiness,readinessError);
+ const roleAvailable=(role:Role)=>roleStatus(role)==='ready';
+ const roleHelp=(role:Role)=>{
+  if(roleStatus(role)==='loading')return 'Consultando o Neon. Aguarde a verificação antes de salvar este cargo.';
+  if(readinessError)return 'Não foi possível verificar o banco conectado. Atualize a página e tente novamente.';
+  const name=role==='rh'?'009 (RH e reembolsos)':'008 (Cadastro sindical)';
+  return readiness?.environment==='production'
+   ?`A migração ${name} ainda não está aplicada na produção. Use o QA para homologar; a alteração real deste cargo só poderá ocorrer após migração autorizada.`
+   :`A migração ${name} não está pronta neste banco. Verifique a preparação do Neon antes de salvar.`;
+ };
  const qaPreview='https://gest-o-de-campo-sind-git-fix-cadastro-busca-cnpj-375062-seeven.vercel.app';
  return <Portal title="Pessoas & Acessos" subtitle="Analise novos cadastros e defina quem pode utilizar a plataforma.">
   {loading?<section className="panel"><p className="muted">Carregando solicitações...</p></section>:denied?<section className="panel"><h2>Acesso reservado à administração</h2><p className="muted">Somente administradores podem aprovar novas contas.</p></section>:<>
@@ -81,12 +101,12 @@ export default function Equipes(){
    </div>
    {readinessError&&<section className="panel" role="alert" style={{marginBottom:20,borderColor:'#e6ae7b'}}>
     <strong>Não foi possível verificar a preparação do Neon.</strong>
-    <p className="muted">Por segurança, a escolha dos cargos Cadastro e RH fica indisponível até confirmar o banco conectado. Atualize esta página para tentar novamente.</p>
+    <p className="muted">Você pode selecionar um cargo, mas o salvamento de Cadastro e RH só será permitido após confirmar a estrutura do banco. Atualize a página para tentar novamente.</p>
    </section>}
    {readiness&&(!readiness.cadastro||!readiness.rh)&&<section className="panel" role="status" style={{marginBottom:20,borderColor:'#e6ae7b'}}>
     <div className="panel-title"><div><small>PREPARAÇÃO DO NEON · {readiness.environment==='production'?'PRODUÇÃO':readiness.environment==='preview'?'PREVIEW':'DESENVOLVIMENTO'}</small><h2>Cargos novos indisponíveis neste ambiente</h2></div><ShieldCheck size={23}/></div>
-    <p>Este banco ainda não tem toda a estrutura necessária. Por segurança, não é possível salvar perfis Cadastro ou RH aqui. Nenhuma conta será promovida automaticamente.</p>
-    <p className="muted">Cadastro: {readiness.cadastro?'pronto':'pendente'} · RH: {readiness.rh?'pronto':'pendente'}. As opções indisponíveis estão desativadas na seleção de cargo.</p>
+    <p>Este banco ainda não tem toda a estrutura necessária. Você pode selecionar o cargo para consultar sua disponibilidade; o salvamento permanece protegido até a migração. Nenhuma conta será promovida automaticamente.</p>
+    <p className="muted">Cadastro: {readiness.cadastro?'pronto':'pendente'} · RH: {readiness.rh?'pronto':'pendente'}. Ao escolher um cargo pendente, a tela explica como prosseguir e indica o ambiente de testes.</p>
     {readiness.environment==='production'&&<div style={{display:'flex',flexWrap:'wrap',alignItems:'center',gap:12,marginTop:16}}>
      <a className="button secondary" href={qaPreview} target="_blank" rel="noopener noreferrer">Abrir ambiente de testes (QA)</a>
      <small className="muted" style={{maxWidth:580}}>O QA já possui as migrações. Os perfis criados exclusivamente na produção, como RH1, não aparecem automaticamente no QA. Use ou cadastre uma conta de teste nesse ambiente e aprove-a por um administrador.</small>
@@ -106,14 +126,15 @@ export default function Equipes(){
         {r.email_verified?'E-mail verificado neste Neon':'E-mail não verificado neste Neon'}
        </span></div>
       <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
-       <select aria-label={`Perfil para ${r.full_name}`} className="field" value={roles[r.id]||'agent'} onChange={e=>setRoles(p=>({...p,[r.id]:e.target.value as Role}))}>
-        <option value="agent">Agente de campo</option><option value="cadastro" disabled={!roleAvailable('cadastro')}>Cadastro sindical</option><option value="rh" disabled={!roleAvailable('rh')}>Recursos Humanos</option><option value="supervisor">Supervisor</option><option value="admin">Administrador</option>
+       <select aria-label={`Perfil para ${r.full_name}`} className="field" value={roles[r.id]||'agent'} onChange={e=>{setRoles(p=>({...p,[r.id]:e.target.value as Role}));setRoleIssues(p=>({...p,[r.id]:''}))}}>
+        <option value="agent">Agente de campo</option><option value="cadastro">Cadastro sindical</option><option value="rh">Recursos Humanos</option><option value="supervisor">Supervisor</option><option value="admin">Administrador</option>
        </select>
        <button className="button"
-        disabled={busy!==null||!r.email_verified||!roleAvailable(roles[r.id]||'agent')}
-        title={!r.email_verified?'Verifique o e-mail no Neon Auth deste ambiente.':!roleAvailable(roles[r.id]||'agent')?'Cargo indisponível neste banco. Use o Preview QA para testes.':'Aprovar a solicitação com o cargo selecionado.'}
+        disabled={busy!==null||!r.email_verified}
+        title={!r.email_verified?'Verifique o e-mail no Neon Auth deste ambiente.':'Verificar e aprovar o cargo selecionado.'}
         onClick={()=>void decide(r,'approve')}><UserCheck size={16}/> Aprovar</button>
        <button className="button secondary" disabled={busy!==null} onClick={()=>void decide(r,'reject')}><XCircle size={16}/> Recusar</button>
+       {((!roleAvailable(roles[r.id]||'agent')||roleIssues[r.id])&&(roles[r.id]||'agent')!=='admin')&&<p className="staff-role-help" role="status"><Info size={17} aria-hidden="true"/><span>{roleIssues[r.id]||roleHelp(roles[r.id]||'agent')}</span>{readiness?.environment==='production'&&<a href={qaPreview} target="_blank" rel="noopener noreferrer">Abrir QA <ExternalLink size={14}/></a>}</p>}
       </div>
      </div>)}
     </div>}
@@ -129,16 +150,22 @@ export default function Equipes(){
     </div>
    </section>}
    <section className="panel"><div className="panel-title"><div><small>ACESSOS ATIVOS</small><h2>Equipe cadastrada</h2></div><UsersRound size={22} color="#648a76"/></div>
-    <div className="tablewrap"><table><thead><tr><th>Pessoa</th><th>E-mail</th><th>Perfil</th><th>Situação</th><th>Alterar cargo</th></tr></thead><tbody>{profiles.map(p=><tr key={p.auth_user_id}><td><strong>{p.full_name}</strong></td><td>{p.email||'—'}</td><td>{labels[p.role]}</td><td><span className={p.is_active?'pill':'pill warn'}>{p.is_active?'Ativo':'Inativo'}</span></td><td>
+    <div className="tablewrap staff-tablewrap"><table className="staff-table"><thead><tr><th>Pessoa</th><th>E-mail</th><th>Perfil</th><th>Situação</th><th>Alterar cargo</th></tr></thead><tbody>{profiles.map(p=><tr key={p.auth_user_id}><td data-label="Pessoa"><strong>{p.full_name}</strong></td><td data-label="E-mail">{p.email||'—'}</td><td data-label="Perfil atual">{labels[p.role]}</td><td data-label="Situação"><span className={p.is_active?'pill':'pill warn'}>{p.is_active?'Ativo':'Inativo'}</span></td><td data-label="Alterar cargo" className="staff-editor-cell">
      {p.role==='admin'?<span className="muted">Gerenciado pela administração</span>:
-     <div style={{display:'flex',gap:7,alignItems:'center',flexWrap:'wrap'}}>
-      <select className="field" style={{minWidth:155}} aria-label={'Novo cargo de '+p.full_name}
+     <div className="staff-role-editor">
+     <div className="staff-role-controls">
+      <select className="field staff-role-select" aria-label={'Novo cargo de '+p.full_name}
        value={profileRoles[p.auth_user_id]||p.role}
-       onChange={e=>setProfileRoles(old=>({...old,[p.auth_user_id]:e.target.value as Role}))}>
-       <option value="agent">Agente de campo</option><option value="supervisor">Supervisor</option><option value="cadastro" disabled={!roleAvailable('cadastro')}>Cadastro sindical</option><option value="rh" disabled={!roleAvailable('rh')}>Recursos Humanos</option>
+       onChange={e=>{setProfileRoles(old=>({...old,[p.auth_user_id]:e.target.value as Role}));setRoleIssues(old=>({...old,[p.auth_user_id]:''}))}}>
+       <option value="agent">Agente de campo</option><option value="supervisor">Supervisor</option><option value="cadastro">Cadastro sindical</option><option value="rh">Recursos Humanos</option>
       </select>
-      <button type="button" className="button secondary" disabled={busy!==null||!p.is_active||(profileRoles[p.auth_user_id]||p.role)===p.role||!roleAvailable(profileRoles[p.auth_user_id]||p.role)}
-       onClick={()=>void changeProfileRole(p)}>Salvar</button>
+      <button type="button" className="button secondary staff-role-save" disabled={busy!==null||!p.is_active||(profileRoles[p.auth_user_id]||p.role)===p.role}
+       onClick={()=>void changeProfileRole(p)}>{busy===p.auth_user_id?'Salvando...':'Salvar'}</button>
+     </div>
+     {((profileRoles[p.auth_user_id]||p.role)!==p.role&&!roleAvailable(profileRoles[p.auth_user_id]||p.role)||roleIssues[p.auth_user_id])&&
+      <p className="staff-role-help" role="status"><Info size={17} aria-hidden="true"/><span>{roleIssues[p.auth_user_id]||roleHelp(profileRoles[p.auth_user_id]||p.role)}</span>
+       {readiness?.environment==='production'&&<a href={qaPreview} target="_blank" rel="noopener noreferrer">Abrir QA <ExternalLink size={14}/></a>}
+      </p>}
      </div>}</td></tr>)}{profiles.length===0&&<tr><td colSpan={5}>Nenhum perfil aprovado.</td></tr>}</tbody></table></div>
    </section>
    {message&&<p className="success" role="status" style={{marginTop:18}}>{message}</p>}
