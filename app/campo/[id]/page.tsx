@@ -244,7 +244,7 @@ function CampoGuiadoSession({id}:{id:string}){
   :address.length>8?'https://waze.com/ul?q='+encodeURIComponent(address)+'&navigate=yes&utm_source=sindpetshop-sp':null):null;
  // A leitura do GPS pode indicar movimento; nunca incentivamos interação nesse estado.
  const driving=!!position&&position.speed!=null&&position.speed>1.8&&position.accuracy<=100&&
-  Date.now()-(position.timestamp||0)<20000;
+  signalTick>0&&signalTick-(position.timestamp||0)<20000;
  const nextQuestion=shownQuestions[Math.min(questionIndex,shownQuestions.length-1)];
  const finalQuestion=questionIndex>=shownQuestions.length-1;
  const gpsStale=started&&!!position&&signalTick>0&&signalTick-lastGpsAt>90000;
