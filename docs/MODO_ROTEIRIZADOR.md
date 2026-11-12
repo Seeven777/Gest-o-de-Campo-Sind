@@ -271,3 +271,23 @@ Consulta **somente de leitura** no Neon Production identificou 2 rotas com todas
 - CI de typecheck/lint/build e smoke precisa aprovar o commit exato.
 - Testar no Preview Neon QA os cenários de 1, 2 e 10 paradas; último checkout; recarga; retorno à home; link antigo; devolução `needs_more`; permissão por cargo e reativação de rota.
 - Não executar fotos reais no Preview com Blob compartilhado e não promover para Production sem homologação.
+
+## Etapa da hierarquia: Cadastro sindical — UI/UX (12/11/2026)
+
+**Fluxo simples, separado da equipe de campo:**
+1. Supervisão analisa a visita e valida a empresa (`establishments.field_status='validated'`). Uma foto ou visita enviada, isoladamente, **não comprova cadastro sindical**.
+2. **Área de Cadastro → A conferir:** mostra exclusivamente empresas validadas mas ainda sem `official_verified_at`. Itens antigos com `registration_records.state='confirmed'` e `official_verified_at IS NULL` têm aviso e exigem nova conferência.
+3. Operador copia o **CNPJ**, pesquisa-o na base oficial **externa** e cadastra ou verifica a existência por conta própria. A plataforma **não cria nem consulta automaticamente o registro externo** até a futura integração.
+4. Só então abre a conferência da empresa, informa **referência/protocolo oficial**, marca declaração explícita de conferência do CNPJ e confirma.
+5. API `POST /api/cadastros` exige cargo `cadastro` ou `admin`, valida situação de campo e grava confirmação oficial **atomicamente** com referência, responsável, data e evento de auditoria. Duas confirmações concorrentes não podem sobrescrever a marcação já registrada.
+6. **Cadastros sindicais confirmados:** mostra **somente** empresas com validação de campo E `state='confirmed'`, `confirmed_at` E `official_verified_at` preenchidos. Nunca marcar base antiga como oficialmente confirmada por inferência.
+7. Perfil Supervisor pode consultar o histórico de cadastros confirmados, mas não acessar fila nem confirmar. Agente e RH não têm acesso ao módulo; Cadastro só possui este trabalho e Meu Perfil.
+8. Mobile/tablet: resumos acionáveis, busca por nome/CNPJ/cidade, cartão de empresa com CNPJ copiável, formulário expandido no próprio cartão, feedback claro, alvos grandes, pesquisa e paginação, animação discreta desativável por `prefers-reduced-motion`.
+9. **Sem alterar login, interface da Equipe, banco de dados, integrações ou importar as mais de 200 mil empresas externas.**
+
+**Estado conhecido do banco:**
+- Neon QA `br-quiet-morning-b62b1q3e` possui migração 008, 2 empresas validadas, 0 cadastros confirmados oficialmente, 1 confirmação legada não verificada, e **0 perfis Cadastro ativos**.
+- Neon Production ainda não possui 008 (última checagem apenas leitura). Não aplicar migração ou aprovar novos perfis sem autorização explícita.
+- Branch de Preview deve conter `DATABASE_URL` e `DATABASE_NEON_AUTH_BASE_URL` específicos do Neon QA antes do primeiro deployment.
+
+**Critérios de homologação:** login com conta Cadastro criada e aprovada no mesmo Neon QA; sem links a Gestão/Campo/RH; fila e busca; histórico vazio; confirmação manual e auditoria usando **dados fictícios**; segundo clique bloqueado; usuário Supervisor somente leitura; login Agent/RH proibido; mobile 360px e tablet paisagem; eventual 503 em bancos sem migração exibe diagnóstico sem contar falsos cadastros.
