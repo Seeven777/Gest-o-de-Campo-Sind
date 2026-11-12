@@ -3,14 +3,37 @@ import {NextResponse} from 'next/server';import {currentIdentity} from '@/lib/ac
 export const dynamic='force-dynamic';
 const fail=(error:string,status=400)=>NextResponse.json({error},{status});
 export async function GET(){
- const user=await currentIdentity();if(!user)return fail('Acesso não autorizado',401);
-  if(!['admin','supervisor','agent'].includes(user.role))return fail('Rotas não autorizadas para Cadastro.',403);
- const scope=user.role==='agent'?"where r.agent_id=$1 and r.status in ('published','in_progress','completed')":'';const params=user.role==='agent'?[user.id]:[];
- const items=await db().query(`select r.id,r.route_date,r.status,c.name as campaign_name,p.full_name as agent_name,
- (select count(*)::int from route_stops where route_id=r.id) as stops
- from routes r join campaigns c on c.id=r.campaign_id join app_profiles p on p.auth_user_id=r.agent_id
+ const user=await currentIdentity();
+ if(!user)return fail('Acesso não autorizado',401);
+ if(!['admin','supervisor','agent'].includes(user.role))return fail('Rotas não autorizadas para este cargo.',403);
+ // Considera a efetiva finalização de cada visita, mesmo quando estados antigos de
+ // route_stops e routes não foram atualizados por versões anteriores da aplicação.
+ const scope=user.role==='agent'
+  ?"where r.agent_id=$1 and r.status in ('published','in_progress','completed') and progress.remaining_stops>0"
+  :'';
+ const params=user.role==='agent'?[user.id]:[];
+ const items=await db().query(`select r.id,r.route_date,
+ case when progress.total_stops>0 and progress.remaining_stops=0 then 'completed'
+      when r.status='completed' and progress.remaining_stops>0 then 'in_progress'
+      else r.status end as status,
+ c.name as campaign_name,p.full_name as agent_name,
+ progress.total_stops as stops,
+ progress.total_stops-progress.remaining_stops as completed_stops
+ from routes r
+ join campaigns c on c.id=r.campaign_id
+ join app_profiles p on p.auth_user_id=r.agent_id
+ cross join lateral (
+  select count(s.id)::int as total_stops,
+  count(s.id) filter(where v.done is null)::int as remaining_stops
+  from route_stops s
+  left join lateral (
+   select true as done from visits v
+   where v.stop_id=s.id and v.checkout_at is not null limit 1
+  ) v on true
+  where s.route_id=r.id
+ ) progress
  ${scope} order by r.route_date desc limit 100`,params);
- return NextResponse.json({items});
+ return NextResponse.json({items},{headers:{'Cache-Control':'no-store'}});
 }
 export async function POST(req:Request){
  const user=await currentIdentity();if(!user||!['admin','supervisor'].includes(user.role))return fail('Somente administração e supervisão.',403);

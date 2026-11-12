@@ -1,7 +1,7 @@
 'use client';
 import {useEffect,useMemo,useRef,useState} from 'react';
 import Link from 'next/link';
-import {useParams} from 'next/navigation';
+import {useParams,useRouter} from 'next/navigation';
 import {Portal} from '@/components/portal';
 import {FieldNavigationMap,type ActiveLeg,type CurrentPosition,type FieldPlan} from '@/components/field-navigation-map';
 import {ArrowLeft,ArrowRight,Camera,CheckCircle2,LocateFixed,MapPin,Navigation,Route as RouteIcon,X,ExternalLink,RotateCcw,CornerUpLeft,CornerUpRight,MoveUp} from 'lucide-react';
@@ -187,6 +187,7 @@ export default function CampoGuiado(){
  return <CampoGuiadoSession key={id} id={id}/>;
 }
 function CampoGuiadoSession({id}:{id:string}){
+ const router=useRouter();
  const [data,setData]=useState<RouteData|null>(null),[plan,setPlan]=useState<FieldPlan|null>(null);
  const [started,setStarted]=useState(false),[position,setPosition]=useState<CurrentPosition|null>(null),[follow,setFollow]=useState(true),[gpsRestart,setGpsRestart]=useState(0),[gpsIssue,setGpsIssue]=useState(false),[signalTick,setSignalTick]=useState(0),[lastGpsAt,setLastGpsAt]=useState(0);
  const [busy,setBusy]=useState(false),[photoBusy,setPhotoBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[progress,setProgress]=useState(''),[retryCount,setRetryCount]=useState(0);
@@ -211,7 +212,11 @@ function CampoGuiadoSession({id}:{id:string}){
  useEffect(()=>{
   let alive=true;setError('');
   fetch('/api/campo/'+encodeURIComponent(id),{cache:'no-store'}).then(async r=>{
-   const d=await apiResponse<RouteData & {error?:string}>(r);
+   const d=await apiResponse<RouteData & {error?:string;completed?:boolean}>(r);
+   if(r.status===410&&d.completed===true){
+    if(alive)router.replace('/agente?finalizada=1');
+    return;
+   }
    if(!r.ok)throw Error(d.error||'Não foi possível carregar a rota (HTTP '+r.status+').');
    if(!alive)return;
    const route=d as RouteData;setData(route);
@@ -225,7 +230,7 @@ function CampoGuiadoSession({id}:{id:string}){
    }catch{ /* Cache opcional. A rota pode ser recalculada. */ }
   }).catch(e=>{if(alive)setError(e instanceof Error?e.message:'Erro ao abrir jornada.')});
   return()=>{alive=false};
- },[id,retryCount]);
+ },[id,retryCount,router]);
  const ordered=useMemo(()=>{
   if(!data)return [];
   const sequence=plan?.order||[],byId=new Map(data.stops.map(x=>[x.id,x]));
@@ -578,8 +583,8 @@ function CampoGuiadoSession({id}:{id:string}){
        {sentScreen?(remaining>0?<button type="button" className="crew-primary"
           onClick={()=>{setSentScreen(false);setFollow(true);setRecenterToken(v=>v+1);setRerouteToken(v=>v+1)}}>
           PRÓXIMO PERCURSO <ArrowRight size={20}/></button>
-         :<Link className="crew-primary" href="/agente">VER PRÓXIMAS ROTAS <ArrowRight size={20}/></Link>):
-        stage==='done'?<Link href="/agente" className="crew-primary">VOLTAR À MINHA JORNADA <ArrowRight size={20}/></Link>:
+         :<Link className="crew-primary" href="/agente?finalizada=1">VER PRÓXIMAS ROTAS <ArrowRight size={20}/></Link>):
+        stage==='done'?<Link href="/agente?finalizada=1" className="crew-primary">VOLTAR À MINHA JORNADA <ArrowRight size={20}/></Link>:
         <button type="button" className="crew-primary" disabled={busy}
          onClick={()=>void startJourney()}>
          {busy?'PREPARANDO PERCURSO...':'INICIAR PERCURSO'} <Navigation size={22}/>

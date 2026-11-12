@@ -48,7 +48,8 @@ export async function POST(req:Request){
  const [evidence]=await db().query('select id from visit_evidence where visit_id=$1 and deleted_at is null and expires_at>now() limit 1',[visit]);
  if(!evidence)return fail('Antes de finalizar, fotografe a fachada da empresa.',409);
  const result=operating==='operating'?'located':operating==='closed'?'closed':operating==='moved'?'moved':operating==='not_found'?'not_found':'not_completed';
- // Finalização, status da parada e auditoria são uma só operação atômica.
+ // A última visita encerra a rota considerando checkouts reais, inclusive se
+ // versões antigas deixaram route_stops.status incorreto. A operação é atômica.
  const rows=await db().query(`with completed as (
    update visits set checkout_at=now(),result=$4,notes=$5,operating_status=$6,
     signage_status=$7,regularity_note=$8,address_match=$9,pet_activity_match=$10,
@@ -65,7 +66,11 @@ export async function POST(req:Request){
      and exists (select 1 from marked)
      and not exists (
       select 1 from route_stops other_stop
-      where other_stop.route_id=r.id and other_stop.id<>$2 and other_stop.status<>'visited'
+      where other_stop.route_id=r.id and other_stop.id<>$2
+      and not exists (
+       select 1 from visits submitted
+       where submitted.stop_id=other_stop.id and submitted.checkout_at is not null
+      )
      )
    returning r.id
   ), audited as (

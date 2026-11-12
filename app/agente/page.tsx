@@ -1,5 +1,5 @@
 'use client';
-import {useEffect,useMemo,useState} from 'react';
+import {useEffect,useMemo,useRef,useState} from 'react';
 import {useRouter} from 'next/navigation';
 import {authClient} from '@/lib/auth/client';
 import Link from 'next/link';
@@ -17,20 +17,51 @@ export default function Agent(){
  const router=useRouter();
  const [routes,setRoutes]=useState<AssignedRoute[]>([]),[loading,setLoading]=useState(true);
  const [error,setError]=useState(''),[showRoutes,setShowRoutes]=useState(false),[retry,setRetry]=useState(0);
+ const [justCompleted,setJustCompleted]=useState(false);
+ const fetchedAt=useRef(0);
+ useEffect(()=>{
+  if(new URLSearchParams(window.location.search).get('finalizada')==='1'){
+   setJustCompleted(true);
+   window.history.replaceState(window.history.state,'',window.location.pathname);
+  }
+ },[]);
  useEffect(()=>{
   let alive=true;
-  fetch('/api/rotas',{cache:'no-store'}).then(async r=>{
-   const d=await r.json();if(!r.ok)throw Error(d.error||'Não foi possível consultar suas rotas.');
-   if(alive){setRoutes(d.items||[]);setError('')}
-  }).catch(e=>{if(alive)setError(e instanceof Error?e.message:'Erro ao consultar rotas.')})
-   .finally(()=>{if(alive)setLoading(false)});
-  return()=>{alive=false};
+  let controller:AbortController|null=null;
+  const load=(force=false)=>{
+   // Retornar do Waze ou de uma rota revalida o estado, sem depender de F5.
+   if(!force&&Date.now()-fetchedAt.current<3000)return;
+   fetchedAt.current=Date.now();
+   controller?.abort();
+   const request=new AbortController();controller=request;
+   void fetch('/api/rotas',{cache:'no-store',signal:request.signal}).then(async r=>{
+    const d=await r.json();
+    if(!r.ok)throw Error(d.error||'Não foi possível consultar suas rotas.');
+    if(alive&&!request.signal.aborted){setRoutes(d.items||[]);setError('')}
+   }).catch(e=>{
+    if(alive&&!request.signal.aborted){
+     setRoutes([]);
+     setError(e instanceof Error?e.message:'Erro ao consultar rotas.');
+    }
+   }).finally(()=>{if(alive&&!request.signal.aborted)setLoading(false)});
+  };
+  const onResume=()=>{if(document.visibilityState==='visible')load()};
+  load(true);
+  window.addEventListener('focus',onResume);
+  window.addEventListener('pageshow',onResume);
+  document.addEventListener('visibilitychange',onResume);
+  return()=>{
+   alive=false;controller?.abort();
+   window.removeEventListener('focus',onResume);
+   window.removeEventListener('pageshow',onResume);
+   document.removeEventListener('visibilitychange',onResume);
+  };
  },[retry]);
  const active=useMemo(()=>routes.filter(r=>['published','in_progress'].includes(r.status)).sort((a,b)=>{
   const aRank=a.status==='in_progress'?0:1,bRank=b.status==='in_progress'?0:1;
   return aRank-bRank||a.route_date.localeCompare(b.route_date);
  }),[routes]);
- const next=active[0],completed=routes.filter(r=>r.status==='completed').length;
+ const next=active[0];
  useEffect(()=>{
   if(!showRoutes)return;
   const onKey=(event:KeyboardEvent)=>{if(event.key==='Escape')setShowRoutes(false)};
@@ -53,8 +84,8 @@ export default function Agent(){
    </div>}
    {!loading&&!error&&!next&&<div className="crew-center-message" role="status">
     <CheckCircle2 size={30}/>
-    <strong>{completed?'ESTAMOS VALIDANDO AS INFORMAÇÕES ENVIADAS.':'AGUARDANDO LIBERAÇÃO DE ROTAS.'}</strong>
-    <p>{completed?'A central está analisando suas visitas.':'Quando a central publicar sua próxima rota, ela aparecerá aqui.'}</p>
+    <strong>{justCompleted?'PERCURSO FINALIZADO!':'AGUARDANDO LIBERAÇÃO DE ROTAS.'}</strong>
+    <p>{justCompleted?'Todas as visitas foram registradas. A central poderá validar os dados enquanto você aguarda uma nova rota.':'Quando a central publicar sua próxima rota, ela aparecerá aqui.'}</p>
    </div>}
    {next&&<div className="crew-home-current crew-home-professional" aria-label="Sua próxima rota">
     <div className="crew-home-state"><span className="crew-home-live-dot" aria-hidden="true"/>

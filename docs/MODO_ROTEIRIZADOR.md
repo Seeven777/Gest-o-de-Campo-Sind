@@ -248,3 +248,26 @@ Rodada dedicada a acabamento, **sem redesenhar a interface aprovada**, alterar o
 - **Segurança**: animações continuam respeitando `prefers-reduced-motion` e são desativadas ao detectar movimento; **nenhuma interação é segura enquanto o motorista conduz**, mesmo se o GPS não detectar velocidade. Usar Waze com orientação por voz e operar o sistema com o veículo estacionado.
 - **Sem nova dependência ou migração**: camada de acabamento isolada em `app/campo/equipe-finish.css`; evita alterar o design de outras funções.
 - **Homologação**: CI valida build, lint e TypeScript; exige inspeção visual real no celular/tablet e testes autenticados de GPS/Waze/fotografia/reembolso antes de produção. Não usar fotos reais no Preview até isolar o armazenamento Blob.
+
+## Correção de status de rotas concluídas e navegação da Equipe (12/11/2026)
+
+### Defeito confirmado
+Consulta **somente de leitura** no Neon Production identificou 2 rotas com todas as visitas enviadas (checkout confirmado), mas `routes.status='in_progress'`. Entre as paradas dessas rotas, 3 permanecem com `route_stops.status='pending'` mesmo tendo checkout; portanto o fechamento antigo, que confiava exclusivamente no status `visited` de todas as paradas, não reconhecia a conclusão. Nenhum dado de produção foi alterado na investigação.
+
+### Correções
+1. `GET /api/rotas` calcula o status **efetivo** pela finalização real das visitas. Para cargo Agente retorna somente rotas publicadas/em andamento **com paradas ainda não finalizadas**; rotas concluídas são excluídas mesmo se o status antigo persistido estiver errado. Para supervisão/administração, o status apresentado reflete a realidade operacional sem ocultar o histórico.
+2. `GET /api/campo/[id]` e `GET /api/rotas/[id]` protegem acesso do agente a percursos já integralmente finalizados, respondendo `410` sem expor detalhes. Quando uma visita é devolvida para correção, ela volta a contar como pendente e a rota reaparece para o agente.
+3. Ao concluir a última visita, o fechamento atômico em `POST /api/campo/visita` verifica **checkouts reais** das demais visitas, não apenas os marcadores legados de `route_stops.status`.
+4. A home da Equipe reconsulta rotas ao voltar para a aba, após retorno do Waze e em outras retomadas de navegação; evita estado antigo sem exigir F5. Um percurso concluído não aparece como **Em andamento**.
+5. Após concluir a última visita, o botão **Ver próximas rotas** leva à home com confirmação clara de conclusão; links antigos para rota completa fazem o mesmo redirecionamento.
+
+### Regras que continuam separadas
+- **Percurso concluído = todas as visitas enviadas.**
+- **Visita aprovada = análise posterior da central**, sem bloquear o próximo percurso.
+- `needs_more` da central reabre a visita e a rota, preservando a possibilidade de correção pelo agente.
+
+### Limites e homologação
+- Esta atualização **não executa SQL de alteração em produção**. Duas rotas históricas continuarão com os status legados no armazenamento até uma reconciliação expressamente autorizada; a API já apresentará corretamente os status efetivos.
+- CI de typecheck/lint/build e smoke precisa aprovar o commit exato.
+- Testar no Preview Neon QA os cenários de 1, 2 e 10 paradas; último checkout; recarga; retorno à home; link antigo; devolução `needs_more`; permissão por cargo e reativação de rota.
+- Não executar fotos reais no Preview com Blob compartilhado e não promover para Production sem homologação.
