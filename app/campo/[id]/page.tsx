@@ -110,11 +110,11 @@ const gpsAccurateFix=(previous:CurrentPosition|null=null):Promise<CurrentPositio
  if(previous?.timestamp&&Date.now()-previous.timestamp<8000&&previous.accuracy<=250)
   return Promise.resolve(previous);
  return new Promise((resolve,reject)=>{
-  let watch:number|undefined,done=false,best:CurrentPosition|null=null;
+  let done=false,best:CurrentPosition|null=null;
   const finish=(point?:CurrentPosition,error?:Error)=>{
    if(done)return;done=true;
    window.clearTimeout(timeout);
-   if(watch!==undefined)navigator.geolocation.clearWatch(watch);
+   navigator.geolocation.clearWatch(watch);
    if(point)resolve(point);else reject(error||new Error('Não foi possível obter GPS preciso.'));
   };
   const timeout=window.setTimeout(()=>{
@@ -123,7 +123,7 @@ const gpsAccurateFix=(previous:CurrentPosition|null=null):Promise<CurrentPositio
     'Localização aproximada (margem de '+Math.ceil(best.accuracy)+' m). Ative a localização precisa do aparelho e tente novamente com o veículo parado.':
     'O celular ainda não enviou uma localização precisa. Verifique a localização do sistema, aguarde o sinal e tente novamente com o veículo parado.'));
   },22000);
-  watch=navigator.geolocation.watchPosition(
+  const watch=navigator.geolocation.watchPosition(
    raw=>{
     const point:CurrentPosition={lat:raw.coords.latitude,lon:raw.coords.longitude,
      accuracy:raw.coords.accuracy,heading:raw.coords.heading,speed:raw.coords.speed,timestamp:raw.timestamp};
