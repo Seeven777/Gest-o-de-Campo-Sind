@@ -7,10 +7,28 @@ export async function GET(_req:Request,{params}:{params:Promise<{id:string}>}){
  if(u.role!=='agent')return NextResponse.json({error:'Esta jornada é exclusiva do agente responsável.'},{status:403});
  const {id}=await params;
  if(!/^[0-9a-f-]{36}$/i.test(id))return NextResponse.json({error:'Rota inválida.'},{status:400});
- const [route]=await db().query(`select r.id,r.agent_id,r.route_date,r.status,c.name as campaign_name
- from routes r join campaigns c on c.id=r.campaign_id where r.id=$1`,[id]);
+ const [route]=await db().query(`select r.id,r.agent_id,r.route_date,c.name as campaign_name,
+ case when progress.total_stops>0 and progress.remaining_stops=0 then 'completed'
+      when r.status='completed' and progress.remaining_stops>0 then 'in_progress'
+      else r.status end as status,
+ progress.total_stops, progress.remaining_stops
+ from routes r
+ join campaigns c on c.id=r.campaign_id
+ cross join lateral (
+  select count(s.id)::int as total_stops,
+   count(s.id) filter(where v.done is null)::int as remaining_stops
+  from route_stops s
+  left join lateral (select true as done from visits v
+   where v.stop_id=s.id and v.checkout_at is not null limit 1) v on true
+  where s.route_id=r.id
+ ) progress where r.id=$1`,[id]);
  if(!route||u.role==='agent'&&route.agent_id!==u.id)return NextResponse.json({error:'Rota não autorizada.'},{status:404});
- if(u.role==='agent'&&!['published','in_progress','completed'].includes(route.status))return NextResponse.json({error:'Rota ainda não publicada.'},{status:403});
+ if(route.status==='completed')return NextResponse.json(
+  {error:'Este percurso já foi concluído. Consulte suas rotas disponíveis.',completed:true},
+  {status:410,headers:{'Cache-Control':'no-store'}}
+ );
+ if(u.role==='agent'&&!['published','in_progress'].includes(route.status))
+  return NextResponse.json({error:'Rota ainda não publicada.'},{status:403});
  const stops=await db().query(`select s.id,s.position_order,e.legal_name,e.trade_name,e.cnpj,e.street,e.street_number,e.city,e.state,e.postal_code,
  st_y(e.position::geometry) as lat,st_x(e.position::geometry) as lon,
  v.id as visit_id,v.checkin_at,v.checkout_at,v.review_status,
