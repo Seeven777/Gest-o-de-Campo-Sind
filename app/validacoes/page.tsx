@@ -1,6 +1,7 @@
 'use client';
 import {useEffect,useState} from 'react';
 import {Portal} from '@/components/portal';
+import {CentralBreakRequests} from '@/components/central-break-requests';
 import {ClipboardCheck,Camera,Check,RotateCcw,XCircle,ShieldCheck} from 'lucide-react';
 type Row={id:string;legal_name:string;cnpj:string;city:string;agent_name:string;result:string;notes:string|null;review_status:string;operating_status:string|null;signage_status:string|null;regularity_note:string|null;address_match:string|null;pet_activity_match:string|null;accuracy_m:number|null;distance_m:number|null;evidence_id:string|null};
 const operating:Record<string,string>={operating:'Funcionando',closed:'Fechada',moved:'Mudou de endereço',unknown:'Não confirmado'};
@@ -21,6 +22,7 @@ export default function Validacoes(){
  }
  const pending=rows.filter(x=>x.review_status==='pending');
  return <Portal title="Central de validação" subtitle="Confira foto, localização e respostas antes de aprovar cada visita.">
+ <CentralBreakRequests/>
  <section className="panel" style={{marginBottom:20}}>
  <div className="panel-title"><div><small>CONFERÊNCIA DAS VISITAS</small><h2>{pending.length} visita(s) aguardando análise</h2></div><ClipboardCheck size={23}/></div>
  <p className="muted" style={{fontSize:16,lineHeight:1.6}}>A fotografia é temporária e acessível somente a usuários autorizados. Após aprovar ou recusar, o sistema solicita a exclusão física do arquivo. O registro da visita e a decisão administrativa permanecem.</p>
