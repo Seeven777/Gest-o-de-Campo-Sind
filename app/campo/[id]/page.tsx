@@ -4,7 +4,7 @@ import Link from 'next/link';
 import {useParams} from 'next/navigation';
 import {Portal} from '@/components/portal';
 import {FieldNavigationMap,type ActiveLeg,type CurrentPosition,type FieldPlan} from '@/components/field-navigation-map';
-import {ArrowLeft,ArrowRight,Camera,CheckCircle2,LocateFixed,MapPin,Navigation,Route as RouteIcon,X,RotateCcw,CornerUpLeft,CornerUpRight,MoveUp} from 'lucide-react';
+import {ArrowLeft,ArrowRight,Camera,CheckCircle2,LocateFixed,MapPin,Navigation,Route as RouteIcon,X,ExternalLink,RotateCcw,CornerUpLeft,CornerUpRight,MoveUp} from 'lucide-react';
 import '../jornada.css';
 import '../equipe.css';
 
@@ -188,7 +188,10 @@ function CampoGuiadoSession({id}:{id:string}){
  const [started,setStarted]=useState(false),[position,setPosition]=useState<CurrentPosition|null>(null),[follow,setFollow]=useState(true),[gpsRestart,setGpsRestart]=useState(0),[gpsIssue,setGpsIssue]=useState(false),[signalTick,setSignalTick]=useState(0),[lastGpsAt,setLastGpsAt]=useState(0);
  const [busy,setBusy]=useState(false),[photoBusy,setPhotoBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[progress,setProgress]=useState(''),[retryCount,setRetryCount]=useState(0);
  const [arrivalDialog,setArrivalDialog]=useState(false),[recenterToken,setRecenterToken]=useState(0),[sentScreen,setSentScreen]=useState(false),[sentName,setSentName]=useState('');
- const [reportOpen,setReportOpen]=useState(false),[breakOpen,setBreakOpen]=useState(false),[breakReason,setBreakReason]=useState('meal'),[breakNotes,setBreakNotes]=useState(''),[breakBusy,setBreakBusy]=useState(false),[breakError,setBreakError]=useState(''),[breakRequest,setBreakRequest]=useState<{status:string;reason_label:string;note:string|null;decision_note:string|null}|null>(null);
+ const [reportOpen,setReportOpen]=useState(false),[breakOpen,setBreakOpen]=useState(false),[breakReason,setBreakReason]=useState('meal'),[breakNotes,setBreakNotes]=useState(''),[breakBusy,setBreakBusy]=useState(false),[breakError,setBreakError]=useState(''),[breakExpenseHint,setBreakExpenseHint]=useState(false);
+ const [breakRequest,setBreakRequest]=useState<{id:string;status:string;reason_label:string;note:string|null;created_at:string;expense_hint:boolean}|null>(null);
+ const [recentBreaks,setRecentBreaks]=useState<{id:string;reason_label:string;created_at:string}[]>([]);
+ const breakRequestIdRef=useRef<string|null>(null);
  const [questionIndex,setQuestionIndex]=useState(0),[answers,setAnswers]=useState<Answers>(blankAnswers),[notes,setNotes]=useState('');
  const [arrivalPhase,setArrivalPhase]=useState<ArrivalPhase>(null);
  const [leg,setLeg]=useState<ActiveLeg|null>(null),[legBusy,setLegBusy]=useState(false),[legError,setLegError]=useState('');
@@ -231,6 +234,17 @@ function CampoGuiadoSession({id}:{id:string}){
  const stage=!data?'loading':!current?'done':current.checkin_at?(current.has_photo?'questions':'photo'):!plan?'prepare':!started?'ready':'travel';
  const target=plan?.points.find(p=>p.id===current?.id);
  const distance=straightDistance(position,target);
+ // Destino é sempre a PRÓXIMA empresa, nunca o ponto GPS do motorista.
+ const destination=current?.lat!=null&&current.lon!=null&&
+  Number.isFinite(current.lat)&&Math.abs(current.lat)<=90&&Number.isFinite(current.lon)&&Math.abs(current.lon)<=180
+  ?current.lat+','+current.lon:null;
+ const address=[current?.street,current?.street_number,current?.city,current?.state].filter(Boolean).join(', ');
+ const wazeLink=current?(destination
+  ?'https://waze.com/ul?ll='+encodeURIComponent(destination)+'&navigate=yes&utm_source=sindpetshop-sp'
+  :address.length>8?'https://waze.com/ul?q='+encodeURIComponent(address)+'&navigate=yes&utm_source=sindpetshop-sp':null):null;
+ // A leitura do GPS pode indicar movimento; nunca incentivamos interação nesse estado.
+ const driving=!!position&&position.speed!=null&&position.speed>1.8&&position.accuracy<=100&&
+  Date.now()-(position.timestamp||0)<20000;
  const nextQuestion=shownQuestions[Math.min(questionIndex,shownQuestions.length-1)];
  const finalQuestion=questionIndex>=shownQuestions.length-1;
  const gpsStale=started&&!!position&&signalTick>0&&signalTick-lastGpsAt>90000;
@@ -454,27 +468,35 @@ function CampoGuiadoSession({id}:{id:string}){
   await begin();
  }
  async function openBreak(){
-  setBreakOpen(true);setBreakError('');setBreakRequest(null);
+  if(driving){setError('Pare o veículo em local seguro antes de registrar uma parada.');return;}
+  setBreakOpen(true);setBreakError('');setBreakRequest(null);setRecentBreaks([]);
+  setBreakExpenseHint(false);breakRequestIdRef.current=null;
+  // O histórico é acessório: falha na consulta não impede o novo registro.
   try{
    const r=await fetch('/api/campo/parada?route_id='+encodeURIComponent(id),{cache:'no-store'});
-   const d=await apiResponse<{error?:string;items?:{status:string;reason_label:string;note:string|null;decision_note:string|null}[]}>(r);
-   if(!r.ok)throw Error(d.error||'Não foi possível consultar paradas.');
-   if(d.items?.length){const last=d.items[0];if(['pending','approved'].includes(last.status))setBreakRequest(last);}
-  }catch(e){setBreakError(e instanceof Error?e.message:'Não foi possível consultar paradas.')}
+   const d=await apiResponse<{items?:{id:string;reason_label:string;created_at:string}[]}>(r);
+   if(r.ok)setRecentBreaks((d.items||[]).slice(0,3));
+  }catch{}
  }
- async function requestBreak(){
-  if(breakBusy||!started)return;
+ async function registerBreak(){
+  if(breakBusy||!started||driving)return;
   setBreakBusy(true);setBreakError('');
   try{
-   const r=await send<{error?:string;status?:string;message?:string}>('/api/campo/parada',
-    {route_id:id,reason:breakReason,note:breakNotes});
-   setBreakRequest({status:r.status||'pending',
-    reason_label:breakReason==='meal'?'Alimentação':breakReason==='fuel'?'Abastecimento':breakReason==='restroom'?'Necessidade pessoal':'Outra necessidade',
-    note:breakNotes,decision_note:null});
-   setBreakNotes('');
-  }catch(e){setBreakError(e instanceof Error?e.message:'Falha ao registrar o pedido de parada.')}
+   if(!breakRequestIdRef.current)breakRequestIdRef.current=crypto.randomUUID();
+   const p=positionRef.current;
+   const fresh=p?.timestamp&&Date.now()-p.timestamp<30000?p:null;
+   const r=await send<{id:string;status:string;created_at:string;already_registered?:boolean}>('/api/campo/parada',
+    {route_id:id,client_request_id:breakRequestIdRef.current,reason:breakReason,
+     note:breakNotes,expense_hint:breakExpenseHint,
+     ...(fresh?{lat:fresh.lat,lon:fresh.lon,accuracy:fresh.accuracy,gps_timestamp:fresh.timestamp}:{})});
+   setBreakRequest({id:r.id,status:'recorded',created_at:r.created_at,expense_hint:breakExpenseHint,
+    reason_label:breakReason==='meal'?'Alimentação':breakReason==='fuel'?'Abastecimento':
+     breakReason==='restroom'?'Necessidade pessoal':'Outra necessidade',note:breakNotes});
+   breakRequestIdRef.current=null;setBreakNotes('');
+  }catch(e){setBreakError(e instanceof Error?e.message:'Falha ao registrar parada. Tente novamente.')}
   finally{setBreakBusy(false)}
  }
+
  return <Portal title="Minha jornada" subtitle="Percurso de trabalho" immersive>
   <main className={'crew-root crew-journey'+((stage==='photo'||stage==='questions')?' crew-form-screen':'')}
     aria-label="Jornada do agente em campo">
@@ -490,6 +512,13 @@ function CampoGuiadoSession({id}:{id:string}){
     {stage==='photo'?'VOCÊ CHEGOU AO LOCAL':stage==='questions'?'PERGUNTA SOBRE A EMPRESA':
       sentScreen?'VISITA REGISTRADA':complete+' '+(complete===1?'PARADA REALIZADA':'PARADAS REALIZADAS')}
    </div>
+   {stage==='travel'&&!sentScreen&&wazeLink&&<a className={'crew-waze-link'+(driving?' is-driving':'')}
+    href={wazeLink} target="_blank" rel="noopener noreferrer"
+    aria-disabled={driving} tabIndex={driving?-1:0}
+    title="Abrir orientação por voz para a próxima empresa. Use antes de dirigir."
+    onClick={e=>{if(driving){e.preventDefault();setError('Abra o Waze somente com o veículo parado.')}}}>
+    <Navigation size={21} aria-hidden="true"/> <span>ABRIR NO WAZE</span> <ExternalLink size={16} aria-hidden="true"/>
+   </a>}
    {stage==='travel'&&!sentScreen&&<div className="crew-instructions" aria-live="polite">
     <span className="crew-turn-arrow">{turnIcon}</span>
     <div><strong>{legBusy?'CALCULANDO CAMINHO...':navigationStatus?.offRoute?'CONFIRA SEU TRAJETO':nextTurn?.instruction||'SIGA ATÉ A EMPRESA'}</strong>
@@ -534,8 +563,10 @@ function CampoGuiadoSession({id}:{id:string}){
       {legError&&<p className="crew-gps-help">Navegação viária indisponível. Confira o endereço antes de seguir.</p>}
       {error&&!gpsNeedsRecovery&&<p className="crew-gps-help" role="alert">{error}</p>}
       <div className="crew-travel-shortcuts">
-       <button type="button" onClick={()=>setReportOpen(true)}>RELATÓRIO PESSOAL</button>
-       <button type="button" onClick={()=>void openBreak()}>SOLICITAR PARADA</button>
+       <button type="button" disabled={driving} title={driving?'Disponível somente com veículo parado':''}
+        onClick={()=>setReportOpen(true)}>RELATÓRIO PESSOAL</button>
+       <button type="button" disabled={driving} title={driving?'Disponível somente com veículo parado':''}
+        onClick={()=>void openBreak()}>REGISTRAR PARADA</button>
       </div>
      </div>}
      {(stage==='prepare'||stage==='ready'||stage==='done'||sentScreen)&&
@@ -631,31 +662,51 @@ function CampoGuiadoSession({id}:{id:string}){
     </section>
    </div>}
    {breakOpen&&<div className="crew-dialog-backdrop">
-    <section className="crew-dialog" role="dialog" aria-modal="true" aria-labelledby="crew-break-title">
+    <section className="crew-dialog crew-break-modal" role="dialog" aria-modal="true" aria-labelledby="crew-break-title">
      <button type="button" className="crew-dialog-x" onClick={()=>setBreakOpen(false)} aria-label="Fechar"><X size={22}/></button>
-     <span className="crew-eyebrow">SOLICITAÇÃO À CENTRAL</span>
-     <h2 id="crew-break-title">Precisa realizar uma parada?</h2>
+     <span className="crew-eyebrow">REGISTRO DA EQUIPE</span>
+     <h2 id="crew-break-title">{breakRequest?'Parada registrada!':'Registrar parada'}</h2>
      {breakRequest?<div className="crew-break-status" role="status">
-       <strong>{breakRequest.status==='approved'?'PARADA AUTORIZADA':
-         breakRequest.status==='denied'?'AJUSTE DE ROTA NÃO AUTORIZADO':'AGUARDANDO RESPOSTA'}</strong>
-       <p>{breakRequest.reason_label}. {breakRequest.decision_note||'Consulte a central; este registro não substitui seus intervalos legais.'}</p>
+       <CheckCircle2 size={36} aria-hidden="true"/>
+       <strong>{breakRequest.reason_label}</strong>
+       <p>Registrada em {new Date(breakRequest.created_at).toLocaleString('pt-BR')}.
+        O percurso permanece ativo. Nenhuma aprovação é necessária.</p>
+       {breakRequest.expense_hint&&<>
+        <p>Guarde a nota fiscal. O reembolso precisa de um lançamento próprio e da conferência do RH.</p>
+        <Link className="crew-expense-link" href={'/reembolsos?rota='+encodeURIComponent(id)+'&categoria='+(breakReason==='meal'?'food':breakReason==='fuel'?'fuel':'other')}>
+         Registrar gasto para reembolso <ExternalLink size={16}/>
+        </Link>
+       </>}
       </div>:<>
-      <p>Informe o motivo. Este pedido organiza o percurso; os intervalos legais seguem as políticas e leis aplicáveis.</p>
+      <p className="crew-break-intro">Pare em local seguro e registre sua pausa. Você não precisa de autorização no aplicativo.</p>
       <div className="crew-break-choices">
        {([['meal','Alimentação'],['restroom','Necessidade pessoal'],['fuel','Abastecimento'],['other','Outro motivo']] as const).map(([value,label])=>
         <label key={value} className={breakReason===value?'chosen':''}>
          <input type="radio" name="crew-break" checked={breakReason===value} onChange={()=>setBreakReason(value)}/>{label}
         </label>)}
       </div>
-      <label className="crew-observation-label" htmlFor="crew-break-note">OBSERVAÇÕES (OPCIONAL)</label>
+      <label className="crew-observation-label" htmlFor="crew-break-note">Observações (opcional)</label>
       <textarea id="crew-break-note" maxLength={500} rows={3} value={breakNotes}
-        onChange={e=>setBreakNotes(e.target.value)} placeholder="Explique sua necessidade, se necessário."/>
-      <button type="button" className="crew-primary" disabled={breakBusy||breakReason==='other'&&breakNotes.trim().length<5}
-       onClick={()=>void requestBreak()}>{breakBusy?'ENVIANDO...':'ENVIAR SOLICITAÇÃO'} <ArrowRight size={18}/></button>
+        onChange={e=>setBreakNotes(e.target.value)} placeholder="Algo importante sobre a parada?"/>
+      <label className="crew-break-expense">
+       <input type="checkbox" checked={breakExpenseHint} onChange={e=>setBreakExpenseHint(e.target.checked)}/>
+       <span>Houve gasto que poderá precisar de reembolso</span>
+      </label>
+      <p className="crew-break-caption">Hora registrada pelo servidor. O GPS é anexado quando disponível; sem sinal, a parada ainda pode ser registrada.</p>
+      <button type="button" className="crew-primary" disabled={breakBusy||driving||(breakReason==='other'&&breakNotes.trim().length<5)}
+       onClick={()=>void registerBreak()}>{breakBusy?'REGISTRANDO...':'REGISTRAR PARADA'} <CheckCircle2 size={19}/></button>
      </>}
-     {breakRequest&&<button type="button" className="crew-subtle" onClick={()=>void openBreak()}>ATUALIZAR RESPOSTA DA CENTRAL</button>}
      {breakError&&<p className="crew-inline-error" role="alert">{breakError}</p>}
-     <button type="button" className="crew-subtle" onClick={()=>setBreakOpen(false)}>VOLTAR À ROTA</button>
+     {breakRequest&&<button type="button" className="crew-primary" onClick={()=>setBreakOpen(false)}>
+       VOLTAR AO PERCURSO <ArrowRight size={19}/></button>}
+     {breakRequest&&<button type="button" className="crew-subtle" onClick={()=>{
+       setBreakRequest(null);setBreakExpenseHint(false);setBreakReason('meal');setBreakNotes('');
+      }}>REGISTRAR OUTRA PARADA</button>}
+     {!breakRequest&&recentBreaks.length>0&&<div className="crew-break-history">
+      <strong>Últimos registros nesta rota</strong>
+      {recentBreaks.map(record=><span key={record.id}>{record.reason_label} · {new Date(record.created_at).toLocaleString('pt-BR')}</span>)}
+     </div>}
+     {!breakRequest&&<button type="button" className="crew-subtle" onClick={()=>setBreakOpen(false)}>VOLTAR AO MAPA</button>}
     </section>
    </div>}
   </main>
