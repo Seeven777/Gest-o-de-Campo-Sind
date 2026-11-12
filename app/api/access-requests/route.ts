@@ -24,14 +24,22 @@ export async function GET() {
     if (!user) return NextResponse.json({error:'Entre em sua conta.'}, {status:401});
     const identity = await currentIdentity();
     if (identity?.role === 'admin') {
-      const [requests, profiles] = await Promise.all([
-        db().query(`SELECT id,auth_user_id,email,full_name,status,assigned_role,created_at,reviewed_at
-          FROM access_requests ORDER BY CASE status WHEN 'pending' THEN 0 ELSE 1 END, created_at DESC LIMIT 250`),
+      const [requests, profiles, verifiedWithoutRequest] = await Promise.all([
+        db().query(`SELECT r.id,r.auth_user_id,r.email,r.full_name,r.status,r.assigned_role,r.created_at,r.reviewed_at,
+            EXISTS(SELECT 1 FROM neon_auth."user" u WHERE u.id::text=r.auth_user_id AND
+            lower(u.email)=r.email AND u."emailVerified"=true) as email_verified
+          FROM access_requests r ORDER BY CASE r.status WHEN 'pending' THEN 0 ELSE 1 END,r.created_at DESC LIMIT 250`),
         db().query(`SELECT p.auth_user_id,p.full_name,p.role,p.is_active,p.created_at,u.email
           FROM app_profiles p LEFT JOIN neon_auth."user" u ON u.id::text=p.auth_user_id
           ORDER BY p.created_at DESC LIMIT 250`),
+        db().query(`SELECT u.id::text auth_user_id,u.email,u.name AS full_name
+          FROM neon_auth."user" u
+          WHERE u."emailVerified"=true
+            AND NOT EXISTS(SELECT 1 FROM access_requests r WHERE r.auth_user_id=u.id::text)
+            AND NOT EXISTS(SELECT 1 FROM app_profiles p WHERE p.auth_user_id=u.id::text)
+          ORDER BY u."createdAt" DESC LIMIT 100`),
       ]);
-      return NextResponse.json({authorized:true,requests,profiles},{headers:{'Cache-Control':'no-store'}});
+      return NextResponse.json({authorized:true,requests,profiles,verifiedWithoutRequest},{headers:{'Cache-Control':'no-store'}});
     }
     const [request] = await db().query(`SELECT status,created_at,reviewed_at FROM access_requests WHERE auth_user_id=$1`,[user.id]);
     return NextResponse.json({request:request||null,authorized:Boolean(identity)}, {headers:{'Cache-Control':'no-store'}});
@@ -65,6 +73,31 @@ export async function PATCH(request:Request) {
     if (operator.role !== 'admin') return NextResponse.json({error:'Somente administradores podem avaliar cadastros.'},{status:403});
     const body = await request.json().catch(()=>({}));
     const action = String(body.action||'');
+    // Quando a pessoa verificou o e-mail no Neon mas não conseguiu iniciar
+    // a sessão para enviar o pedido, o administrador cria somente a SOLICITAÇÃO.
+    // Nenhum acesso é liberado até a aprovação posterior e explícita.
+    if(action==='queue-verified'){
+      const authUserId=String(body.auth_user_id||'');
+      if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(authUserId))
+        return NextResponse.json({error:'Conta inválida.'},{status:400});
+      const rows=await db().query(`with eligible as (
+        select u.id::text auth_user_id,lower(u.email) email,
+         left(nullif(btrim(u.name),''),120) full_name
+        from neon_auth."user" u
+        where u.id::text=$1 and u."emailVerified"=true and u.id::text<>$2
+         and not exists(select 1 from app_profiles p where p.auth_user_id=u.id::text)
+      ), queued as (
+        insert into access_requests(auth_user_id,email,full_name)
+        select auth_user_id,email,coalesce(full_name,'Colaborador') from eligible
+        on conflict(auth_user_id) do nothing returning id
+      ), audited as (
+        insert into audit_logs(actor_id,action,details)
+        select $2,'access.verified_account_queued',
+          jsonb_build_object('request_id',id) from queued returning id
+      ) select queued.id from queued join audited on true`,[authUserId,operator.id]);
+      if(!rows.length)return NextResponse.json({error:'Conta não encontrada, ainda não verificada ou com solicitação existente. Atualize a lista.'},{status:409});
+      return NextResponse.json({ok:true,message:'Conta adicionada à fila de aprovação. Selecione o cargo e aprove separadamente.'});
+    }
     // Administrador pode remanejar colaboradores já ativos entre funções de trabalho,
     // mas nunca modificar outro administrador, conceder admin ou alterar a própria conta.
     if(action==='change-role'){
