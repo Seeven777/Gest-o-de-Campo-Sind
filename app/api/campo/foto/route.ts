@@ -19,7 +19,7 @@ export async function POST(req:Request){
  and v.checkout_at is null and r.status in ('published','in_progress')`,[visitId,u.id]);
  if(!v)return bad('Chegada não registrada ou visita já concluída.',403);
  const [existing]=await db().query('select id from visit_evidence where visit_id=$1 and deleted_at is null and expires_at>now() limit 1',[visitId]);
- if(existing)return bad('A visita já possui uma fotografia. Não envie novamente.',409);
+ if(existing)return NextResponse.json({id:existing.id,ok:true,already_uploaded:true},{headers:{'Cache-Control':'no-store'}});
  let pathname='';
  try{
   const blob=await put('visitas/'+visitId+'/'+crypto.randomUUID()+'.jpg',image,{access:'private',contentType:'image/jpeg',addRandomSuffix:false});

@@ -23,7 +23,8 @@ export async function GET(){
  c.name as campaign
  from agent_live_presence p join app_profiles pr on pr.auth_user_id=p.agent_id
  join routes r on r.id=p.route_id join campaigns c on c.id=r.campaign_id
- where p.active=true and p.last_seen_at>now()-interval '2 minutes' and p.last_position is not null
+ where p.active=true and r.status in ('published','in_progress')
+ and p.last_seen_at>now()-interval '2 minutes' and p.last_position is not null
  and pr.is_active=true order by p.last_seen_at desc limit 150`);
  return NextResponse.json({items},{headers:{'Cache-Control':'no-store'}});
 }
