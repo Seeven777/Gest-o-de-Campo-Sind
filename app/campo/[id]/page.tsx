@@ -5,8 +5,10 @@ import {useParams} from 'next/navigation';
 import {Portal} from '@/components/portal';
 import {FieldNavigationMap,type ActiveLeg,type CurrentPosition,type FieldPlan} from '@/components/field-navigation-map';
 import {ArrowLeft,ArrowRight,Camera,CheckCircle2,LocateFixed,MapPin,Navigation,Route as RouteIcon,X,ExternalLink,RotateCcw,CornerUpLeft,CornerUpRight,MoveUp} from 'lucide-react';
+import {CrewTravelPanel} from '@/components/crew-travel-panel';
 import '../jornada.css';
 import '../equipe.css';
+import '../equipe-motion.css';
 
 type Stop={
  id:string;position_order:number;legal_name:string;trade_name:string|null;street:string|null;street_number:string|null;
@@ -498,7 +500,7 @@ function CampoGuiadoSession({id}:{id:string}){
  }
 
  return <Portal title="Minha jornada" subtitle="Percurso de trabalho" immersive>
-  <main className={'crew-root crew-journey'+((stage==='photo'||stage==='questions')?' crew-form-screen':'')}
+  <main className={'crew-root crew-journey crew-motion-ui'+(driving?' crew-is-moving':'')+((stage==='photo'||stage==='questions')?' crew-form-screen':'')}
     aria-label="Jornada do agente em campo">
    <div className="crew-route-map">
     {plan?<FieldNavigationMap plan={plan} targetId={current?.id} current={position}
@@ -509,19 +511,12 @@ function CampoGuiadoSession({id}:{id:string}){
    <div className="crew-map-wash" aria-hidden="true"/>
    {stage!=='travel'&&<Link className="crew-session-button" href="/agente" aria-label="Voltar para minhas rotas" title="Minhas rotas"><ArrowLeft size={20}/></Link>}
    <div className="crew-top-badge">
-    {stage==='photo'?'VOCÊ CHEGOU AO LOCAL':stage==='questions'?'PERGUNTA SOBRE A EMPRESA':
-      sentScreen?'VISITA REGISTRADA':complete+' '+(complete===1?'PARADA REALIZADA':'PARADAS REALIZADAS')}
+    {stage==='photo'?'CHEGADA REGISTRADA':stage==='questions'?'VISITA EM ANDAMENTO':
+      sentScreen?'VISITA ENVIADA':complete+' / '+ordered.length+' concluídas'}
    </div>
-   {stage==='travel'&&!sentScreen&&wazeLink&&<a className={'crew-waze-link'+(driving?' is-driving':'')}
-    href={wazeLink} target="_blank" rel="noopener noreferrer"
-    aria-disabled={driving} tabIndex={driving?-1:0}
-    title="Abrir orientação por voz para a próxima empresa. Use antes de dirigir."
-    onClick={e=>{if(driving){e.preventDefault();setError('Abra o Waze somente com o veículo parado.')}}}>
-    <Navigation size={21} aria-hidden="true"/> <span>ABRIR NO WAZE</span> <ExternalLink size={16} aria-hidden="true"/>
-   </a>}
    {stage==='travel'&&!sentScreen&&<div className="crew-instructions" aria-live="polite">
     <span className="crew-turn-arrow">{turnIcon}</span>
-    <div><strong>{legBusy?'CALCULANDO CAMINHO...':navigationStatus?.offRoute?'CONFIRA SEU TRAJETO':nextTurn?.instruction||'SIGA ATÉ A EMPRESA'}</strong>
+    <div key={nextTurn?.instruction||'waiting'} className="crew-turn-details"><strong>{legBusy?'CALCULANDO CAMINHO...':navigationStatus?.offRoute?'CONFIRA SEU TRAJETO':nextTurn?.instruction||'SIGA ATÉ A EMPRESA'}</strong>
      <small>{navigationStatus?.offRoute?'Pare em local seguro para conferir o caminho.':
       navigationStatus?.distanceToTurn!=null?'Em '+fmtDistance(navigationStatus.distanceToTurn)+', siga a orientação.':
       [current?.street,current?.street_number,current?.city].filter(Boolean).join(', ')||'Acompanhe o mapa até a empresa.'}</small></div>
@@ -533,8 +528,8 @@ function CampoGuiadoSession({id}:{id:string}){
       <p>{error||'Consultando as empresas e endereços atribuídos.'}</p>
       {error&&<button className="crew-subtle" onClick={()=>setRetryCount(v=>v+1)}>Tentar novamente</button>}
      </div>}
-     {sentScreen&&<div className="crew-center-message" role="status">
-      <CheckCircle2 size={32}/><strong>INFORMAÇÕES ENVIADAS PARA A CENTRAL.</strong>
+     {sentScreen&&<div className="crew-center-message crew-success-card" role="status">
+      <span className="crew-success-emblem"><CheckCircle2 size={38}/></span><strong>VISITA ENVIADA!</strong>
       <p>{sentName} registrada. Você pode seguir; a análise será realizada pela supervisão.</p>
      </div>}
      {!sentScreen&&stage==='done'&&<div className="crew-center-message" role="status">
@@ -545,30 +540,18 @@ function CampoGuiadoSession({id}:{id:string}){
       <RouteIcon size={32}/><strong>{remaining} {remaining===1?'EMPRESA DISPONÍVEL':'EMPRESAS NO PERCURSO'}</strong>
       <p>{data?.route.campaign_name||'Rota atribuída'} · Siga as orientações do mapa quando iniciar.</p><small className="crew-gps-consent">Ao iniciar, sua localização será compartilhada com a central durante a rota e encerrada ao concluir ou sair.</small>
      </div>}
-     {stage==='travel'&&!sentScreen&&<div className="crew-travel-footer">
-      <span className="crew-distance" aria-label="Distância até a próxima parada">
-       {leg?fmtDistance(leg.distance_m):distance!=null?fmtDistance(distance):'—'}
-      </span>
-      <div className="crew-next-company" aria-live="polite">
-       <span>PRÓXIMA PARADA · {activeIndex}/{ordered.length}</span>
-       <strong>{current?.trade_name||current?.legal_name||'Empresa'}</strong>
-      </div>
-      {gpsNeedsRecovery||gpsLowAccuracy?<button type="button" className="crew-arrived crew-recover"
-        disabled={busy} onClick={()=>void (gpsNeedsRecovery?begin(true):improveGps())}>
-        <LocateFixed size={21}/>{busy?'LOCALIZANDO...':'AJUSTAR GPS'}
-       </button>:<button type="button" className="crew-arrived" disabled={busy}
-        onClick={()=>setArrivalDialog(true)}><MapPin size={22}/> CHEGUEI!</button>}
-      {(gpsNeedsRecovery||gpsLowAccuracy)&&<p className="crew-gps-help" role="status">
-       {gpsAccuracyText||'Sinal GPS indisponível'}. Melhore a localização com o veículo parado.</p>}
-      {legError&&<p className="crew-gps-help">Navegação viária indisponível. Confira o endereço antes de seguir.</p>}
-      {error&&!gpsNeedsRecovery&&<p className="crew-gps-help" role="alert">{error}</p>}
-      <div className="crew-travel-shortcuts">
-       <button type="button" disabled={driving} title={driving?'Disponível somente com veículo parado':''}
-        onClick={()=>setReportOpen(true)}>RELATÓRIO PESSOAL</button>
-       <button type="button" disabled={driving} title={driving?'Disponível somente com veículo parado':''}
-        onClick={()=>void openBreak()}>REGISTRAR PARADA</button>
-      </div>
-     </div>}
+     {stage==='travel'&&!sentScreen&&<CrewTravelPanel key={current?.id||id}
+      stopId={current?.id||''} index={activeIndex} total={ordered.length}
+      name={current?.trade_name||current?.legal_name||'Empresa'}
+      distanceLabel={leg?fmtDistance(leg.distance_m):distance!==null?fmtDistance(distance):'—'}
+      distanceKind={leg?'pela rota':'em linha reta'} wazeUrl={wazeLink}
+      driving={driving} busy={busy} gpsUnavailable={gpsNeedsRecovery||gpsLowAccuracy}
+      gpsMessage={gpsAccuracyText} navigationError={!!legError} error={error}
+      onArrive={()=>setArrivalDialog(true)}
+      onGpsFix={()=>void (gpsNeedsRecovery?begin(true):improveGps())}
+      onReport={()=>setReportOpen(true)} onBreak={()=>void openBreak()}
+      onBlockedWaze={()=>setError('Abra o Waze somente com o veículo parado.')}
+     />}
      {(stage==='prepare'||stage==='ready'||stage==='done'||sentScreen)&&
       <footer className="crew-fixed-footer">
        {error&&<p className="crew-inline-error" role="alert">{error}</p>}
@@ -585,8 +568,8 @@ function CampoGuiadoSession({id}:{id:string}){
         </button>}
       </footer>}
     </div>}
-   {(stage==='photo'||stage==='questions')&&!sentScreen&&<section className="crew-form-panel" aria-label="Informações da visita">
-    <div className="crew-form-inner">
+   {(stage==='photo'||stage==='questions')&&!sentScreen&&<section key={'form-'+stage+'-'+current?.id} className="crew-form-panel crew-animated-form" aria-label="Informações da visita">
+    <div className="crew-form-inner" key={stage==='questions'?'question-'+questionIndex:'photo'}>
      {stage==='photo'&&<>
       <div className="crew-photo-preview"><Camera size={65}/><strong>FOTO DA FACHADA</strong>
        <p>Mostre o local e a identificação da empresa, quando visível.</p></div>
@@ -600,6 +583,10 @@ function CampoGuiadoSession({id}:{id:string}){
      </>}
      {stage==='questions'&&<>
       <div className="crew-question-progress"><span>PERGUNTA {questionIndex+1} DE {shownQuestions.length}</span><span><CheckCircle2 size={16}/> FOTO RECEBIDA</span></div>
+      <div className="crew-question-meter" role="progressbar" aria-valuemin={0}
+       aria-valuemax={shownQuestions.length} aria-valuenow={questionIndex+1} aria-label="Progresso das perguntas">
+       <span style={{width:((questionIndex+1)/shownQuestions.length*100)+'%'}}/>
+      </div>
       {current?.review_status==='needs_more'&&current.review_notes&&
        <p className="crew-inline-error">A central solicitou revisão: {current.review_notes}</p>}
       <QuestionView question={nextQuestion} value={answers[nextQuestion.key]} onChange={v=>answer(nextQuestion.key,v)}/>
@@ -636,11 +623,11 @@ function CampoGuiadoSession({id}:{id:string}){
       </div>}
     </footer>
    </section>}
-   {arrivalPhase&&<div className="crew-dialog-backdrop" role="status" aria-live="polite">
+   {arrivalPhase&&<div className="crew-dialog-backdrop crew-animated-backdrop" role="status" aria-live="polite">
     <div className="crew-dialog"><LocateFixed size={34}/><strong>{arrivalPhase==='locating'?'VERIFICANDO LOCALIZAÇÃO...':'REGISTRANDO CHEGADA...'}</strong>
      <p>Aguarde a confirmação da central; não feche a tela.</p></div>
    </div>}
-   {arrivalDialog&&<div className="crew-dialog-backdrop">
+   {arrivalDialog&&<div className="crew-dialog-backdrop crew-animated-backdrop">
     <section className="crew-dialog" role="dialog" aria-modal="true" aria-labelledby="crew-arrive-title">
      <button type="button" className="crew-dialog-x" onClick={()=>setArrivalDialog(false)} aria-label="Fechar"><X size={22}/></button>
      <MapPin size={32} color="#fe7900"/>
@@ -651,7 +638,7 @@ function CampoGuiadoSession({id}:{id:string}){
      <button type="button" className="crew-subtle" onClick={()=>setArrivalDialog(false)}>VOLTAR AO MAPA</button>
     </section>
    </div>}
-   {reportOpen&&<div className="crew-dialog-backdrop">
+   {reportOpen&&<div className="crew-dialog-backdrop crew-animated-backdrop">
     <section className="crew-dialog crew-report" role="dialog" aria-modal="true" aria-labelledby="crew-report-title">
      <button type="button" className="crew-dialog-x" onClick={()=>setReportOpen(false)} aria-label="Fechar"><X size={22}/></button>
      <span className="crew-eyebrow">RELATÓRIO PESSOAL</span><h2 id="crew-report-title">Minhas visitas</h2>
@@ -661,7 +648,7 @@ function CampoGuiadoSession({id}:{id:string}){
      <button type="button" className="crew-primary" onClick={()=>setReportOpen(false)}>VOLTAR AO PERCURSO</button>
     </section>
    </div>}
-   {breakOpen&&<div className="crew-dialog-backdrop">
+   {breakOpen&&<div className="crew-dialog-backdrop crew-animated-backdrop">
     <section className="crew-dialog crew-break-modal" role="dialog" aria-modal="true" aria-labelledby="crew-break-title">
      <button type="button" className="crew-dialog-x" onClick={()=>setBreakOpen(false)} aria-label="Fechar"><X size={22}/></button>
      <span className="crew-eyebrow">REGISTRO DA EQUIPE</span>

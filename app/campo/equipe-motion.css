@@ -1,0 +1,171 @@
+/* Motion design do Agente. Uma única superfície de ação; mapa permanece estável.
+   Animações curtas acontecem ao mudar de etapa, nunca durante movimento do veículo. */
+.crew-motion-ui{--crew-ease:cubic-bezier(.2,.85,.25,1);--crew-ease-spring:cubic-bezier(.16,1.15,.4,1)}
+.crew-motion-ui .crew-top-badge{font-size:12px;line-height:1.2;font-weight:900;letter-spacing:.025em;
+ min-height:39px;padding:8px 16px;border-radius:100px;background:#fff;color:#cf610e;
+ border:1px solid #ffffffbd;box-shadow:0 6px 21px #2b32251c}
+.crew-motion-ui .crew-instructions{background:#ffffffed;border:1px solid #ffffffd4;
+ box-shadow:0 12px 30px #21382a21;backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px)}
+.crew-motion-ui .crew-instructions strong{color:#172e24;letter-spacing:-.02em}
+.crew-motion-ui .crew-instructions small{color:#586b61;font-weight:650}
+.crew-motion-ui .crew-turn-arrow{color:#ec6b15;background:#fff4eb;border-radius:15px;aspect-ratio:1}
+.crew-motion-ui .crew-travel-footer{position:absolute;inset:0;z-index:1080;pointer-events:none}
+.crew-motion-ui .crew-bottom-sheet{position:absolute;bottom:0;right:0;left:0;max-width:100%;pointer-events:auto;
+ background:#fff;border:1px solid #e6ece6;border-bottom:0;
+ border-radius:25px 25px 0 0;box-shadow:0 -12px 44px #16362721;padding:14px 16px calc(11px + env(safe-area-inset-bottom,0px));
+ display:grid;align-content:center;gap:12px;color:#213829}
+.crew-motion-ui .crew-sheet-grip{height:4px;width:43px;background:#dfe6e0;border-radius:8px;margin:-3px auto 2px}
+.crew-motion-ui .crew-sheet-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;min-width:0}
+.crew-motion-ui .crew-sheet-company{min-width:0;flex:1;display:grid;gap:5px}
+.crew-motion-ui .crew-sheet-company>span{color:#a96635;font-size:10px;font-weight:900;letter-spacing:.07em}
+.crew-motion-ui .crew-sheet-company>strong{display:block;color:#1f3229;font-size:clamp(14px,3.6vw,18px);
+ line-height:1.23;font-weight:850;min-width:0;max-width:100%;overflow:hidden;text-overflow:ellipsis;
+ display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow-wrap:anywhere}
+.crew-motion-ui .crew-sheet-distance{text-align:right;display:grid;gap:4px;min-width:84px;max-width:40%;flex-shrink:0}
+.crew-motion-ui .crew-sheet-distance strong{font-size:clamp(17px,4.5vw,22px);font-weight:900;
+ color:#de681d;letter-spacing:-.04em;line-height:1.15;white-space:nowrap}
+.crew-motion-ui .crew-sheet-distance span{font-size:10px;color:#77897d;font-weight:700;white-space:nowrap}
+.crew-motion-ui .crew-sheet-actions{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(108px,.85fr);gap:9px;min-width:0}
+.crew-motion-ui .crew-sheet-actions:has(> :only-child){grid-template-columns:1fr}
+.crew-motion-ui .crew-sheet-actions .crew-arrived,.crew-motion-ui .crew-sheet-actions .crew-waze-link{
+ position:relative!important;left:auto!important;right:auto!important;top:auto!important;bottom:auto!important;
+ transform:none!important;box-shadow:none!important;margin:0!important;width:100%!important;
+ min-height:61px!important;max-height:none!important;border-radius:16px!important;
+ font-size:clamp(14px,4vw,18px)!important;display:inline-flex;align-items:center;justify-content:center;
+ padding:10px 9px!important;gap:7px;white-space:nowrap;line-height:1.2;max-width:100%;
+ text-decoration:none!important;pointer-events:auto;border:0!important}
+.crew-motion-ui .crew-sheet-actions .crew-arrived{background:#f47717;color:white;border:0;
+ font-weight:950;transition:background-color .16s ease,box-shadow .16s ease,transform .16s ease}
+.crew-motion-ui .crew-sheet-actions .crew-arrived:not(:disabled):active{transform:scale(.98)!important}
+.crew-motion-ui .crew-sheet-actions .crew-arrived:disabled{opacity:.55}
+.crew-motion-ui .crew-sheet-actions .crew-waze-link{background:#f5faf7;color:#22573f!important;
+ border:1px solid #dcece0!important;font-weight:900;min-width:0;letter-spacing:0}
+.crew-motion-ui .crew-sheet-actions .crew-waze-link svg{width:18px;height:18px}
+.crew-motion-ui .crew-sheet-actions .crew-waze-link svg:last-child{width:12px;height:12px}
+.crew-motion-ui .crew-sheet-actions .crew-waze-link.is-driving{opacity:.45;pointer-events:none}
+.crew-motion-ui .crew-more-trigger{border:0;background:transparent;color:#5d7465;
+ min-height:43px;display:flex;align-items:center;justify-content:center;gap:7px;
+ font-size:12px;font-weight:800;cursor:pointer;justify-self:center;padding:4px 18px;border-radius:11px;
+ transition:background .16s ease}
+.crew-motion-ui .crew-more-trigger:hover:not(:disabled){background:#f1f6f1}
+.crew-motion-ui .crew-more-trigger:disabled{opacity:.4;cursor:not-allowed}
+.crew-motion-ui .crew-more-trigger svg:last-child{transition:transform .23s var(--crew-ease)}
+.crew-motion-ui .crew-more-trigger .crew-chevron-up{transform:rotate(180deg)}
+.crew-motion-ui .crew-extra-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px;
+ padding:3px 0 4px;overflow:hidden}
+.crew-motion-ui .crew-extra-actions button{border:1px solid #e0e9e1;border-radius:13px;
+ min-height:51px;padding:10px 8px;background:#f9fbf9;color:#345440;font-size:13px;font-weight:850;cursor:pointer}
+.crew-motion-ui .crew-extra-actions button:hover{background:#edf5ee}
+.crew-motion-ui .crew-sheet-alert,.crew-motion-ui .crew-sheet-note{margin:0;padding:9px 12px;
+ font-size:11px;line-height:1.35;border-radius:10px;overflow-wrap:anywhere}
+.crew-motion-ui .crew-sheet-alert{background:#fff6ee;color:#944f29;border:1px solid #ffdfc6}
+.crew-motion-ui .crew-sheet-note{background:#f4f7f5;color:#6c8072}
+.crew-motion-ui .crew-success-emblem{display:grid;place-items:center;position:relative;
+ width:80px;height:80px;border-radius:50%;background:#e9f7ee;color:#238d56;margin:0 auto 4px}
+.crew-motion-ui .crew-success-emblem:before{content:'';position:absolute;inset:-8px;
+ border:2px solid #b7e7c8;border-radius:50%}
+.crew-motion-ui .crew-success-card strong{color:#21804c}
+.crew-motion-ui .crew-question-meter{height:6px;width:100%;border-radius:999px;
+ background:#dce8df;overflow:hidden;margin:0 0 17px}
+.crew-motion-ui .crew-question-meter>span{display:block;height:100%;background:linear-gradient(90deg,#ee7b21,#fba45f);
+ border-radius:999px;transform-origin:left}
+.crew-motion-ui .navigator-answer{transition:border-color .16s ease,background-color .16s ease,box-shadow .16s ease}
+.crew-motion-ui .navigator-answer.chosen{box-shadow:0 4px 18px #e7731820}
+.crew-motion-ui .crew-animated-backdrop{backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.crew-motion-ui .crew-form-panel{background:linear-gradient(170deg,#f5f6f4,#e9ece9)}
+.crew-motion-ui .crew-photo-preview{box-shadow:0 6px 25px #1c37200e}
+.crew-motion-ui .crew-company-card{box-shadow:0 6px 25px #1c37200b}
+.crew-motion-ui button:focus-visible,.crew-motion-ui a:focus-visible{
+ outline:3px solid #1f6498;outline-offset:3px}
+.crew-motion-ui:not(.crew-is-moving) .crew-top-badge{animation:crewChipIn .46s var(--crew-ease) both}
+.crew-motion-ui:not(.crew-is-moving) .crew-instructions{animation:crewCardIn .48s var(--crew-ease) both}
+.crew-motion-ui:not(.crew-is-moving) .crew-turn-details{animation:crewTurnIn .33s var(--crew-ease) both}
+.crew-motion-ui:not(.crew-is-moving) .crew-bottom-sheet{animation:crewSheetIn .5s var(--crew-ease-spring) both}
+.crew-motion-ui:not(.crew-is-moving) .crew-extra-actions{animation:crewExtrasOpen .28s var(--crew-ease) both}
+.crew-motion-ui:not(.crew-is-moving) .crew-center-message{animation:crewCenterIn .54s var(--crew-ease-spring) both}
+.crew-motion-ui:not(.crew-is-moving) .crew-form-panel{animation:crewFormBg .28s ease both}
+.crew-motion-ui:not(.crew-is-moving) .crew-form-inner{animation:crewFormContentIn .35s var(--crew-ease) both}
+.crew-motion-ui:not(.crew-is-moving) .navigator-answer{animation:crewChoiceIn .35s var(--crew-ease) backwards}
+.crew-motion-ui:not(.crew-is-moving) .navigator-answer:nth-child(1){animation-delay:.035s}
+.crew-motion-ui:not(.crew-is-moving) .navigator-answer:nth-child(2){animation-delay:.075s}
+.crew-motion-ui:not(.crew-is-moving) .navigator-answer:nth-child(3){animation-delay:.115s}
+.crew-motion-ui:not(.crew-is-moving) .navigator-answer:nth-child(4){animation-delay:.155s}
+.crew-motion-ui:not(.crew-is-moving) .navigator-answer:nth-child(5){animation-delay:.195s}
+.crew-motion-ui:not(.crew-is-moving) .crew-question-meter>span{animation:crewMeterIn .62s var(--crew-ease) both}
+.crew-motion-ui:not(.crew-is-moving) .crew-success-emblem{animation:crewSuccessPop .63s var(--crew-ease-spring) both}
+.crew-motion-ui:not(.crew-is-moving) .crew-success-emblem:before{animation:crewRingOut .69s ease-out .18s both}
+.crew-motion-ui:not(.crew-is-moving) .crew-animated-backdrop{animation:crewBackdropIn .24s ease both}
+.crew-motion-ui:not(.crew-is-moving) .crew-animated-backdrop .crew-dialog{animation:crewDialogIn .38s var(--crew-ease-spring) both}
+.crew-home .crew-home-current{animation:crewCenterIn .48s var(--crew-ease-spring) both}
+.crew-home .crew-home-footer{animation:crewHomeFooter .5s var(--crew-ease) both}
+@keyframes crewChipIn{from{opacity:0;translate:0 -12px}to{opacity:1;translate:0 0}}
+@keyframes crewCardIn{from{opacity:0;translate:0 -15px}to{opacity:1;translate:0 0}}
+@keyframes crewTurnIn{from{opacity:.45;translate:0 6px}to{opacity:1;translate:0 0}}
+@keyframes crewSheetIn{from{opacity:.6;translate:0 70px}to{opacity:1;translate:0 0}}
+@keyframes crewExtrasOpen{from{opacity:0;clip-path:inset(0 0 95% 0)}to{opacity:1;clip-path:inset(0 0 0 0)}}
+@keyframes crewCenterIn{from{opacity:0;scale:.92;translate:0 18px}to{opacity:1;scale:1;translate:0 0}}
+@keyframes crewFormBg{from{opacity:.88}to{opacity:1}}
+@keyframes crewFormContentIn{from{opacity:0;translate:20px 0}to{opacity:1;translate:0 0}}
+@keyframes crewChoiceIn{from{opacity:0;translate:0 9px}to{opacity:1;translate:0 0}}
+@keyframes crewMeterIn{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+@keyframes crewSuccessPop{0%{scale:.45;opacity:0}67%{scale:1.12;opacity:1}100%{scale:1;opacity:1}}
+@keyframes crewRingOut{from{scale:.72;opacity:0}45%{opacity:1}to{scale:1;opacity:1}}
+@keyframes crewBackdropIn{from{opacity:0}to{opacity:1}}
+@keyframes crewDialogIn{from{opacity:.45;translate:0 28px;scale:.96}to{opacity:1;translate:0 0;scale:1}}
+@keyframes crewHomeFooter{from{opacity:.5;translate:0 30px}to{opacity:1;translate:0 0}}
+/* Em movimento, animações e microtransições não competem com a navegação. */
+.crew-motion-ui.crew-is-moving *, .crew-motion-ui.crew-is-moving *:before,
+.crew-motion-ui.crew-is-moving *:after{animation:none!important;transition:none!important;scroll-behavior:auto!important}
+@media(max-width:799px){
+ .crew-motion-ui .crew-top-badge{position:absolute;left:12px;right:auto;top:calc(10px + env(safe-area-inset-top,0px));
+  transform:none;min-height:34px;max-width:calc(100% - 68px);padding:7px 12px;font-size:11px;box-shadow:0 4px 16px #1b2b2024}
+ .crew-motion-ui .crew-instructions{top:calc(57px + env(safe-area-inset-top,0px));left:12px;right:12px;
+  width:auto;min-height:80px;border-radius:19px;gap:10px;padding:11px 13px}
+ .crew-motion-ui .crew-turn-arrow{width:44px;min-width:44px;height:44px}
+ .crew-motion-ui .crew-turn-arrow svg{width:29px;height:29px}
+ .crew-motion-ui .crew-instructions strong{font-size:clamp(14px,4.1vw,18px);
+  line-height:1.13;letter-spacing:-.02em;display:-webkit-box;-webkit-line-clamp:2;
+  -webkit-box-orient:vertical;overflow:hidden}
+ .crew-motion-ui .crew-instructions small{font-size:12px;line-height:1.24;margin-top:4px}
+ .crew-motion-ui .crew-bottom-sheet{padding:12px 15px calc(9px + env(safe-area-inset-bottom,0px));gap:10px;
+  box-shadow:0 -8px 35px #10231924}
+ .crew-motion-ui .crew-sheet-grip{margin:-3px auto 0}
+ .crew-motion-ui .crew-sheet-heading{min-height:45px}
+ .crew-motion-ui .crew-sheet-actions .crew-arrived,.crew-motion-ui .crew-sheet-actions .crew-waze-link{min-height:57px!important}
+ .crew-motion-ui .crew-more-trigger{min-height:35px;font-size:11px}
+ .crew-motion-ui .crew-root .crew-next-company,.crew-motion-ui .crew-distance{display:none!important}
+ .crew-motion-ui .crew-animated-backdrop{align-items:end;padding:0}
+ .crew-motion-ui .crew-animated-backdrop .crew-dialog{width:100%;max-width:none;max-height:88dvh;
+  border-radius:23px 23px 0 0;padding:28px 20px calc(22px + env(safe-area-inset-bottom,0px))}
+}
+@media(min-width:800px){
+ .crew-motion-ui .crew-top-badge{left:21px;transform:none;top:calc(13px + env(safe-area-inset-top,0px))}
+ .crew-motion-ui .crew-instructions{top:calc(72px + env(safe-area-inset-top,0px));
+  left:17px;width:min(480px,calc(100% - 44px));border-radius:20px;min-height:92px}
+ .crew-motion-ui .crew-bottom-sheet{left:auto;bottom:18px;right:18px;width:min(450px,48vw);
+  border:1px solid #e8eee7;border-radius:24px;padding:17px 18px;gap:14px;
+  box-shadow:0 11px 36px #15261c33}
+ .crew-motion-ui .crew-sheet-grip{display:none}
+ .crew-motion-ui .crew-sheet-actions .crew-arrived,.crew-motion-ui .crew-sheet-actions .crew-waze-link{min-height:65px!important}
+ .crew-motion-ui .crew-more-trigger{min-height:40px}
+}
+@media(max-height:560px) and (orientation:landscape){
+ .crew-motion-ui .crew-instructions{max-width:42vw;top:65px;min-height:70px}
+ .crew-motion-ui .crew-bottom-sheet{left:auto;right:8px;bottom:7px;width:min(420px,52vw);
+  max-height:calc(100dvh - 22px);overflow-y:auto;border:1px solid #e8eee7;border-radius:20px;padding:11px 13px}
+ .crew-motion-ui .crew-sheet-actions .crew-arrived,.crew-motion-ui .crew-sheet-actions .crew-waze-link{min-height:48px!important}
+ .crew-motion-ui .crew-sheet-grip{display:none}
+ .crew-motion-ui .crew-top-badge{left:11px;top:9px}
+}
+@media(prefers-reduced-motion:reduce){
+ .crew-motion-ui *, .crew-motion-ui *:before, .crew-motion-ui *:after,
+ .crew-home .crew-home-current,.crew-home .crew-home-footer{
+  animation:none!important;transition:none!important;scroll-behavior:auto!important}
+}
+
+/* Na jornada, o destino atual prevalece. O histórico permanece nos relatórios. */
+.crew-motion-ui .field-pin-done,.crew-motion-ui .field-pin-next{
+ opacity:0!important;pointer-events:none!important;visibility:hidden!important
+}
+.crew-motion-ui .field-pin-active{box-shadow:0 0 0 5px #f47a2945,0 5px 16px #12382155}
+.crew-motion-ui .crew-map-wash{background:#f1f5f017}
