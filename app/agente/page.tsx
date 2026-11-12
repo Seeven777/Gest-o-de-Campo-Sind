@@ -7,6 +7,7 @@ import {ArrowRight,CheckCircle2,MapPin,RefreshCw,Route as RouteIcon,LogOut,X} fr
 import {Portal} from '@/components/portal';
 import {FieldNavigationMap,type FieldPlan} from '@/components/field-navigation-map';
 import '../campo/equipe.css';
+import '../campo/equipe-motion.css';
 
 type AssignedRoute={id:string;route_date:string;status:string;campaign_name:string;stops:number};
 const ambientPlan:FieldPlan={order:[],points:[{id:'sao-paulo',lat:-23.5505,lon:-46.6333}],geometry:{type:'LineString',coordinates:[]}};

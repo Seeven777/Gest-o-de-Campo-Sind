@@ -224,3 +224,14 @@ flowchart TD
 
 ### Estado da homologação
 A CI verifica tipo, lint e compilação, **não substitui teste real em tablet estacionado, autorização GPS, funcionamento do Waze instalado, troca de aplicativo e retomada da rota**. Esse percurso precisa ser testado com equipe de campo em ambiente controlado antes de liberar a nova tela.
+
+## UI/UX e transições — Equipe mobile/tablet (12/11/2026)
+O agente informou que a tela de navegação ficou visualmente sobrecarregada. O novo desenho prioriza a rota e **uma ação principal por vez**:
+- Na navegação mobile, somente um progresso compacto (ex.: 9/10 concluídas), uma orientação compacta e um **painel inferior único** com nome da empresa, distância, **Cheguei** e **Waze**. Relatório e Registrar Parada ficam sob **Outras opções**.
+- Em tablet paisagem, o painel inferior ocupa uma área lateral compacta; o mapa continua predominante.
+- Camadas animadas: progressinho, instrução que muda com transição curta, entrada do painel inferior, expansão de ações adicionais, troca de foto/pergunta, respostas em sequência e confirmação de visita enviada com ícone de sucesso.
+- Implementação em CSS/React, sem biblioteca adicional, sem redesenhar o mapa e sem recalcular rotas para efeitos estéticos.
+- Todas as animações são discretas e **não se repetem continuamente**. Quando o GPS indica movimento, animações e microtransições são desativadas, assim como os controles de interação. `prefers-reduced-motion:reduce` desativa todas as animações para quem assim configurou.
+- A detecção de velocidade não comprova que o veículo está parado. Mesmo quando os botões aparecem, **toda interação deve acontecer com o veículo estacionado**. Waze oferece a navegação por voz, quando disponível.
+- Não alterar login e não alterar contratos de GPS, foto, validação, RH, Cadastro nem estrutura do Neon por motivos de aparência.
+- Validar em iPhone Safari, Android Chrome e tablet em retrato/paisagem: tamanho dos toques, mapa não coberto, teclado virtual, transições com fluxo real, contraste, ausência de travamentos e retorno do Waze.
