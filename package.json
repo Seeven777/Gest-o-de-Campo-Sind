@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test:smoke": "node scripts/smoke-pages.mjs",
-    "test:cadastro": "node --experimental-strip-types --test tests/cadastro-search.test.mjs"
+    "test:cadastro": "node --experimental-strip-types --test tests/cadastro-search.test.mjs tests/equipes-role-ui.test.mjs"
   },
   "dependencies": {
     "next": "16.4.6",

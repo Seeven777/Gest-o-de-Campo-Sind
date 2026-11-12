@@ -1,0 +1,25 @@
+/* Gestão de cargos: controles acessíveis e tabela adaptada a celulares. */
+.staff-role-editor{display:flex;flex-direction:column;gap:9px;min-width:200px}
+.staff-role-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.staff-role-select{min-width:175px;min-height:46px;cursor:pointer;flex:1}
+.staff-role-save{min-height:46px;white-space:nowrap}
+.staff-role-help{display:flex;align-items:flex-start;gap:8px;max-width:410px;padding:10px 12px;border-radius:12px;border:1px solid #f2d5b0;background:#fffaf3;color:#845018;font-size:12px;line-height:1.45;margin:0}
+.staff-role-help svg{flex-shrink:0;margin-top:1px}
+.staff-role-help span{flex:1;min-width:0}
+.staff-role-help a{display:inline-flex;align-items:center;gap:4px;color:#a84e0c;font-weight:800;text-decoration:underline;white-space:nowrap}
+.staff-role-select:focus-visible,.staff-role-save:focus-visible{outline:3px solid #ed7423;outline-offset:2px}
+@media(max-width:820px){
+ .staff-tablewrap{overflow:visible!important}
+ .staff-table,.staff-table tbody{display:block;width:100%}
+ .staff-table thead{display:none}
+ .staff-table tr{display:flex;flex-direction:column;gap:8px;margin:0 0 12px;border:1px solid var(--line,#e7e8e6);border-radius:16px;padding:14px;background:#fff}
+ .staff-table td{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;padding:4px 0!important;border:0!important;text-align:right;overflow-wrap:anywhere}
+ .staff-table td::before{content:attr(data-label);font-size:12px;font-weight:800;color:#6d7b74;text-align:left;min-width:90px}
+ .staff-table td.staff-editor-cell{display:block;text-align:left;border-top:1px solid var(--line,#e7e8e6)!important;padding-top:13px!important}
+ .staff-table td.staff-editor-cell::before{display:block;margin-bottom:9px}
+ .staff-role-editor{min-width:0;width:100%}
+ .staff-role-controls{display:grid;grid-template-columns:minmax(0,1fr) auto}
+ .staff-role-select{min-width:0;width:100%;min-height:48px}
+ .staff-role-save{min-height:48px}
+ .staff-role-help{max-width:none;flex-wrap:wrap}
+}
