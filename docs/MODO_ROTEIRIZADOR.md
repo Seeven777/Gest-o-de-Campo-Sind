@@ -291,3 +291,22 @@ Consulta **somente de leitura** no Neon Production identificou 2 rotas com todas
 - Branch de Preview deve conter `DATABASE_URL` e `DATABASE_NEON_AUTH_BASE_URL` específicos do Neon QA antes do primeiro deployment.
 
 **Critérios de homologação:** login com conta Cadastro criada e aprovada no mesmo Neon QA; sem links a Gestão/Campo/RH; fila e busca; histórico vazio; confirmação manual e auditoria usando **dados fictícios**; segundo clique bloqueado; usuário Supervisor somente leitura; login Agent/RH proibido; mobile 360px e tablet paisagem; eventual 503 em bancos sem migração exibe diagnóstico sem contar falsos cadastros.
+
+
+## Atualização operacional — 12/11/2026 · Planejamento territorial e edição de rotas
+
+**Estado que prevalece sobre notas históricas acima:** Neon Production `br-small-glitter-b63jmwzk` recebeu as migrações 008 e 009; a base operacional foi esvaziada para apresentação (0 empresas, 0 rotas, 0 visitas, 0 reembolsos), preservando 5 contas Neon Auth, 6 perfis (3 admin, 1 agente, 1 cadastro, 1 RH) e solicitações/permissões de acesso. Backup anterior à limpeza: `br-summer-king-b6fsbj05`. Neon QA `br-quiet-morning-b62b1q3e` continua com dados fictícios históricos para homologação e seu backup `br-delicate-frost-b605vi7l`. A integração via ngrok foi descartada no momento; novas empresas devem ser importadas por CSV diretamente na plataforma.
+
+**Funcionalidade: evitar rotas geograficamente dispersas**
+- Criar rota em `/rotas` mostra um assistente de proximidade assim que uma empresa é selecionada.
+- Prioriza sugestões da mesma região, usa cidade, bairro e prefixo de CEP como pistas quando não houver coordenadas. Mostra distância aproximada *em linha reta* e separação entre paradas somente para empresas com coordenadas reais; jamais transformar município/CEP em estimativa de quilômetros ou tempo.
+- Exibe mapa com paradas numeradas quando há pontos geográficos; **não** desenha uma rota viária fictícia. A otimização pelas ruas permanece no detalhe da rota e exige provedor operacional.
+- Selecionar sugestões não é automático: gestor decide, pode mover paradas para cima ou baixo, excluir itens e revisar dispersão por municípios, faixas de CEP, bairros e GPS.
+- Antes de publicar, quando a seleção está dispersa ou há cobertura geográfica incompleta, a central recebe um alerta explícito para confirmar ou revisar.
+
+**Funcionalidade: editar rotas existentes**
+- Em `/rotas/[id]`, administração/supervisão podem adicionar, remover e reordenar até 49 empresas se a rota estiver em `draft` ou `published`, **sem nenhuma visita gravada e sem GPS ativo**.
+- `PUT /api/rotas/[id]` valida cargo no servidor, UUIDs, empresas existentes, duplicidade em outras rotas do mesmo dia, versão de edição (token) e transação para preservar IDs das paradas não removidas. Conflito exige recarregar antes de tentar novamente.
+- Rotas `in_progress`, `completed`, com check-in ou presença GPS ativa não podem sofrer edição de paradas. Não surpreender agente que já começou o deslocamento.
+- O Preview branch-specific usa Neon QA e Neon Auth QA; **não migrar dados de QA para produção**.
+- Rotas e resultados de marketing continuam sistemas separados; a ferramenta de campo não coleta métricas de campanhas digitais.
