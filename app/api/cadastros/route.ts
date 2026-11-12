@@ -2,6 +2,7 @@ import {isSchemaReady,schemaPendingMessage} from '@/lib/schema-readiness';
 import {NextResponse} from 'next/server';
 import {currentIdentity} from '@/lib/access';
 import {db} from '@/lib/db';
+import {normalizeCnpjSearch} from '@/lib/cadastro-search';
 
 export const dynamic='force-dynamic';
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -20,6 +21,7 @@ export async function GET(req:Request){
  if(!['pending','confirmed'].includes(view))return fail('Situação de cadastro inválida.');
  if(view==='pending'&&!canConfirm(user.role))return fail('Fila de conferência reservada à equipe de Cadastro.',403);
  const q=(params.get('q')||'').slice(0,100).trim();
+ const cnpjQuery=normalizeCnpjSearch(q);
  const rawPage=Number(params.get('page')||1);
  const page=Number.isInteger(rawPage)?Math.max(1,Math.min(10000,rawPage)):1;
  const limit=30,offset=(page-1)*limit;
@@ -33,12 +35,12 @@ export async function GET(req:Request){
    where e.field_status='validated'
      and ($1='confirmed' and rr.state='confirmed' and rr.confirmed_at is not null and rr.official_verified_at is not null
       or $1='pending' and (rr.official_verified_at is null))
-     and ($2='' or e.cnpj like '%'||$2||'%'
+     and ($2='' or upper(btrim(e.cnpj)) like '%'||$5||'%'
       or unaccent(e.legal_name) ilike '%'||unaccent($2)||'%'
       or unaccent(coalesce(e.trade_name,'')) ilike '%'||unaccent($2)||'%'
       or unaccent(coalesce(e.city,'')) ilike '%'||unaccent($2)||'%')
    order by case when $1='confirmed' then rr.confirmed_at else e.updated_at end desc,e.id
-   limit $3 offset $4`,[view,q,limit+1,offset]),
+   limit $3 offset $4`,[view,q,limit+1,offset,cnpjQuery]),
   db().query(`select
    count(*) filter (where rr.state='confirmed' and rr.confirmed_at is not null and rr.official_verified_at is not null)::int confirmed,
    count(*) filter (where rr.official_verified_at is null)::int pending
