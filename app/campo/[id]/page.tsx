@@ -462,10 +462,9 @@ function CampoGuiadoSession({id}:{id:string}){
  async function finish(){
   if(!current?.visit_id||shownQuestions.some(q=>!answers[q.key]))return;
   const stopId=current.id,visitId=current.visit_id;
-  const isLast=ordered.every(stop=>stop.id===stopId||!!stop.checkout_at);
   setBusy(true);setError('');setNotice('');
   try{
-   await send('/api/campo/visita',{action:'finish',stop_id:stopId,visit_id:visitId,...answers,regularity_note:answers.regularity_note||'not_evaluated',notes});
+   const result=await send<{ok?:boolean;route_completed?:boolean;already_registered?:boolean}>('/api/campo/visita',{action:'finish',stop_id:stopId,visit_id:visitId,...answers,regularity_note:answers.regularity_note||'not_evaluated',notes});
    // Resposta confirmada: avança diretamente, sem esperar outra consulta de toda a rota.
    setData(previous=>previous?{...previous,stops:previous.stops.map(stop=>
     stop.id===stopId?{...stop,checkout_at:new Date().toISOString(),review_status:'pending'}:stop
@@ -473,14 +472,10 @@ function CampoGuiadoSession({id}:{id:string}){
    setQuestionIndex(0);setAnswers(blankAnswers());setNotes('');
    setSentName(current.trade_name||current.legal_name);setSentScreen(true);
    setFollow(true);setRecenterToken(n=>n+1);
-   if(isLast){
-    setNotice('Todas as visitas foram enviadas à central.');
-    try{
-     await send('/api/campo/localizacao',{action:'stop',route_id:id});
-     setStarted(false);positionRef.current=null;setPosition(null);setNotice('Jornada concluída e GPS encerrado automaticamente.');
-    }catch{
-     setError('Visitas salvas. Não foi possível confirmar o encerramento do GPS; a central desativa o sinal após expirar.');
-    }
+   if(result.route_completed===true){
+    // A própria API encerra o GPS na mesma transação que conclui a última visita.
+    setStarted(false);positionRef.current=null;setPosition(null);
+    setNotice('Jornada concluída. A central confirmou o fim da rota e encerrou o GPS.');
    }else {setNotice('Visita enviada. A central fará a análise; você já pode seguir para a próxima empresa.');setLeg(null);setLegError('');setRerouteToken(n=>n+1);}
   }catch(e){setError(e instanceof Error?e.message:'Falha ao enviar visita. Suas respostas continuam na tela.')}
   finally{setBusy(false)}
