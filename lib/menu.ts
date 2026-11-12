@@ -21,7 +21,7 @@ export const rhMenu=[
  {label:'Meu perfil',href:'/configuracoes',icon:UserRound,group:'sistema'},
 ];
 export const cadastroMenu=[
- {label:'Confirmar cadastros',href:'/cadastros',icon:ClipboardCheck,group:'captacao'},
+ {label:'Área de Cadastro',href:'/cadastros',icon:ClipboardCheck,group:'captacao'},
  {label:'Meu perfil',href:'/configuracoes',icon:UserRound,group:'sistema'},
 ];
 export const agentMenu=[
