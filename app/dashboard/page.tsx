@@ -1,17 +1,77 @@
 'use client';
 import {useEffect,useState} from 'react';
 import Link from 'next/link';
-import {ArrowRight,Building2,CalendarCheck2,CheckCheck,FileUp,Map,MapPin,Route,TrendingUp,Wallet} from 'lucide-react';
+import {ArrowRight,Building2,CheckCheck,Map,MapPin,Route,ShieldCheck,Users,Wallet} from 'lucide-react';
 import {Portal} from '@/components/portal';
-type Totals={establishments:number;routes:number;visits:number;validated:number;registrations:number;approved_expenses:number};
+import './overview.css';
+
+type Totals={establishments:number;routes:number;visits:number;validated:number;registrations:number|null;approved_expenses:number};
+type Check={label:string;ready:boolean};
 const fmt=(n:number)=>Number(n||0).toLocaleString('pt-BR');
-export default function Dashboard(){const [data,setData]=useState<Totals|null>(null),[error,setError]=useState(''),[pendingMigrations,setPendingMigrations]=useState<string[]|null>(null);
- useEffect(()=>{fetch('/api/overview',{cache:'no-store'}).then(async r=>{const j=await r.json();if(!r.ok)throw Error(j.error||'Falha de conexão');setData(j.totals)}).catch(e=>setError(e.message))},[]);
- useEffect(()=>{let active=true;fetch('/api/admin/prontidao',{cache:'no-store'}).then(async r=>{if(r.status===401||r.status===403)return null;return r.json()}).then(d=>{if(active&&d){const checks=(d.checks||[]) as {label:string;ready:boolean}[];setPendingMigrations(checks.filter(c=>!c.ready).map(c=>c.label));}}).catch(()=>{});return()=>{active=false}},[]);
- const metrics=[{label:'Empresas na base',value:data?.establishments,sub:'Estabelecimentos importados',icon:Building2},{label:'Validadas em campo',value:data?.validated,sub:'Após aprovação da visita',icon:CheckCheck},{label:'Cadastros confirmados',value:data?.registrations,sub:'Atualização administrativa',icon:TrendingUp},{label:'Visitas registradas',value:data?.visits,sub:'Histórico de campo',icon:MapPin}];
- return <Portal title="Bom trabalho começa no território." subtitle="Acompanhe o que acontece fora do escritório, em um só lugar."><section className="banner"><div><span className="tiny-label">PRESENÇA QUE TRANSFORMA</span><h2>Mais perto de cada trabalhador do setor pet.</h2><p>Organize as próximas visitas, acompanhe validações e fortaleça a presença do SindPetshop-SP em cada cidade.</p></div><div className="banner-art"><Map size={172} strokeWidth={.75}/></div></section>
- {pendingMigrations&&pendingMigrations.length>0&&<div className="notice" role="alert"><strong>Publicação pendente de homologação do banco.</strong> Faltam: {pendingMigrations.join(' e ')}. A administração deve conferir o Neon Preview antes de publicar esta versão na produção.</div>}
- {error&&<div className="notice" role="alert">Não foi possível carregar os dados: {error}. Confirme a configuração do Neon e se a migração SQL foi aplicada.</div>}
- <div className="cards">{metrics.map((m,i)=><div className="card" key={m.label}><div className="metric-top"><span className="label">{m.label}</span><span className={`metric-icon ${i===2?'orange':''}`}><m.icon size={19}/></span></div><strong>{data?fmt(m.value||0):'—'}</strong><em>{m.sub}</em></div>)}</div>
- <div className="two-cols"><section className="panel"><div className="panel-title"><div><small>INTELIGÊNCIA TERRITORIAL</small><h2>Onde estamos chegando</h2></div><Link href="/mapa" className="link-inline">Ver território <ArrowRight size={15}/></Link></div><div className="map-placeholder"><Map size={36} strokeWidth={1.4}/><strong>Mapa de cobertura municipal</strong><small>Consulte os 645 municípios, filtrando empresas captadas, validadas e cadastradas oficialmente.</small></div><div style={{display:'flex',justifyContent:'space-between',marginTop:18,fontSize:12,color:'var(--muted)'}}><span>Rotas registradas</span><strong style={{color:'var(--ink)'}}>{data?fmt(data.routes):'—'}</strong></div></section>
- <section className="panel"><div className="panel-title"><div><small>PRÓXIMOS PASSOS</small><h2>O que você precisa fazer?</h2></div></div><div className="quick-actions"><Link href="/importacoes" className="quick-link"><span><FileUp size={18}/> Adicionar empresas à base</span><ArrowRight size={16}/></Link><Link href="/rotas" className="quick-link"><span><CalendarCheck2 size={18}/> Planejar uma rota</span><ArrowRight size={16}/></Link><Link href="/empresas" className="quick-link"><span><Building2 size={18}/> Consultar estabelecimentos</span><ArrowRight size={16}/></Link><Link href="/validacoes" className="quick-link"><span><Route size={18}/> Conferir visitas pendentes</span><ArrowRight size={16}/></Link></div><div style={{background:'#f5f8f3',borderRadius:12,marginTop:17,padding:15,fontSize:11,color:'#718476'}}>Despesas aprovadas ou informadas como pagas: <strong style={{color:'#244d37'}}>{data?Number(data.approved_expenses||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'}):'—'}</strong></div></section></div></Portal>}
+const currency=(n:number)=>Number(n||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
+
+export default function Dashboard(){
+ const [data,setData]=useState<Totals|null>(null);
+ const [error,setError]=useState(''),[registrationReady,setRegistrationReady]=useState(false);
+ const [checks,setChecks]=useState<Check[]|null>(null),[admin,setAdmin]=useState(false);
+ useEffect(()=>{
+  let active=true;
+  fetch('/api/overview',{cache:'no-store'})
+   .then(async r=>{const d=await r.json();if(!r.ok)throw Error(d.error||'Falha ao consultar indicadores.');return d})
+   .then(d=>{if(active){setData(d.totals);setRegistrationReady(Boolean(d.registration_ready))}})
+   .catch(e=>{if(active)setError(e instanceof Error?e.message:'Dados indisponíveis.')});
+  fetch('/api/me',{cache:'no-store'}).then(async r=>r.ok?r.json():null)
+   .then(d=>{if(!active||d?.user?.role!=='admin')return;setAdmin(true);
+    return fetch('/api/admin/prontidao',{cache:'no-store'}).then(async r=>r.ok?r.json():null)
+     .then(p=>{if(active&&p?.checks)setChecks(p.checks)});
+   }).catch(()=>{});
+  return()=>{active=false};
+ },[]);
+ const cards=[
+  {title:'Empresas na base',value:data?.establishments,icon:Building2,sub:'Base operacional'},
+  {title:'Visitas realizadas',value:data?.visits,icon:MapPin,sub:'Histórico de campo'},
+  {title:'Validadas em campo',value:data?.validated,icon:CheckCheck,sub:'Conferidas pela supervisão'},
+  {title:'Cadastros confirmados',value:data?.registrations,icon:ShieldCheck,sub:registrationReady?'Conferidos na base sindical':'Aguardando configuração do cadastro'},
+ ];
+ const pending=checks?.filter(c=>!c.ready)||[];
+ return <Portal title="Visão geral" subtitle="Empresas, visitas e resultados em um só lugar.">
+  <section className="overview-toolbar">
+   <div><span className="overview-eyebrow">CENTRAL OPERACIONAL</span><h2>O que precisa de atenção?</h2><p>Comece pelas rotas, acompanhe as visitas e confira o resultado da captação.</p></div>
+   <Link className="overview-primary" href="/rotas"><Route size={19}/> Abrir rotas <ArrowRight size={17}/></Link>
+  </section>
+  {admin&&pending.length>0&&<div className="overview-setup" role="status">
+   <span><ShieldCheck size={18}/><strong>Configuração de Cadastro e RH pendente</strong></span>
+   <p>As métricas de campo continuam disponíveis. A confirmação sindical e os reembolsos exigem homologar as migrações {pending.map(c=>c.label.includes('008')?'008':'009').join(' e ')} no Neon.</p>
+   <Link href="/configuracoes">Consultar configurações <ArrowRight size={14}/></Link>
+  </div>}
+  {error&&<p className="error" role="alert">Não foi possível carregar os indicadores operacionais: {error}</p>}
+  <div className="overview-metrics">
+   {cards.map(({title,value,icon:Icon,sub})=><div className="overview-metric" key={title}>
+    <div><span>{title}</span><Icon size={19} aria-hidden="true"/></div>
+    <strong>{data?(value===null?'—':fmt(value??0)):'—'}</strong>
+    <small>{sub}</small>
+   </div>)}
+  </div>
+  <div className="overview-panels">
+   <section className="panel overview-flow">
+    <div className="panel-title"><div><small>FLUXO DE CAPTAÇÃO</small><h2>Do campo ao cadastro</h2></div></div>
+    <div className="overview-steps">
+     <Link href="/rotas"><span className="overview-step-number">1</span><span><strong>Campo</strong><small>Planejar e executar visitas</small></span><ArrowRight size={17}/></Link>
+     <Link href="/validacoes"><span className="overview-step-number">2</span><span><strong>Validar</strong><small>Conferir informações recebidas</small></span><ArrowRight size={17}/></Link>
+     <Link href="/cadastros"><span className="overview-step-number">3</span><span><strong>Cadastro</strong><small>Confirmar na base oficial</small></span><ArrowRight size={17}/></Link>
+    </div>
+    <Link className="overview-inline" href="/empresas"><Building2 size={17}/> Consultar empresas <ArrowRight size={15}/></Link>
+   </section>
+   <section className="panel overview-territory">
+    <div className="panel-title"><div><small>INTELIGÊNCIA TERRITORIAL</small><h2>Cobertura dos 645 municípios</h2></div><Map size={24}/></div>
+    <p>Visualize empresas por cidade, situação de campo e cadastros confirmados quando a etapa estiver habilitada.</p>
+    <div className="overview-territory-fig"><span>Rotas registradas</span><strong>{data?fmt(data.routes):'—'}</strong></div>
+    <Link className="overview-primary" href="/mapa">Abrir mapa de São Paulo <ArrowRight size={17}/></Link>
+   </section>
+  </div>
+  <section className="overview-lower">
+   <div><Wallet size={18}/><span>Despesas aprovadas ou informadas como pagas</span><strong>{data?currency(data.approved_expenses):'—'}</strong></div>
+   {admin&&<Link href="/equipes"><Users size={17}/> Administrar equipe <ArrowRight size={15}/></Link>}
+  </section>
+ </Portal>;
+}
