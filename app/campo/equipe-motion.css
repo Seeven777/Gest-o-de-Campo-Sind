@@ -162,3 +162,10 @@
  .crew-home .crew-home-current,.crew-home .crew-home-footer{
   animation:none!important;transition:none!important;scroll-behavior:auto!important}
 }
+
+/* Na jornada, o destino atual prevalece. O histórico permanece nos relatórios. */
+.crew-motion-ui .field-pin-done,.crew-motion-ui .field-pin-next{
+ opacity:0!important;pointer-events:none!important;visibility:hidden!important
+}
+.crew-motion-ui .field-pin-active{box-shadow:0 0 0 5px #f47a2945,0 5px 16px #12382155}
+.crew-motion-ui .crew-map-wash{background:#f1f5f017}
