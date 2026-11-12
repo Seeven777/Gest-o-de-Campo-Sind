@@ -4,8 +4,9 @@ import Link from 'next/link';
 import {useParams} from 'next/navigation';
 import {Portal} from '@/components/portal';
 import {FieldNavigationMap,type ActiveLeg,type CurrentPosition,type FieldPlan} from '@/components/field-navigation-map';
-import {ArrowLeft,ArrowRight,Camera,Check,CheckCircle2,ChevronRight,ClipboardCheck,Flag,LocateFixed,MapPin,MapPinned,Navigation,Play,Route as RouteIcon,ShieldCheck,X,ZoomIn,ZoomOut,RefreshCw,Maximize2,RotateCcw,CornerUpLeft,CornerUpRight,MoveUp,MoreHorizontal} from 'lucide-react';
+import {ArrowLeft,ArrowRight,Camera,CheckCircle2,LocateFixed,MapPin,Navigation,Route as RouteIcon,X,RotateCcw,CornerUpLeft,CornerUpRight,MoveUp} from 'lucide-react';
 import '../jornada.css';
+import '../equipe.css';
 
 type Stop={
  id:string;position_order:number;legal_name:string;trade_name:string|null;street:string|null;street_number:string|null;
@@ -45,6 +46,7 @@ const questions:Question[]=[
   {value:'not_evaluated',label:'Não consegui avaliar'}
  ]}
 ];
+const shownQuestions=questions.slice(0,-1);
 const wallTime=()=>Date.now();
 const blankAnswers=():Answers=>({address_match:'',operating_status:'',pet_activity_match:'',signage_status:'',regularity_note:''});
 async function apiResponse<T extends {error?:string}>(response:Response):Promise<T>{
@@ -185,12 +187,12 @@ function CampoGuiadoSession({id}:{id:string}){
  const [data,setData]=useState<RouteData|null>(null),[plan,setPlan]=useState<FieldPlan|null>(null);
  const [started,setStarted]=useState(false),[position,setPosition]=useState<CurrentPosition|null>(null),[follow,setFollow]=useState(true),[gpsRestart,setGpsRestart]=useState(0),[gpsIssue,setGpsIssue]=useState(false),[signalTick,setSignalTick]=useState(0),[lastGpsAt,setLastGpsAt]=useState(0);
  const [busy,setBusy]=useState(false),[photoBusy,setPhotoBusy]=useState(false),[error,setError]=useState(''),[notice,setNotice]=useState(''),[progress,setProgress]=useState(''),[retryCount,setRetryCount]=useState(0);
- const [showStops,setShowStops]=useState(false),[arrivalDialog,setArrivalDialog]=useState(false),[recenterToken,setRecenterToken]=useState(0);
+ const [arrivalDialog,setArrivalDialog]=useState(false),[recenterToken,setRecenterToken]=useState(0),[sentScreen,setSentScreen]=useState(false),[sentName,setSentName]=useState('');
+ const [reportOpen,setReportOpen]=useState(false),[breakOpen,setBreakOpen]=useState(false),[breakReason,setBreakReason]=useState('meal'),[breakNotes,setBreakNotes]=useState(''),[breakBusy,setBreakBusy]=useState(false),[breakError,setBreakError]=useState(''),[breakRequest,setBreakRequest]=useState<{status:string;reason_label:string;note:string|null;decision_note:string|null}|null>(null);
  const [questionIndex,setQuestionIndex]=useState(0),[answers,setAnswers]=useState<Answers>(blankAnswers),[notes,setNotes]=useState('');
  const [arrivalPhase,setArrivalPhase]=useState<ArrivalPhase>(null);
  const [leg,setLeg]=useState<ActiveLeg|null>(null),[legBusy,setLegBusy]=useState(false),[legError,setLegError]=useState('');
- const [rerouteToken,setRerouteToken]=useState(0),[fitToken,setFitToken]=useState(0),[zoomCommand,setZoomCommand]=useState<{id:number;delta:1|-1}|undefined>(undefined);
- const [showGuide,setShowGuide]=useState(true),[mapToolsOpen,setMapToolsOpen]=useState(false);
+ const [rerouteToken,setRerouteToken]=useState(0);
  const sentAt=useRef(0),positionRef=useRef<CurrentPosition|null>(null),positionUpdatedAt=useRef(0);
  const cacheKey='sind-jornada-plan:'+id;
  async function reload(){
@@ -229,14 +231,12 @@ function CampoGuiadoSession({id}:{id:string}){
  const stage=!data?'loading':!current?'done':current.checkin_at?(current.has_photo?'questions':'photo'):!plan?'prepare':!started?'ready':'travel';
  const target=plan?.points.find(p=>p.id===current?.id);
  const distance=straightDistance(position,target);
- const questionnaireEnd=questionIndex===questions.length;
- const nextQuestion=questions[questionIndex];
+ const nextQuestion=shownQuestions[Math.min(questionIndex,shownQuestions.length-1)];
+ const finalQuestion=questionIndex>=shownQuestions.length-1;
  const gpsStale=started&&!!position&&signalTick>0&&signalTick-lastGpsAt>90000;
  const gpsNeedsRecovery=started&&(gpsIssue||gpsStale);
- const gpsActive=started&&!!position&&!gpsNeedsRecovery;
  const gpsLowAccuracy=started&&(!position||position.accuracy>500||gpsNeedsRecovery);
  const gpsAccuracyText=position&&Number.isFinite(position.accuracy)?'Precisão estimada: ±'+Math.round(position.accuracy).toLocaleString('pt-BR')+' m':'';
- const gpsLabel=!started?'GPS parado':gpsNeedsRecovery?'GPS instável':!position?'Buscando GPS':position.accuracy>500?'GPS aproximado':'GPS ativo';
  const remaining=ordered.length-complete;
  const currentStopId=current?.id;
  const havePosition=!!position;
@@ -283,8 +283,8 @@ function CampoGuiadoSession({id}:{id:string}){
  const turnIcon=nextTurn?.type===0||nextTurn?.type===2||nextTurn?.type===4||nextTurn?.type===12?
   <CornerUpLeft size={26}/>:nextTurn?.type===1||nextTurn?.type===3||nextTurn?.type===5||nextTurn?.type===13?
   <CornerUpRight size={26}/>:nextTurn?.type===9?<RotateCcw size={26}/>:<MoveUp size={26}/>;
- async function calculate(){
-  if(!data)return;
+ async function calculate():Promise<boolean>{
+  if(!data)return false;
   setBusy(true);setError('');setNotice('');
   try{
    let start:CurrentPosition|undefined;
@@ -304,7 +304,8 @@ function CampoGuiadoSession({id}:{id:string}){
    setPlan(saved);
    try{sessionStorage.setItem(cacheKey,JSON.stringify({expires:Date.now()+8*3600000,stopIds:data.stops.map(s=>s.id).sort().join(','),plan:saved}))}catch{}
    if(saved.route_warning)setNotice(saved.route_warning);
-  }catch(e){setError(e instanceof Error?e.message:'Falha no cálculo.')}
+   return true;
+  }catch(e){setError(e instanceof Error?e.message:'Falha no cálculo.');return false;}
   finally{setBusy(false);setProgress('')}
  }
  async function begin(forceFresh=false){
@@ -383,7 +384,7 @@ function CampoGuiadoSession({id}:{id:string}){
  async function arrive(){
   if(!current||busy)return;
   const stopId=current.id;
-  setArrivalDialog(false);setMapToolsOpen(false);setBusy(true);setArrivalPhase('locating');setError('');setNotice('');
+  setArrivalDialog(false);setBusy(true);setArrivalPhase('locating');setError('');setNotice('');
   try{
    // Acompanhamento GPS já ativo: evite aguardar outra aquisição de até 18 segundos
    // quando existe uma medição recente e suficientemente precisa.
@@ -421,18 +422,19 @@ function CampoGuiadoSession({id}:{id:string}){
   finally{setPhotoBusy(false)}
  }
  async function finish(){
-  if(!current?.visit_id||questions.some(q=>!answers[q.key]))return;
+  if(!current?.visit_id||shownQuestions.some(q=>!answers[q.key]))return;
   const stopId=current.id,visitId=current.visit_id;
   const isLast=ordered.every(stop=>stop.id===stopId||!!stop.checkout_at);
   setBusy(true);setError('');setNotice('');
   try{
-   await send('/api/campo/visita',{action:'finish',stop_id:stopId,visit_id:visitId,...answers,notes});
+   await send('/api/campo/visita',{action:'finish',stop_id:stopId,visit_id:visitId,...answers,regularity_note:answers.regularity_note||'not_evaluated',notes});
    // Resposta confirmada: avança diretamente, sem esperar outra consulta de toda a rota.
    setData(previous=>previous?{...previous,stops:previous.stops.map(stop=>
     stop.id===stopId?{...stop,checkout_at:new Date().toISOString(),review_status:'pending'}:stop
    )}:previous);
    setQuestionIndex(0);setAnswers(blankAnswers());setNotes('');
-   setFollow(true);setRecenterToken(n=>n+1);setShowStops(false);setShowGuide(true);setMapToolsOpen(false);
+   setSentName(current.trade_name||current.legal_name);setSentScreen(true);
+   setFollow(true);setRecenterToken(n=>n+1);
    if(isLast){
     setNotice('Todas as visitas foram enviadas à central.');
     try{
@@ -441,210 +443,221 @@ function CampoGuiadoSession({id}:{id:string}){
     }catch{
      setError('Visitas salvas. Não foi possível confirmar o encerramento do GPS; a central desativa o sinal após expirar.');
     }
-   }else {setNotice('Visita enviada. Próxima empresa no mapa.');setLeg(null);setLegError('');setRerouteToken(n=>n+1);}
+   }else {setNotice('Visita enviada. A central fará a análise; você já pode seguir para a próxima empresa.');setLeg(null);setLegError('');setRerouteToken(n=>n+1);}
   }catch(e){setError(e instanceof Error?e.message:'Falha ao enviar visita. Suas respostas continuam na tela.')}
   finally{setBusy(false)}
  }
  const answer=(key:AnswerKey,value:string)=>setAnswers(old=>({...old,[key]:value}));
- return <Portal title="Minha jornada" subtitle="Navegação e confirmação de visitas" immersive>
- <div className={'navigator-root'+((stage==='photo'||stage==='questions')?' navigator-form-mode':'')}>
-   <div className="navigator-mobile-top">
-    <Link href="/agente" className="navigator-mobile-back" aria-label="Voltar para Meu dia"><ArrowLeft size={22}/></Link>
-    <div className="navigator-mobile-top-copy"><strong>Minha jornada</strong>
-     <span>{current?'Parada '+activeIndex+' de '+ordered.length:stage==='done'?'Concluída':'Organizar percurso'}</span></div>
-    <span className={'navigator-mobile-gps'+(gpsActive?' active':'')}><span/>{gpsLabel}</span>
+ async function startJourney(){
+  if(busy)return;
+  if(!plan){const planned=await calculate();if(!planned)return;}
+  await begin();
+ }
+ async function openBreak(){
+  setBreakOpen(true);setBreakError('');setBreakRequest(null);
+  try{
+   const r=await fetch('/api/campo/parada?route_id='+encodeURIComponent(id),{cache:'no-store'});
+   const d=await apiResponse<{error?:string;items?:{status:string;reason_label:string;note:string|null;decision_note:string|null}[]}>(r);
+   if(!r.ok)throw Error(d.error||'Não foi possível consultar paradas.');
+   if(d.items?.length){const last=d.items[0];if(['pending','approved'].includes(last.status))setBreakRequest(last);}
+  }catch(e){setBreakError(e instanceof Error?e.message:'Não foi possível consultar paradas.')}
+ }
+ async function requestBreak(){
+  if(breakBusy||!started)return;
+  setBreakBusy(true);setBreakError('');
+  try{
+   const r=await send<{error?:string;status?:string;message?:string}>('/api/campo/parada',
+    {route_id:id,reason:breakReason,note:breakNotes});
+   setBreakRequest({status:r.status||'pending',
+    reason_label:breakReason==='meal'?'Alimentação':breakReason==='fuel'?'Abastecimento':breakReason==='restroom'?'Necessidade pessoal':'Outra necessidade',
+    note:breakNotes,decision_note:null});
+   setBreakNotes('');
+  }catch(e){setBreakError(e instanceof Error?e.message:'Falha ao registrar o pedido de parada.')}
+  finally{setBreakBusy(false)}
+ }
+ return <Portal title="Minha jornada" subtitle="Percurso de trabalho" immersive>
+  <main className={'crew-root crew-journey'+((stage==='photo'||stage==='questions')?' crew-form-screen':'')}
+    aria-label="Jornada do agente em campo">
+   <div className="crew-route-map">
+    {plan?<FieldNavigationMap plan={plan} targetId={current?.id} current={position}
+      follow={follow} immersive completedIds={ordered.filter(s=>!!s.checkout_at).map(s=>s.id)}
+      recenterToken={recenterToken} activeLeg={leg} onManualPan={()=>setFollow(false)}/>:
+      <div className="crew-map-placeholder" aria-hidden="true"><RouteIcon size={68}/></div>}
    </div>
-  <div className="navigator-map-frame">
-   {plan?<FieldNavigationMap plan={plan} targetId={current?.id} current={position} follow={follow}
-    immersive completedIds={ordered.filter(s=>!!s.checkout_at).map(s=>s.id)} recenterToken={recenterToken}
-    fitToken={fitToken} zoomCommand={zoomCommand} activeLeg={leg}
-    onManualPan={()=>setFollow(false)}/>:
-    <div className="navigator-empty-map" aria-hidden="true"><MapPinned size={86}/></div>}
-  </div>
-  {(stage==='photo'||stage==='questions')&&<div className="navigator-map-shade" aria-hidden="true"/>}
-  {arrivalPhase&&<div className="navigator-action-progress" role="status" aria-live="polite" aria-label="Confirmando a chegada">
-   <div className="navigator-action-card">
-    <div className="navigator-action-pulse">{arrivalPhase==='locating'?<LocateFixed size={35}/>:<CheckCircle2 size={35}/>}</div>
-    <strong>{arrivalPhase==='locating'?'Conferindo sua localização...':'Registrando sua chegada...'}</strong>
-    <p>{arrivalPhase==='locating'?'Verificando a posição do celular.':'Enviando a confirmação à central.'}</p>
-    <div className="navigator-action-steps" aria-hidden="true">
-     <span className="active">Localização</span><span className={arrivalPhase==='saving'?'active':''}>Registro</span><span>Foto</span>
-    </div>
+   <div className="crew-map-wash" aria-hidden="true"/>
+   {stage!=='travel'&&<Link className="crew-session-button" href="/agente" aria-label="Voltar para minhas rotas" title="Minhas rotas"><ArrowLeft size={20}/></Link>}
+   <div className="crew-top-badge">
+    {stage==='photo'?'VOCÊ CHEGOU AO LOCAL':stage==='questions'?'PERGUNTA SOBRE A EMPRESA':
+      sentScreen?'VISITA REGISTRADA':complete+' '+(complete===1?'PARADA REALIZADA':'PARADAS REALIZADAS')}
    </div>
-  </div>}
-  <header className="navigator-top-panel">
-   <div className="navigator-top-line"><span className="navigator-kicker"><RouteIcon size={16}/> ROTA EM CAMPO</span>
-    <span className={'navigator-live-tag'+(gpsActive?' on':'')}><span/>{gpsLabel}</span></div>
-   <strong className="navigator-top-title">{current?.trade_name||current?.legal_name||data?.route.campaign_name||'Sua jornada'}</strong>
-   <span className="navigator-address">{current?[current.street,current.street_number,current.city].filter(Boolean).join(', '):stage==='done'?'Todas as visitas registradas':'Preparando o percurso'}</span>
-   <div className="navigator-progress-line">
-    <span><Flag size={16}/> {complete} de {ordered.length||'–'} concluídas</span>
-    {current&&<span>Parada {activeIndex} de {ordered.length}</span>}
-   </div>
-   <div className="navigator-progress-bar"><span style={{width:ordered.length?complete/ordered.length*100+'%':'0%'}}/></div>
-   {started&&current&&stage==='travel'&&<div className="navigator-directions-summary" role="status">
-    {legBusy?<><span className="navigator-mini-spinner"/><span>Calculando caminho até a empresa...</span></>:
-    leg?<><RouteIcon size={17}/><strong>{fmtDistance(leg.distance_m)}</strong><span>·</span><strong>{Math.max(1,Math.round(leg.duration_s/60))} min</strong><small>estimados, sem trânsito</small></>:
-    <><MapPin size={17}/><span>GPS ativo · orientação viária indisponível</span></>}
+   {stage==='travel'&&!sentScreen&&<div className="crew-instructions" aria-live="polite">
+    <span className="crew-turn-arrow">{turnIcon}</span>
+    <div><strong>{legBusy?'CALCULANDO CAMINHO...':navigationStatus?.offRoute?'CONFIRA SEU TRAJETO':nextTurn?.instruction||'SIGA ATÉ A EMPRESA'}</strong>
+     <small>{navigationStatus?.offRoute?'Pare em local seguro para conferir o caminho.':
+      navigationStatus?.distanceToTurn!=null?'Em '+fmtDistance(navigationStatus.distanceToTurn)+', siga a orientação.':
+      [current?.street,current?.street_number,current?.city].filter(Boolean).join(', ')||'Acompanhe o mapa até a empresa.'}</small></div>
    </div>}
-  </header>
-  {started&&current&&leg&&navigationStatus&&showGuide&&(stage==='travel')&&<div className="navigator-turn-banner" role="status" aria-live="polite">
-   <span className="navigator-turn-icon">{turnIcon}</span>
-   <div><strong>{navigationStatus.offRoute?'Fora do trajeto sugerido':nextTurn?.instruction||'Siga até o destino'}</strong>
-   <small>{navigationStatus.offRoute?'Use Recalcular para traçar um novo caminho.':navigationStatus.distanceToTurn!==null?'Próxima orientação a '+fmtDistance(navigationStatus.distanceToTurn):'Acompanhe o GPS no mapa'}</small></div>
-   <button type="button" aria-label="Ocultar orientação" title="Ocultar orientação" onClick={()=>setShowGuide(false)}><X size={18}/></button>
-  </div>}
-  {plan&&(stage==='ready'||stage==='travel')&&<nav className="navigator-mobile-map-actions" aria-label="Controles rápidos do mapa">
-    <button type="button" className={follow?'following':''} disabled={!position}
-     title="Centralizar no GPS" aria-label="Centralizar no GPS"
-     onClick={()=>{setFollow(true);setRecenterToken(n=>n+1)}}><LocateFixed size={24}/></button>
-    <button type="button" aria-label="Mais ferramentas do mapa" aria-expanded={mapToolsOpen} title="Mais opções"
-     onClick={()=>setMapToolsOpen(open=>!open)}><MoreHorizontal size={26}/></button>
-   </nav>}
-   {plan&&(stage==='ready'||stage==='travel')&&mapToolsOpen&&<>
-    <button type="button" className="navigator-mobile-tools-scrim" aria-label="Fechar ferramentas" onClick={()=>setMapToolsOpen(false)}/>
-    <section className="navigator-mobile-tools" role="dialog" aria-modal="true" aria-labelledby="navigator-tools-title">
-     <div className="navigator-mobile-tools-heading"><strong id="navigator-tools-title">Opções do mapa</strong>
-      <button type="button" aria-label="Fechar opções" onClick={()=>setMapToolsOpen(false)}><X size={22}/></button></div>
-     <div className="navigator-mobile-tools-grid">
-      <button type="button" onClick={()=>{setFollow(false);setFitToken(n=>n+1);setMapToolsOpen(false)}}><Maximize2 size={21}/> Ver todo o percurso</button>
-      <button type="button" onClick={()=>{setShowStops(true);setMapToolsOpen(false)}}><RouteIcon size={21}/> Lista de empresas</button>
-      <button type="button" onClick={()=>setZoomCommand(x=>({id:(x?.id||0)+1,delta:1}))}><ZoomIn size={21}/> Aproximar mapa</button>
-      <button type="button" onClick={()=>setZoomCommand(x=>({id:(x?.id||0)+1,delta:-1}))}><ZoomOut size={21}/> Afastar mapa</button>
-      {started&&current&&target&&<button type="button" disabled={legBusy}
-       onClick={()=>{setShowGuide(true);setRerouteToken(n=>n+1);setMapToolsOpen(false)}}><RefreshCw size={21}/> Recalcular trajeto</button>}
-      {!showGuide&&leg&&<button type="button" onClick={()=>{setShowGuide(true);setMapToolsOpen(false)}}><Navigation size={21}/> Mostrar orientações</button>}
-      
-     </div>
+   {(stage==='prepare'||stage==='ready'||stage==='travel'||stage==='done'||stage==='loading'||sentScreen)&&
+    <div className="crew-main-layer">
+     {stage==='loading'&&!sentScreen&&<div className="crew-center-message">
+      <strong>{error?'NÃO FOI POSSÍVEL ABRIR SUA ROTA':'CARREGANDO SEU PERCURSO...'}</strong>
+      <p>{error||'Consultando as empresas e endereços atribuídos.'}</p>
+      {error&&<button className="crew-subtle" onClick={()=>setRetryCount(v=>v+1)}>Tentar novamente</button>}
+     </div>}
+     {sentScreen&&<div className="crew-center-message" role="status">
+      <CheckCircle2 size={32}/><strong>INFORMAÇÕES ENVIADAS PARA A CENTRAL.</strong>
+      <p>{sentName} registrada. Você pode seguir; a análise será realizada pela supervisão.</p>
+     </div>}
+     {!sentScreen&&stage==='done'&&<div className="crew-center-message" role="status">
+      <CheckCircle2 size={35}/><strong>TODAS AS VISITAS FORAM ENVIADAS.</strong>
+      <p>As respostas seguem para conferência. Aguarde novas rotas da central.</p>
+     </div>}
+     {!sentScreen&&(stage==='prepare'||stage==='ready')&&<div className="crew-center-message crew-start-card">
+      <RouteIcon size={32}/><strong>{remaining} {remaining===1?'EMPRESA DISPONÍVEL':'EMPRESAS NO PERCURSO'}</strong>
+      <p>{data?.route.campaign_name||'Rota atribuída'} · Siga as orientações do mapa quando iniciar.</p><small className="crew-gps-consent">Ao iniciar, sua localização será compartilhada com a central durante a rota e encerrada ao concluir ou sair.</small>
+     </div>}
+     {stage==='travel'&&!sentScreen&&<div className="crew-travel-footer">
+      <span className="crew-distance" aria-label="Distância até a próxima parada">
+       {leg?fmtDistance(leg.distance_m):distance!=null?fmtDistance(distance):'—'}
+      </span>
+      <div className="crew-next-company" aria-live="polite">
+       <span>PRÓXIMA PARADA · {activeIndex}/{ordered.length}</span>
+       <strong>{current?.trade_name||current?.legal_name||'Empresa'}</strong>
+      </div>
+      {gpsNeedsRecovery||gpsLowAccuracy?<button type="button" className="crew-arrived crew-recover"
+        disabled={busy} onClick={()=>void (gpsNeedsRecovery?begin(true):improveGps())}>
+        <LocateFixed size={21}/>{busy?'LOCALIZANDO...':'AJUSTAR GPS'}
+       </button>:<button type="button" className="crew-arrived" disabled={busy}
+        onClick={()=>setArrivalDialog(true)}><MapPin size={22}/> CHEGUEI!</button>}
+      {(gpsNeedsRecovery||gpsLowAccuracy)&&<p className="crew-gps-help" role="status">
+       {gpsAccuracyText||'Sinal GPS indisponível'}. Melhore a localização com o veículo parado.</p>}
+      {legError&&<p className="crew-gps-help">Navegação viária indisponível. Confira o endereço antes de seguir.</p>}
+      {error&&!gpsNeedsRecovery&&<p className="crew-gps-help" role="alert">{error}</p>}
+      <div className="crew-travel-shortcuts">
+       <button type="button" onClick={()=>setReportOpen(true)}>RELATÓRIO PESSOAL</button>
+       <button type="button" onClick={()=>void openBreak()}>SOLICITAR PARADA</button>
+      </div>
+     </div>}
+     {(stage==='prepare'||stage==='ready'||stage==='done'||sentScreen)&&
+      <footer className="crew-fixed-footer">
+       {error&&<p className="crew-inline-error" role="alert">{error}</p>}
+       {notice&&stage==='ready'&&<p className="crew-inline-info" role="status">{notice}</p>}
+       {progress&&<p className="crew-inline-info" role="status">{progress}</p>}
+       {sentScreen?(remaining>0?<button type="button" className="crew-primary"
+          onClick={()=>{setSentScreen(false);setFollow(true);setRecenterToken(v=>v+1);setRerouteToken(v=>v+1)}}>
+          PRÓXIMO PERCURSO <ArrowRight size={20}/></button>
+         :<Link className="crew-primary" href="/agente">VER PRÓXIMAS ROTAS <ArrowRight size={20}/></Link>):
+        stage==='done'?<Link href="/agente" className="crew-primary">VOLTAR À MINHA JORNADA <ArrowRight size={20}/></Link>:
+        <button type="button" className="crew-primary" disabled={busy}
+         onClick={()=>void startJourney()}>
+         {busy?'PREPARANDO PERCURSO...':'INICIAR PERCURSO'} <Navigation size={22}/>
+        </button>}
+      </footer>}
+    </div>}
+   {(stage==='photo'||stage==='questions')&&!sentScreen&&<section className="crew-form-panel" aria-label="Informações da visita">
+    <div className="crew-form-inner">
+     {stage==='photo'&&<>
+      <div className="crew-photo-preview"><Camera size={65}/><strong>FOTO DA FACHADA</strong>
+       <p>Mostre o local e a identificação da empresa, quando visível.</p></div>
+      <div className="crew-company-card"><strong>{current?.trade_name||current?.legal_name}</strong>
+       <span>A fachada está visível?</span>
+       <small>{[current?.street,current?.street_number,current?.city].filter(Boolean).join(', ')}</small>
+      </div>
+      <p className="crew-photo-note">Mesmo que a empresa não seja localizada, fotografe o endereço visitado. Evite pessoas e documentos na imagem.</p>
+      {error&&<p className="crew-inline-error" role="alert">{error}</p>}
+      {notice&&<p className="crew-inline-info">{notice}</p>}
+     </>}
+     {stage==='questions'&&<>
+      <div className="crew-question-progress"><span>PERGUNTA {questionIndex+1} DE {shownQuestions.length}</span><span><CheckCircle2 size={16}/> FOTO RECEBIDA</span></div>
+      {current?.review_status==='needs_more'&&current.review_notes&&
+       <p className="crew-inline-error">A central solicitou revisão: {current.review_notes}</p>}
+      <QuestionView question={nextQuestion} value={answers[nextQuestion.key]} onChange={v=>answer(nextQuestion.key,v)}/>
+      <label className="crew-observation-label" htmlFor="crew-notes">OBSERVAÇÕES</label>
+      <textarea id="crew-notes" rows={3} maxLength={2000} value={notes}
+       onChange={e=>setNotes(e.target.value)} placeholder="O que a central precisa saber sobre a visita?"/>
+      {finalQuestion&&<div className="crew-last-check">
+       <label htmlFor="crew-conditions">Condições observadas (opcional)</label>
+       <select id="crew-conditions" value={answers.regularity_note||'not_evaluated'}
+        onChange={e=>answer('regularity_note',e.target.value)}>
+        <option value="not_evaluated">Não foi possível avaliar</option>
+        <option value="none_observed">Nada preocupante observado</option>
+        <option value="attention">Há situação que exige atenção</option>
+       </select>
+      </div>}
+      {error&&<p className="crew-inline-error" role="alert">{error}</p>}
+      {notice&&<p className="crew-inline-info">{notice}</p>}
+     </>}
+    </div>
+    <footer className="crew-form-footer">
+     {stage==='photo'?<label className={'crew-primary crew-file-action'+(photoBusy?' crew-disabled':'')}>
+       <Camera size={21}/>{photoBusy?'ENVIANDO FOTO...':'ENVIAR FOTO'}
+       <input type="file" accept="image/*" capture="environment" disabled={photoBusy}
+        onChange={e=>{const file=e.target.files?.[0];e.target.value='';void uploadPhoto(file)}}/>
+      </label>:
+      <div className="crew-form-navigation">
+       <button type="button" className="crew-back" disabled={busy||questionIndex===0}
+        onClick={()=>setQuestionIndex(i=>Math.max(0,i-1))}><ArrowLeft size={18}/> VOLTAR</button>
+       {finalQuestion?<button type="button" className="crew-primary" disabled={busy||shownQuestions.some(q=>!answers[q.key])}
+        onClick={()=>void finish()}>
+        {busy?'ENVIANDO...':'ENVIAR VISITA'} <ArrowRight size={18}/></button>:
+        <button type="button" className="crew-primary" disabled={!answers[nextQuestion.key]}
+         onClick={()=>setQuestionIndex(i=>i+1)}>CONTINUAR <ArrowRight size={18}/></button>}
+      </div>}
+    </footer>
+   </section>}
+   {arrivalPhase&&<div className="crew-dialog-backdrop" role="status" aria-live="polite">
+    <div className="crew-dialog"><LocateFixed size={34}/><strong>{arrivalPhase==='locating'?'VERIFICANDO LOCALIZAÇÃO...':'REGISTRANDO CHEGADA...'}</strong>
+     <p>Aguarde a confirmação da central; não feche a tela.</p></div>
+   </div>}
+   {arrivalDialog&&<div className="crew-dialog-backdrop">
+    <section className="crew-dialog" role="dialog" aria-modal="true" aria-labelledby="crew-arrive-title">
+     <button type="button" className="crew-dialog-x" onClick={()=>setArrivalDialog(false)} aria-label="Fechar"><X size={22}/></button>
+     <MapPin size={32} color="#fe7900"/>
+     <h2 id="crew-arrive-title">Você chegou à empresa?</h2>
+     <p>Confirme apenas em frente ao estabelecimento e com o veículo parado. A localização e o horário serão registrados.</p>
+     {distance!==null&&distance>500&&<p className="crew-inline-error">O GPS indica {fmtDistance(distance)} em linha reta até a coordenada cadastrada. Confirme o endereço antes de continuar.</p>}
+     <button type="button" className="crew-primary" disabled={busy} onClick={()=>void arrive()}>SIM, CHEGUEI <CheckCircle2 size={19}/></button>
+     <button type="button" className="crew-subtle" onClick={()=>setArrivalDialog(false)}>VOLTAR AO MAPA</button>
     </section>
-   </>}
-   {plan&&(stage==='ready'||stage==='travel')&&<nav className={'navigator-map-actions'+(mapToolsOpen?' expanded':'')} aria-label="Controles do mapa">
-   <button type="button" onClick={()=>{setFollow(true);setRecenterToken(n=>n+1)}} title="Acompanhar minha posição" disabled={!position} className={follow?'navigator-following':''}>
-    <LocateFixed size={24}/><span>{follow?'Seguindo':'Seguir GPS'}</span></button>
-   <button type="button" className="navigator-more-tools" onClick={()=>setMapToolsOpen(x=>!x)} aria-expanded={mapToolsOpen} title={mapToolsOpen?'Fechar ferramentas':'Abrir ferramentas do mapa'}>
-    <RouteIcon size={23}/><span>{mapToolsOpen?'Fechar':'Ferramentas'}</span></button>
-   <button type="button" onClick={()=>{setFollow(false);setFitToken(n=>n+1);setMapToolsOpen(false)}} title="Ver o percurso completo">
-    <Maximize2 size={23}/><span>Ver rota</span></button>
-   <button type="button" onClick={()=>{setShowStops(x=>!x);setMapToolsOpen(false)}} aria-pressed={showStops} title="Visualizar paradas">
-    <RouteIcon size={23}/><span>Paradas</span></button>
-   <button type="button" onClick={()=>setZoomCommand(old=>({id:(old?.id||0)+1,delta:1}))} title="Ampliar mapa">
-    <ZoomIn size={22}/><span>Mais zoom</span></button>
-   <button type="button" onClick={()=>setZoomCommand(old=>({id:(old?.id||0)+1,delta:-1}))} title="Reduzir mapa">
-    <ZoomOut size={22}/><span>Menos zoom</span></button>
-   {started&&current&&target&&<button type="button" disabled={legBusy} onClick={()=>{setShowGuide(true);setRerouteToken(n=>n+1)}} title="Recalcular o caminho a partir da posição atual">
-    <RefreshCw size={23}/><span>Recalcular</span></button>}
-   {!showGuide&&leg&&<button type="button" onClick={()=>setShowGuide(true)} title="Mostrar orientação"><Navigation size={22}/><span>Orientações</span></button>}
-  </nav>}
-  {showStops&&plan&&(stage==='ready'||stage==='travel')&&<>
-   <button type="button" className="navigator-mobile-stops-scrim" aria-label="Fechar lista de empresas" onClick={()=>setShowStops(false)}/>
-   <aside className="navigator-stops-panel" aria-label="Lista de paradas">
-   <div className="navigator-stops-heading"><strong>Empresas da jornada</strong><button aria-label="Fechar lista de paradas" onClick={()=>setShowStops(false)}><X size={22}/></button></div>
-   <ol>{ordered.map((s,i)=><li key={s.id} className={s.checkout_at?'done':s.id===current?.id?'active':''}>
-    <span>{s.checkout_at?<Check size={18}/>:i+1}</span><div><strong>{s.trade_name||s.legal_name}</strong><small>{[s.street,s.street_number,s.city].filter(Boolean).join(', ')}</small></div>
-   </li>)}</ol>
-  </aside></>}
-  {(stage==='prepare'||stage==='loading'||stage==='ready'||stage==='travel'||stage==='done')&&
-  <section key={current?.id+'-'+stage} className={'navigator-sheet navigator-sheet-enter'+(stage==='travel'?' navigator-travel-sheet':'')} aria-label="Próxima ação da jornada">
-   <div className="navigator-sheet-grip" aria-hidden="true"/>
-   {error&&stage!=='travel'&&<p className="navigator-error" role="alert">{error}</p>}
-   {notice&&<p className="navigator-notice" role="status">{notice}</p>}
-   {stage==='loading'&&<><h2>{error?'Não foi possível abrir a jornada':'Preparando sua jornada...'}</h2>
-    <p>{error?'A conexão com o servidor falhou. Você pode tentar carregar novamente sem perder sua rota.':'Consultando suas empresas e a rota atribuída.'}</p>
-    {error&&<button type="button" className="navigator-primary" onClick={()=>setRetryCount(n=>n+1)}>
-     Tentar novamente<ChevronRight size={24}/></button>}</>}
-   {stage==='prepare'&&<><span className="navigator-sheet-eyebrow">PASSO 1 · ORGANIZAR</span>
-    <h2>Vamos encontrar o melhor caminho?</h2>
-    <p>{remaining} {remaining===1?'empresa para visitar':'empresas para visitar'}. O mapa mostrará a ordem sugerida.</p>
-    <button type="button" className="navigator-primary" disabled={busy} onClick={()=>void calculate()}>
-     <Navigation size={25}/>{busy?'Calculando...':'Calcular percurso'}<ChevronRight size={24}/></button>
-    {progress&&<p className="navigator-small" role="status">{progress}</p>}
-    <p className="navigator-small">O cálculo não inclui trânsito em tempo real.</p></>}
-   {stage==='ready'&&<><span className="navigator-sheet-eyebrow">PASSO 2 · COMEÇAR</span>
-    <h2>Sua próxima parada está no mapa</h2><p>A localização será usada durante a rota. Se o sinal demorar, tente novamente sem recarregar a página.</p>
-    {plan?.route_warning&&<p className="navigator-warning">Alguns trechos podem não ter rota desenhada. Confira os endereços.</p>}
-    <div className="navigator-consent"><ShieldCheck size={22}/><span>Sua localização será enviada à central apenas durante a jornada. O envio termina ao encerrar a rota ou sair da tela; você também controla a permissão pelo navegador.</span></div>
-    <button type="button" className="navigator-primary" disabled={busy} onClick={()=>void begin()}>
-     <Play size={25}/>{busy?'Buscando localização...':error?'Tentar GPS novamente':'Iniciar navegação'}<ChevronRight size={24}/></button>
-    <button type="button" className="navigator-secondary-link" disabled={busy} onClick={()=>void calculate()}>Recalcular percurso</button></>}
-   {stage==='travel'&&<div className="navigator-driving-card">
-    <div className="navigator-driving-copy">
-     <span>PRÓXIMA PARADA · {activeIndex}/{ordered.length}</span>
-     <strong>{current?.trade_name||current?.legal_name||'Empresa'}</strong>
-     <small>{leg?fmtDistance(leg.distance_m)+' pela rota':distance!==null?fmtDistance(distance)+' em linha reta':'Aguardando localização'}</small>
-    </div>
-    {gpsLowAccuracy?<button type="button" className="navigator-arrived-button" disabled={busy}
-     onClick={()=>void improveGps()} aria-label="Melhorar o sinal de GPS com o veículo parado">
-     <LocateFixed size={20}/>{busy?'Localizando...':'Ajustar GPS'}
-    </button>:<button type="button" className="navigator-arrived-button" disabled={busy} onClick={()=>setArrivalDialog(true)}>
-     <MapPin size={20}/> Cheguei
-    </button>}
-    {gpsLowAccuracy&&!gpsNeedsRecovery&&<p className="navigator-driving-alert" role="status">
-     {gpsAccuracyText||'Aguardando sinal GPS'}. Para registrar a chegada, obtenha uma localização precisa. Ajuste o GPS somente com o veículo parado.
-    </p>}
-    {!target&&<p className="navigator-driving-alert">Local sem coordenadas precisas. Confirme o endereço antes de registrar a chegada.</p>}
-    {gpsNeedsRecovery&&<div className="navigator-gps-recovery" role="alert"><p>{error||'O GPS parou de atualizar a posição. Você pode recuperar o sinal sem recarregar a página.'}</p><button type="button" disabled={busy} onClick={()=>void begin(true)}><LocateFixed size={16}/>{busy?'Localizando...':'Reativar GPS'}</button><small>Faça isso somente com o veículo parado.</small></div>}
-    {error&&!gpsNeedsRecovery&&<p className="navigator-driving-alert" role="alert">{error}</p>}
-    {legError&&<p className="navigator-driving-alert" role="status">Percurso viário indisponível. Confira o endereço.</p>}
    </div>}
-   {stage==='done'&&<div className="navigator-finished"><CheckCircle2 size={54}/>
-    <span className="navigator-sheet-eyebrow">JORNADA FINALIZADA</span><h2>Visitas enviadas!</h2>
-    <p>As informações seguiram para análise da central. Se houver alguma correção necessária, a equipe será avisada.</p>
-    
-    <Link className="navigator-secondary-link" href="/agente">Voltar ao Meu dia</Link></div>}
-  </section>}
-  {(stage==='photo'||stage==='questions')&&<section key={current?.id+'-'+stage} className="navigator-form-sheet navigator-sheet-enter" aria-label="Registro da visita">
-   <div className="navigator-sheet-grip" aria-hidden="true"/>
-   <div className="navigator-mobile-form-back"><Link href="/agente"><ArrowLeft size={19}/> Meu dia</Link><span>Visita {activeIndex}/{ordered.length}</span></div>
-    <div className="navigator-form-header">
-    <span><ClipboardCheck size={18}/> VISITA À EMPRESA · {activeIndex}/{ordered.length}</span>
-    <strong>{current?.trade_name||current?.legal_name}</strong>
-   </div>
-   {error&&<p className="navigator-error" role="alert">{error}</p>}
-   {notice&&<p className="navigator-notice" role="status">{notice}</p>}
-   {stage==='photo'&&<div className="navigator-photo-step navigator-step-enter">
-    <div className="navigator-photo-emblem"><Camera size={39}/></div>
-    <span className="navigator-sheet-eyebrow">ETAPA 1 · COMPROVAÇÃO</span><h2>Fotografe a fachada</h2>
-    <p>Inclua a entrada e o nome do estabelecimento, quando visível. Evite fotografar pessoas ou documentos.</p>
-    <label className={'navigator-camera-button'+(photoBusy?' uploading':'')}>
-     <Camera size={25}/>{photoBusy?'Enviando foto...':'Tirar foto ou escolher imagem'}
-     <input type="file" accept="image/*" capture="environment" disabled={photoBusy} onChange={e=>{const file=e.target.files?.[0];e.target.value='';void uploadPhoto(file)}}/>
-    </label>
-    {photoBusy&&<p className="navigator-upload-progress" role="status"><span className="navigator-mini-spinner"/> Preparando e enviando a foto...</p>}
-    <p className="navigator-small">A foto será mantida em armazenamento privado temporário e removida após a análise.</p>
+   {reportOpen&&<div className="crew-dialog-backdrop">
+    <section className="crew-dialog crew-report" role="dialog" aria-modal="true" aria-labelledby="crew-report-title">
+     <button type="button" className="crew-dialog-x" onClick={()=>setReportOpen(false)} aria-label="Fechar"><X size={22}/></button>
+     <span className="crew-eyebrow">RELATÓRIO PESSOAL</span><h2 id="crew-report-title">Minhas visitas</h2>
+     <div className="crew-report-count"><strong>{complete}</strong><span>de {ordered.length} paradas realizadas</span></div>
+     <ol>{ordered.filter(s=>!!s.checkout_at).map(s=><li key={s.id}><CheckCircle2 size={17}/>{s.trade_name||s.legal_name}</li>)}</ol>
+     <p>As visitas enviadas ainda podem estar aguardando análise da central.</p>
+     <button type="button" className="crew-primary" onClick={()=>setReportOpen(false)}>VOLTAR AO PERCURSO</button>
+    </section>
    </div>}
-   {stage==='questions'&&<div key={questionIndex} className="navigator-question-step navigator-step-enter">
-    {current?.review_status==='needs_more'&&current.review_notes&&<p className="navigator-warning">A central solicitou uma correção: {current.review_notes}</p>}
-    <div className="navigator-step-counter"><span>{questionnaireEnd?'ETAPA FINAL · OBSERVAÇÕES':'PERGUNTA '+(questionIndex+1)+' DE '+questions.length}</span><span><Check size={15}/> Foto recebida</span></div>
-    <div className="navigator-step-track"><span style={{width:(questionIndex/questions.length)*100+'%'}}/></div>
-    {questionnaireEnd?<div className="navigator-notes-step">
-     <h2>Algo mais que a central precisa saber?</h2>
-     <p>Informe divergências, condições do local ou outros detalhes relevantes. Não registre dados pessoais desnecessários.</p>
-     <label htmlFor="navigator-visit-notes">Observações adicionais (opcional)</label>
-     <textarea id="navigator-visit-notes" rows={4} maxLength={2000} value={notes} onChange={e=>setNotes(e.target.value)}
-      placeholder="Exemplo: fachada com outro nome, estabelecimento fechado, mudança de endereço..."/>
-     <p className="navigator-small">Suas respostas são observações de campo, não uma conclusão sobre regularidade jurídica.</p>
-    </div>:
-    <QuestionView question={nextQuestion} value={answers[nextQuestion.key]} onChange={v=>answer(nextQuestion.key,v)}/>}
-    <div className="navigator-question-actions">
-     <button type="button" className="navigator-back" disabled={busy||questionIndex===0} onClick={()=>setQuestionIndex(i=>Math.max(0,i-1))}><ArrowLeft size={20}/> Voltar</button>
-     {questionnaireEnd?
-     <button type="button" className="navigator-next navigator-submit" disabled={busy||questions.some(q=>!answers[q.key])} onClick={()=>void finish()}>
-      {busy?'Enviando visita...':'Enviar e ir para a próxima'}<ArrowRight size={22}/></button>:
-     <button type="button" className="navigator-next" disabled={!answers[nextQuestion.key]} onClick={()=>setQuestionIndex(i=>i+1)}>
-      Continuar<ArrowRight size={22}/></button>}
-    </div>
+   {breakOpen&&<div className="crew-dialog-backdrop">
+    <section className="crew-dialog" role="dialog" aria-modal="true" aria-labelledby="crew-break-title">
+     <button type="button" className="crew-dialog-x" onClick={()=>setBreakOpen(false)} aria-label="Fechar"><X size={22}/></button>
+     <span className="crew-eyebrow">SOLICITAÇÃO À CENTRAL</span>
+     <h2 id="crew-break-title">Precisa realizar uma parada?</h2>
+     {breakRequest?<div className="crew-break-status" role="status">
+       <strong>{breakRequest.status==='approved'?'PARADA AUTORIZADA':
+         breakRequest.status==='denied'?'AJUSTE DE ROTA NÃO AUTORIZADO':'AGUARDANDO RESPOSTA'}</strong>
+       <p>{breakRequest.reason_label}. {breakRequest.decision_note||'Consulte a central; este registro não substitui seus intervalos legais.'}</p>
+      </div>:<>
+      <p>Informe o motivo. Este pedido organiza o percurso; os intervalos legais seguem as políticas e leis aplicáveis.</p>
+      <div className="crew-break-choices">
+       {([['meal','Alimentação'],['restroom','Necessidade pessoal'],['fuel','Abastecimento'],['other','Outro motivo']] as const).map(([value,label])=>
+        <label key={value} className={breakReason===value?'chosen':''}>
+         <input type="radio" name="crew-break" checked={breakReason===value} onChange={()=>setBreakReason(value)}/>{label}
+        </label>)}
+      </div>
+      <label className="crew-observation-label" htmlFor="crew-break-note">OBSERVAÇÕES (OPCIONAL)</label>
+      <textarea id="crew-break-note" maxLength={500} rows={3} value={breakNotes}
+        onChange={e=>setBreakNotes(e.target.value)} placeholder="Explique sua necessidade, se necessário."/>
+      <button type="button" className="crew-primary" disabled={breakBusy||breakReason==='other'&&breakNotes.trim().length<5}
+       onClick={()=>void requestBreak()}>{breakBusy?'ENVIANDO...':'ENVIAR SOLICITAÇÃO'} <ArrowRight size={18}/></button>
+     </>}
+     {breakRequest&&<button type="button" className="crew-subtle" onClick={()=>void openBreak()}>ATUALIZAR RESPOSTA DA CENTRAL</button>}
+     {breakError&&<p className="crew-inline-error" role="alert">{breakError}</p>}
+     <button type="button" className="crew-subtle" onClick={()=>setBreakOpen(false)}>VOLTAR À ROTA</button>
+    </section>
    </div>}
-  </section>}
-  {arrivalDialog&&<div className="navigator-modal-backdrop" role="presentation">
-   <section className="navigator-modal" role="dialog" aria-modal="true" aria-labelledby="navigator-confirm-title">
-    <MapPin size={34} color="#ef6c29"/>
-    <h2 id="navigator-confirm-title">Você está em frente à empresa?</h2>
-    <p>Confirme somente com o veículo parado, em frente à empresa. Sua localização e o horário serão registrados.</p>
-    {distance!==null&&distance>500&&<p className="navigator-warning">Seu GPS está a aproximadamente {fmtDistance(distance)} da coordenada cadastrada, que pode estar imprecisa. Confira o endereço antes de continuar.</p>}
-    <button className="navigator-primary" disabled={busy} onClick={()=>void arrive()}><CheckCircle2 size={24}/> Sim, cheguei ao local</button>
-    <button className="navigator-back navigator-modal-cancel" disabled={busy} onClick={()=>setArrivalDialog(false)}>Cancelar e continuar a rota</button>
-   </section>
-  </div>}
- </div>
+  </main>
  </Portal>;
 }
