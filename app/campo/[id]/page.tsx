@@ -9,6 +9,7 @@ import {CrewTravelPanel} from '@/components/crew-travel-panel';
 import '../jornada.css';
 import '../equipe.css';
 import '../equipe-motion.css';
+import '../equipe-finish.css';
 
 type Stop={
  id:string;position_order:number;legal_name:string;trade_name:string|null;street:string|null;street_number:string|null;
@@ -280,6 +281,19 @@ function CampoGuiadoSession({id}:{id:string}){
  // O mapa consulta um novo trecho somente ao iniciar, trocar de parada ou pedir recálculo.
  // eslint-disable-next-line react-hooks/exhaustive-deps
  },[id,started,currentStopId,target?.lat,target?.lon,havePosition,rerouteToken]);
+ // Estima a distância restante na geometria já calculada, sem novas chamadas.
+ const routeDistanceFromIndex=useMemo(()=>{
+  const points=leg?.geometry.coordinates;
+  if(!points?.length)return null;
+  const remain=new Array<number>(points.length).fill(0);
+  for(let i=points.length-2;i>=0;i--){
+   const [lon1,lat1]=points[i],[lon2,lat2]=points[i+1];
+   const dLat=(lat2-lat1)*111195;
+   const dLon=(lon2-lon1)*111195*Math.cos((lat1+lat2)*Math.PI/360);
+   remain[i]=remain[i+1]+Math.hypot(dLat,dLon);
+  }
+  return remain;
+ },[leg]);
  const navigationStatus=useMemo(()=>{
   if(!leg||!position||!leg.geometry.coordinates.length)return null;
   const coordinates=leg.geometry.coordinates;
@@ -293,8 +307,11 @@ function CampoGuiadoSession({id}:{id:string}){
   }
   const offset=Math.sqrt(near);
   const next=leg.steps.find(step=>step.route_index>nearest+1&&step.type!==11)||leg.steps.find(step=>step.type===10)||null;
-  return {offRoute:offset>200,step:next,distanceToTurn:next?straightDistance(position,{lat:next.at[1],lon:next.at[0]}):null};
- },[leg,position]);
+  const remainingRoadM=routeDistanceFromIndex&&offset<=120&&position.accuracy<=150
+   ?Math.max(0,routeDistanceFromIndex[nearest]+offset):null;
+  return {offRoute:offset>200,step:next,remainingRoadM,
+   distanceToTurn:next?straightDistance(position,{lat:next.at[1],lon:next.at[0]}):null};
+ },[leg,position,routeDistanceFromIndex]);
  const nextTurn=navigationStatus?.step;
  const turnIcon=nextTurn?.type===0||nextTurn?.type===2||nextTurn?.type===4||nextTurn?.type===12?
   <CornerUpLeft size={26}/>:nextTurn?.type===1||nextTurn?.type===3||nextTurn?.type===5||nextTurn?.type===13?
@@ -514,7 +531,7 @@ function CampoGuiadoSession({id}:{id:string}){
     {stage==='photo'?'CHEGADA REGISTRADA':stage==='questions'?'VISITA EM ANDAMENTO':
       sentScreen?'VISITA ENVIADA':complete+' / '+ordered.length+' concluídas'}
    </div>
-   {stage==='travel'&&!sentScreen&&<div className="crew-instructions" aria-live="polite">
+   {stage==='travel'&&!sentScreen&&<div className="crew-instructions" aria-live="off">
     <span className="crew-turn-arrow">{turnIcon}</span>
     <div key={nextTurn?.instruction||'waiting'} className="crew-turn-details"><strong>{legBusy?'CALCULANDO CAMINHO...':navigationStatus?.offRoute?'CONFIRA SEU TRAJETO':nextTurn?.instruction||'SIGA ATÉ A EMPRESA'}</strong>
      <small>{navigationStatus?.offRoute?'Pare em local seguro para conferir o caminho.':
@@ -541,10 +558,11 @@ function CampoGuiadoSession({id}:{id:string}){
       <p>{data?.route.campaign_name||'Rota atribuída'} · Siga as orientações do mapa quando iniciar.</p><small className="crew-gps-consent">Ao iniciar, sua localização será compartilhada com a central durante a rota e encerrada ao concluir ou sair.</small>
      </div>}
      {stage==='travel'&&!sentScreen&&<CrewTravelPanel key={current?.id||id}
-      stopId={current?.id||''} index={activeIndex} total={ordered.length}
+      stopId={current?.id||''} index={activeIndex} total={ordered.length} completed={complete}
       name={current?.trade_name||current?.legal_name||'Empresa'}
-      distanceLabel={leg?fmtDistance(leg.distance_m):distance!==null?fmtDistance(distance):'—'}
-      distanceKind={leg?'pela rota':'em linha reta'} wazeUrl={wazeLink}
+      distanceLabel={navigationStatus?.remainingRoadM!=null
+       ?fmtDistance(navigationStatus.remainingRoadM):distance!==null?fmtDistance(distance):'—'}
+      distanceKind={navigationStatus?.remainingRoadM!=null?'pela rota':'em linha reta'} wazeUrl={wazeLink}
       driving={driving} busy={busy} gpsUnavailable={gpsNeedsRecovery||gpsLowAccuracy}
       gpsMessage={gpsAccuracyText} navigationError={!!legError} error={error}
       onArrive={()=>setArrivalDialog(true)}

@@ -1,0 +1,197 @@
+/*
+ * MODO ROTEIRIZADOR · acabamento profissional da interface de campo.
+ * Atua somente nas páginas da Equipe, após o tema já aprovado.
+ * Sem recursos externos, sem mudanças de contratos e sem animação contínua na direção.
+ */
+.crew-root{
+ --crew-accent:#f47716;--crew-accent-dark:#dc5d0a;
+ --crew-ink:#203329;--crew-mute:#66796d;--crew-line:#e4eae3;
+ --crew-surface:#fff;--crew-light:#f6f8f5;
+ font-family:ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;
+ -webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility;
+}
+.crew-root button,.crew-root input,.crew-root textarea,.crew-root select{
+ -webkit-tap-highlight-color:transparent;
+}
+.crew-root button,.crew-root a{touch-action:manipulation}
+.crew-root :focus-visible{outline:3px solid #2e679b!important;outline-offset:3px}
+.crew-root .crew-primary{border-radius:18px;letter-spacing:-.018em;
+ box-shadow:0 6px 18px #e56b1924;transition:background-color .16s ease,box-shadow .16s ease,transform .16s ease}
+.crew-root .crew-primary:not(:disabled):active{transform:scale(.985);box-shadow:0 3px 11px #e56b1930}
+.crew-root .crew-primary:disabled{box-shadow:none;cursor:not-allowed}
+.crew-root .crew-session-button{
+ border:1px solid #e3e9e4;background:#fffffff5;color:#284737;
+ box-shadow:0 4px 13px #19362519;min-height:44px;min-width:44px;
+}
+.crew-root .crew-session-button:hover{color:#da651a}
+.crew-home .crew-map-wash{background:#f0f4ef75}
+.crew-home .crew-top-badge{
+ background:#ffffffee;color:#d66213;letter-spacing:.055em;
+ box-shadow:0 6px 17px #19362514;
+}
+.crew-home .crew-home-professional{
+ width:min(405px,calc(100% - 36px));padding:29px 27px 26px;
+ border:1px solid #e9efe9;border-radius:25px;
+ box-shadow:0 15px 45px #203f2924;text-align:left;gap:12px;
+}
+.crew-home .crew-home-professional>span{
+ display:block;font-size:11px;letter-spacing:.095em;color:#9f6c45;font-weight:900;
+}
+.crew-home .crew-home-professional>strong{font-size:clamp(21px,5vw,29px);
+ line-height:1.18;letter-spacing:-.035em;color:#243d2e;font-weight:850;
+}
+.crew-home-state{display:inline-flex;align-items:center;gap:8px;justify-self:start;
+ border:1px solid #dceee0;border-radius:999px;background:#f1f8f2;
+ color:#286849;padding:7px 11px;font-size:10px;font-weight:900;letter-spacing:.045em;
+}
+.crew-home-live-dot{width:8px;height:8px;border-radius:50%;background:#30a26a;flex:none}
+.crew-home-meta{display:flex;align-items:center;flex-wrap:wrap;column-gap:17px;row-gap:9px;
+ border-top:1px solid var(--crew-line);padding-top:15px;margin-top:3px}
+.crew-home-meta span{display:inline-flex;align-items:center;gap:7px;color:#5d7163;
+ font-size:12px;font-weight:750}
+.crew-home-meta svg{color:#d9772c}
+.crew-home .crew-home-footer{gap:5px;box-shadow:0 -9px 35px #18341c12}
+.crew-home .crew-home-footer .crew-primary{min-height:66px;max-width:435px;
+ font-size:clamp(15px,4.3vw,18px)!important}
+.crew-home .crew-extra-link{min-height:44px;color:#bd5a1a;text-decoration:none;font-size:13px}
+.crew-home .crew-extra-link:hover{color:#934214}
+.crew-home .crew-center-message{box-shadow:0 11px 40px #18381e1b}
+.crew-home .crew-loading-state strong{font-size:18px}
+.crew-loading-icon{color:#e77421}
+.crew-home .crew-route-options{display:grid;gap:9px;width:100%;max-height:49dvh;
+ overflow-y:auto;overscroll-behavior:contain;padding:1px 2px 2px;scrollbar-width:thin}
+.crew-home .crew-route-option{display:flex;align-items:center;gap:12px;
+ width:100%;min-width:0;min-height:76px;padding:14px 15px;
+ border:1px solid #e3ebe4;background:#f7f9f7;border-radius:17px;
+ text-decoration:none!important;color:#2a4635;transition:background-color .16s ease,border-color .16s ease;
+}
+.crew-home .crew-route-option:hover{background:#eff8f1;border-color:#bedcc8}
+.crew-home .crew-route-option>svg{color:#df7628;flex-shrink:0}
+.crew-home .crew-route-option>span{display:grid;gap:5px;flex:1;min-width:0}
+.crew-home .crew-route-option strong{font-size:14px;line-height:1.22;color:#243c2c;
+ overflow-wrap:anywhere}
+.crew-home .crew-route-option small{font-size:12px;line-height:1.3;color:#6c806e}
+.crew-motion-ui .crew-top-badge{border:1px solid #e8eee9;font-weight:850;
+ background:#ffffffeb;color:#b9541b;box-shadow:0 4px 18px #203f2919}
+.crew-motion-ui .crew-instructions{border-radius:21px;border:1px solid #f2f4f0;
+ box-shadow:0 8px 28px #132f212a;background:#fffffffa;
+ -webkit-backdrop-filter:none;backdrop-filter:none}
+.crew-motion-ui .crew-turn-arrow{border:1px solid #ffead7;background:#fff4e8;color:#de6920}
+.crew-motion-ui .crew-turn-details strong{font-weight:850;line-height:1.16}
+.crew-motion-ui .crew-bottom-sheet{border-color:#e7ece7;
+ box-shadow:0 -9px 38px #1d37232b}
+.crew-motion-ui .crew-sheet-progress{width:100%;height:4px;overflow:hidden;border-radius:999px;
+ background:#e7efe7;margin:0;line-height:0}
+.crew-motion-ui .crew-sheet-progress>span{display:block;height:100%;
+ background:linear-gradient(90deg,#ed7b28,#f9a25c);border-radius:999px;
+ transition:width .46s cubic-bezier(.22,.76,.3,1)}
+.crew-motion-ui .crew-sheet-eyebrow{display:flex;align-items:center;gap:7px;line-height:1.3}
+.crew-motion-ui .crew-status-dot{width:7px;height:7px;border-radius:50%;
+ background:#ee822d;box-shadow:0 0 0 3px #fff1e4;flex-shrink:0}
+.crew-motion-ui .crew-sheet-company strong{letter-spacing:-.02em}
+.crew-motion-ui .crew-sheet-distance strong{color:#c65c15;letter-spacing:-.04em}
+.crew-motion-ui .crew-sheet-actions{gap:10px}
+.crew-motion-ui .crew-sheet-actions .crew-arrived,
+.crew-motion-ui .crew-sheet-actions .crew-waze-link{letter-spacing:-.01em}
+.crew-motion-ui .crew-sheet-actions .crew-arrived{
+ background:linear-gradient(135deg,#ff8423,#ed6810);box-shadow:0 5px 15px #e56b1925!important;
+}
+.crew-motion-ui .crew-sheet-actions .crew-arrived:disabled{
+ background:#eda66e;box-shadow:none!important}
+.crew-motion-ui .crew-sheet-actions .crew-waze-link{
+ background:#f5f9f6;border-color:#dce6df!important;color:#285640!important;
+}
+.crew-motion-ui .crew-sheet-actions .crew-waze-link:hover:not(.is-driving){
+ background:#eaf3ec;border-color:#b9d6c1!important}
+.crew-motion-ui .crew-more-trigger{min-height:45px!important;letter-spacing:.005em;
+ color:#61776a;border-radius:12px}
+.crew-motion-ui .crew-extra-actions button{font-size:13px;min-height:52px;
+ background:#f8faf8;color:#345f46;border:1px solid #e2ebe3}
+.crew-motion-ui .crew-sheet-alert{font-size:12px}
+.crew-motion-ui .crew-success-card{border:1px solid #dbeee0;box-shadow:0 12px 36px #173a261a}
+.crew-motion-ui .crew-success-card strong{font-size:21px;letter-spacing:-.02em}
+.crew-motion-ui .crew-success-card p{color:#4f6658}
+.crew-motion-ui .crew-form-panel{background:#f2f4f1}
+.crew-motion-ui .crew-form-inner{scrollbar-gutter:stable}
+.crew-motion-ui .crew-photo-preview{
+ border:1px solid #e5ede5;background:linear-gradient(145deg,#fff,#f8faf7);
+ box-shadow:0 12px 32px #183b2110;border-radius:24px;
+}
+.crew-motion-ui .crew-photo-preview svg{color:#df812e}
+.crew-motion-ui .crew-photo-preview strong{color:#233a2d;letter-spacing:-.02em}
+.crew-motion-ui .crew-company-card{border:1px solid #e5ede5;box-shadow:0 7px 22px #183b210b;
+ background:#fff;border-radius:20px}
+.crew-motion-ui .crew-company-card strong{color:#273a2e;letter-spacing:-.015em}
+.crew-motion-ui .crew-company-card span{color:#597066}
+.crew-motion-ui .crew-question-progress{color:#b85e20;letter-spacing:.06em}
+.crew-motion-ui .navigator-question legend{font-size:clamp(20px,5.1vw,25px);
+ letter-spacing:-.025em;line-height:1.23;color:#21362a}
+.crew-motion-ui .navigator-question>p{font-size:13px;color:#65796c;line-height:1.55}
+.crew-motion-ui .navigator-answer{min-height:72px;border-radius:18px;
+ border:1.5px solid #e3eae2;box-shadow:0 3px 11px #1a3a2110;
+ background:#fff;color:#26392c;line-height:1.27;font-weight:750;font-size:clamp(15px,4vw,18px)}
+.crew-motion-ui .navigator-answer.chosen{border-color:#ef892f;
+ background:#fff7ee;box-shadow:0 3px 15px #e7731820}
+.crew-motion-ui .crew-observation-label{color:#344d3b;font-size:13px;letter-spacing:.03em}
+.crew-motion-ui .crew-form-inner textarea{border:1.5px solid #e0e9e0;min-height:111px;
+ border-radius:17px;background:#fff;box-shadow:0 3px 12px #183b2108;color:#233b2b}
+.crew-motion-ui .crew-form-inner textarea:focus-visible{border-color:#e78b3e}
+.crew-motion-ui .crew-last-check select{border:1px solid #e0e9e0;min-height:52px;background:#fff}
+.crew-motion-ui .crew-form-footer{box-shadow:0 -7px 25px #17352311}
+.crew-motion-ui .crew-back{min-height:57px;padding-inline:15px;border:1px solid #e0e7e1;
+ color:#516b57}
+.crew-motion-ui .crew-dialog{border:1px solid #e5ebe5;box-shadow:0 14px 50px #11281c34}
+.crew-motion-ui .crew-dialog h2{color:#233c2d;letter-spacing:-.025em}
+.crew-motion-ui .crew-dialog>p{color:#5f7566}
+.crew-motion-ui .crew-dialog-x{min-width:44px;min-height:44px;color:#405646}
+.crew-motion-ui .crew-report li{padding:5px 0}
+.crew-root .crew-route-map .field-map-wrap:before{content:none}
+.crew-motion-ui.crew-is-moving .crew-sheet-progress>span{transition:none}
+@keyframes crewLoadingSpin{to{transform:rotate(360deg)}}
+.crew-home .crew-loading-icon{animation:crewLoadingSpin 1.4s linear infinite}
+@media(max-width:799px){
+ .crew-motion-ui .crew-instructions{left:10px;right:10px;
+  top:calc(55px + env(safe-area-inset-top,0px));padding:12px 13px;min-height:76px}
+ .crew-motion-ui .crew-top-badge{left:10px;
+  top:calc(10px + env(safe-area-inset-top,0px))}
+ .crew-motion-ui .crew-bottom-sheet{padding:11px 14px calc(10px + env(safe-area-inset-bottom,0px));gap:10px;
+  border-radius:24px 24px 0 0}
+ .crew-motion-ui .crew-sheet-heading{gap:9px}
+ .crew-motion-ui .crew-sheet-company>strong{font-size:clamp(14px,3.85vw,17px)}
+ .crew-motion-ui .crew-sheet-distance{min-width:75px}
+ .crew-motion-ui .crew-sheet-distance strong{font-size:clamp(16px,4.6vw,20px)}
+ .crew-motion-ui .crew-sheet-actions .crew-arrived,.crew-motion-ui .crew-sheet-actions .crew-waze-link{
+  min-height:59px!important}
+ .crew-motion-ui .crew-sheet-actions .crew-arrived{font-size:17px!important}
+ .crew-motion-ui .crew-sheet-actions .crew-waze-link{font-size:14px!important}
+ .crew-motion-ui .crew-more-trigger{min-height:44px!important}
+ .crew-motion-ui .crew-form-inner{padding-top:12px;padding-bottom:180px}
+ .crew-motion-ui .crew-photo-preview{height:min(37vh,340px)}
+ .crew-motion-ui .navigator-answer{min-height:69px;padding:15px 18px}
+ .crew-home .crew-home-professional{top:48%;padding:24px 22px}
+ .crew-home .crew-home-footer{min-height:142px;padding:18px 18px calc(22px + env(safe-area-inset-bottom,0px))}
+ .crew-home .crew-home-footer .crew-primary{min-height:62px}
+ .crew-home .crew-dialog{border-radius:24px 24px 0 0}
+}
+@media(max-width:370px){
+ .crew-motion-ui .crew-sheet-actions{grid-template-columns:minmax(0,1.45fr) minmax(93px,.85fr);gap:7px}
+ .crew-motion-ui .crew-sheet-actions .crew-arrived{font-size:15px!important;gap:4px}
+ .crew-motion-ui .crew-sheet-actions .crew-waze-link{font-size:12px!important;gap:4px}
+ .crew-motion-ui .crew-sheet-company strong{font-size:14px}
+ .crew-motion-ui .crew-sheet-distance span{font-size:9px}
+ .crew-motion-ui .crew-sheet-distance{min-width:68px}
+ .crew-motion-ui .crew-instructions strong{font-size:14px}
+}
+@media(max-height:560px) and (orientation:landscape){
+ .crew-motion-ui .crew-bottom-sheet{gap:6px;padding:10px 12px}
+ .crew-motion-ui .crew-sheet-heading{min-height:37px}
+ .crew-motion-ui .crew-sheet-actions .crew-arrived,.crew-motion-ui .crew-sheet-actions .crew-waze-link{
+  min-height:48px!important}
+ .crew-motion-ui .crew-more-trigger{min-height:39px!important}
+ .crew-home .crew-home-professional{width:min(360px,45vw);left:29%;top:50%}
+ .crew-home .crew-home-footer{min-height:114px;padding:12px 15px}
+}
+@media(prefers-reduced-motion:reduce){
+ .crew-home .crew-loading-icon{animation:none!important}
+ .crew-root .crew-primary,.crew-motion-ui .crew-sheet-progress>span{transition:none!important}
+}
