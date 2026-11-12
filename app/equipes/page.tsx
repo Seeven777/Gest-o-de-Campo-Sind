@@ -10,7 +10,8 @@ type Profile={auth_user_id:string;full_name:string;email:string|null;role:Role;i
 const labels:Record<Role,string>={admin:'Administrador',supervisor:'Supervisor',agent:'Agente de campo',cadastro:'Cadastro sindical',rh:'Recursos Humanos'};
 export default function Equipes(){
  const [requests,setRequests]=useState<Request[]>([]),[profiles,setProfiles]=useState<Profile[]>([]),[verifiedWithoutRequest,setVerifiedWithoutRequest]=useState<VerifiedAccount[]>([]);
- const [readiness,setReadiness]=useState<{cadastro:boolean;rh:boolean}|null>(null);
+ const [readiness,setReadiness]=useState<{cadastro:boolean;rh:boolean;environment:'production'|'preview'|'development'}|null>(null);
+ const [readinessError,setReadinessError]=useState(false);
  const [loading,setLoading]=useState(true),[denied,setDenied]=useState(false),[busy,setBusy]=useState<string|null>(null);
  const [error,setError]=useState(''),[message,setMessage]=useState('');
  const [roles,setRoles]=useState<Record<string,Role>>({});
@@ -26,9 +27,9 @@ export default function Equipes(){
   finally{setLoading(false);}
  },[]);
  useEffect(()=>{void load();
-  fetch('/api/admin/prontidao',{cache:'no-store'}).then(async r=>{if(!r.ok)return null;return r.json()})
-   .then(d=>{if(!d)return;const checks=d.checks||[];setReadiness({cadastro:Boolean(checks[0]?.ready),rh:Boolean(checks[1]?.ready)})})
-   .catch(()=>{});
+  fetch('/api/admin/prontidao',{cache:'no-store'}).then(async r=>{if(!r.ok)throw Error('Diagnóstico indisponível.');return r.json()})
+   .then(d=>{const checks=d.checks||[];setReadiness({cadastro:Boolean(checks[0]?.ready),rh:Boolean(checks[1]?.ready),environment:d.environment||'development'});setReadinessError(false)})
+   .catch(()=>setReadinessError(true));
  },[load]);
  async function decide(request:Request, action:'approve'|'reject'){
   const role=roles[request.id]||'agent';
@@ -46,6 +47,7 @@ export default function Equipes(){
  async function changeProfileRole(profile:Profile){
   const nextRole=profileRoles[profile.auth_user_id]||profile.role;
   if(nextRole===profile.role)return;
+  if(!roleAvailable(nextRole)){setError('Este cargo não está disponível no Neon conectado. Para testar Cadastro ou RH, abra o Preview QA.');return;}
   if(!window.confirm('Alterar o cargo de '+profile.full_name+' para '+labels[nextRole]+'? O acesso será atualizado após a nova consulta ao servidor.'))return;
   setBusy(profile.auth_user_id);setError('');setMessage('');
   try{
@@ -69,16 +71,30 @@ export default function Equipes(){
   finally{setBusy(null)}
  }
  const pending=requests.filter(r=>r.status==='pending');
+ const roleAvailable=(role:Role)=>(role!=='cadastro'||readiness?.cadastro===true)&&(role!=='rh'||readiness?.rh===true);
+ const qaPreview='https://gest-o-de-campo-sind-git-fix-cadastro-busca-cnpj-375062-seeven.vercel.app';
  return <Portal title="Pessoas & Acessos" subtitle="Analise novos cadastros e defina quem pode utilizar a plataforma.">
   {loading?<section className="panel"><p className="muted">Carregando solicitações...</p></section>:denied?<section className="panel"><h2>Acesso reservado à administração</h2><p className="muted">Somente administradores podem aprovar novas contas.</p></section>:<>
    <div className="cards" style={{gridTemplateColumns:'repeat(auto-fit,minmax(185px,1fr))'}}>
     <div className="card"><div className="metric-top"><span className="label">Aguardando aprovação</span><span className="metric-icon orange"><Clock3 size={19}/></span></div><strong>{pending.length}</strong><em>Solicitações para analisar</em></div>
     <div className="card"><div className="metric-top"><span className="label">Pessoas autorizadas</span><span className="metric-icon"><UsersRound size={19}/></span></div><strong>{profiles.filter(p=>p.is_active).length}</strong><em>Perfis com acesso ativo</em></div>
    </div>
+   {readinessError&&<section className="panel" role="alert" style={{marginBottom:20,borderColor:'#e6ae7b'}}>
+    <strong>Não foi possível verificar a preparação do Neon.</strong>
+    <p className="muted">Por segurança, a escolha dos cargos Cadastro e RH fica indisponível até confirmar o banco conectado. Atualize esta página para tentar novamente.</p>
+   </section>}
    {readiness&&(!readiness.cadastro||!readiness.rh)&&<section className="panel" role="status" style={{marginBottom:20,borderColor:'#e6ae7b'}}>
-    <div className="panel-title"><div><small>PREPARAÇÃO DO NEON</small><h2>Cargos novos aguardam migração</h2></div><ShieldCheck size={23}/></div>
-    <p>Os e-mails podem estar verificados, mas a aprovação dos perfis Cadastro e RH exige as migrações 008 e 009 no mesmo banco conectado a este ambiente. Nenhuma conta será promovida automaticamente.</p>
-    <p className="muted">Cadastro: {readiness.cadastro?'pronto':'pendente'} · RH: {readiness.rh?'pronto':'pendente'}. O administrador deve validar a estrutura do banco antes de liberar os cargos.</p>
+    <div className="panel-title"><div><small>PREPARAÇÃO DO NEON · {readiness.environment==='production'?'PRODUÇÃO':readiness.environment==='preview'?'PREVIEW':'DESENVOLVIMENTO'}</small><h2>Cargos novos indisponíveis neste ambiente</h2></div><ShieldCheck size={23}/></div>
+    <p>Este banco ainda não tem toda a estrutura necessária. Por segurança, não é possível salvar perfis Cadastro ou RH aqui. Nenhuma conta será promovida automaticamente.</p>
+    <p className="muted">Cadastro: {readiness.cadastro?'pronto':'pendente'} · RH: {readiness.rh?'pronto':'pendente'}. As opções indisponíveis estão desativadas na seleção de cargo.</p>
+    {readiness.environment==='production'&&<div style={{display:'flex',flexWrap:'wrap',alignItems:'center',gap:12,marginTop:16}}>
+     <a className="button secondary" href={qaPreview} target="_blank" rel="noopener noreferrer">Abrir ambiente de testes (QA)</a>
+     <small className="muted" style={{maxWidth:580}}>O QA já possui as migrações. Os perfis criados exclusivamente na produção, como RH1, não aparecem automaticamente no QA. Use ou cadastre uma conta de teste nesse ambiente e aprove-a por um administrador.</small>
+    </div>}
+   </section>}
+   {readiness?.environment==='preview'&&readiness.cadastro&&readiness.rh&&<section className="panel" role="status" style={{marginBottom:20,borderColor:'#b7ddc6'}}>
+    <div className="panel-title"><div><small>NEON QA · PREVIEW</small><h2>Cadastro e RH disponíveis para homologação</h2></div><ShieldCheck size={23}/></div>
+    <p className="muted">Estrutura de testes pronta. Escolha abaixo um perfil de teste autorizado, altere o cargo e salve. Nenhum usuário da produção será modificado por esta operação.</p>
    </section>}
    <section className="panel" style={{marginBottom:20}}>
     <div className="panel-title"><div><small>ANÁLISE ADMINISTRATIVA</small><h2>Novas solicitações</h2></div><ShieldCheck color="#38845d" size={24}/></div>
@@ -91,11 +107,11 @@ export default function Equipes(){
        </span></div>
       <div style={{display:'flex',alignItems:'center',gap:10,flexWrap:'wrap'}}>
        <select aria-label={`Perfil para ${r.full_name}`} className="field" value={roles[r.id]||'agent'} onChange={e=>setRoles(p=>({...p,[r.id]:e.target.value as Role}))}>
-        <option value="agent">Agente de campo</option><option value="cadastro">Cadastro sindical</option><option value="rh">Recursos Humanos</option><option value="supervisor">Supervisor</option><option value="admin">Administrador</option>
+        <option value="agent">Agente de campo</option><option value="cadastro" disabled={!roleAvailable('cadastro')}>Cadastro sindical</option><option value="rh" disabled={!roleAvailable('rh')}>Recursos Humanos</option><option value="supervisor">Supervisor</option><option value="admin">Administrador</option>
        </select>
        <button className="button"
-        disabled={busy!==null||!r.email_verified||(roles[r.id]||'agent')==='cadastro'&&readiness?.cadastro===false||(roles[r.id]||'agent')==='rh'&&readiness?.rh===false}
-        title={!r.email_verified?'Verifique o e-mail no Neon Auth deste ambiente.':'O cargo depende da migração correspondente no Neon.'}
+        disabled={busy!==null||!r.email_verified||!roleAvailable(roles[r.id]||'agent')}
+        title={!r.email_verified?'Verifique o e-mail no Neon Auth deste ambiente.':!roleAvailable(roles[r.id]||'agent')?'Cargo indisponível neste banco. Use o Preview QA para testes.':'Aprovar a solicitação com o cargo selecionado.'}
         onClick={()=>void decide(r,'approve')}><UserCheck size={16}/> Aprovar</button>
        <button className="button secondary" disabled={busy!==null} onClick={()=>void decide(r,'reject')}><XCircle size={16}/> Recusar</button>
       </div>
@@ -119,9 +135,9 @@ export default function Equipes(){
       <select className="field" style={{minWidth:155}} aria-label={'Novo cargo de '+p.full_name}
        value={profileRoles[p.auth_user_id]||p.role}
        onChange={e=>setProfileRoles(old=>({...old,[p.auth_user_id]:e.target.value as Role}))}>
-       <option value="agent">Agente de campo</option><option value="supervisor">Supervisor</option><option value="cadastro">Cadastro sindical</option><option value="rh">Recursos Humanos</option>
+       <option value="agent">Agente de campo</option><option value="supervisor">Supervisor</option><option value="cadastro" disabled={!roleAvailable('cadastro')}>Cadastro sindical</option><option value="rh" disabled={!roleAvailable('rh')}>Recursos Humanos</option>
       </select>
-      <button type="button" className="button secondary" disabled={busy!==null||!p.is_active||(profileRoles[p.auth_user_id]||p.role)===p.role}
+      <button type="button" className="button secondary" disabled={busy!==null||!p.is_active||(profileRoles[p.auth_user_id]||p.role)===p.role||!roleAvailable(profileRoles[p.auth_user_id]||p.role)}
        onClick={()=>void changeProfileRole(p)}>Salvar</button>
      </div>}</td></tr>)}{profiles.length===0&&<tr><td colSpan={5}>Nenhum perfil aprovado.</td></tr>}</tbody></table></div>
    </section>
