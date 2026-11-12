@@ -49,8 +49,9 @@ export async function PUT(req:Request,{params}:{params:Promise<{id:string}>}){
  if(!Array.isArray(ids)||ids.length<1||ids.length>49||ids.some((x:unknown)=>typeof x!=='string'||!uuid.test(x))||new Set(ids).size!==ids.length)
   return fail('Selecione de 1 a 49 empresas diferentes.');
  if(!/^[a-f0-9]{32}$/.test(token))return fail('Atualize a rota antes de editar.',409);
+ try {
  const sql=db();
- const [route]=await sql.query(`select r.id,r.route_date,r.status,
+ const [route]=await sql.query(`select r.id,r.route_date::text as route_date,r.status,
  md5(coalesce((select string_agg(s.establishment_id::text,',' order by s.position_order)
   from route_stops s where s.route_id=r.id),'') || ':' || r.status) as edit_token,
  exists(select 1 from route_stops es join visits v on v.stop_id=es.id where es.route_id=r.id) as has_visits,
@@ -97,4 +98,10 @@ export async function PUT(req:Request,{params}:{params:Promise<{id:string}>}){
  if(results[0][0]?.permitted!=='yes')return fail('A rota foi modificada ou o agente iniciou a jornada. Atualize a tela.',409);
  if(results[3].length!==ids.length)return fail('Confira a rota: a alteração não retornou todas as paradas.',500);
  return NextResponse.json({ok:true,count:ids.length},{headers:{'Cache-Control':'no-store'}});
+ } catch (error) {
+  // Sempre responder JSON, inclusive quando Neon rejeita uma consulta.
+  // Não expor consultas nem valores internos ao navegador.
+  console.error('[route-stops-edit]',error instanceof Error?error.message:'Falha inesperada no Neon.');
+  return fail('Não foi possível salvar a rota. Verifique se ela continua em rascunho ou publicada e atualize a página antes de tentar novamente.',500);
+ }
 }
