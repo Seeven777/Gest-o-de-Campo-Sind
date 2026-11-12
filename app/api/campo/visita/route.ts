@@ -8,6 +8,20 @@ export async function POST(req:Request){
  const data=await req.json().catch(()=>({})) as Record<string,unknown>;
  const action=String(data.action||''),stop=String(data.stop_id||'');
  if(!uuid.test(stop)||!['arrive','finish'].includes(action))return fail('Etapa de visita inválida.');
+ // A conexão de campo pode cair depois de o servidor gravar a resposta.
+ // Repetições legítimas são confirmadas sem produzir nova visita.
+ if(action==='finish'){
+  const sentVisit=String(data.visit_id||'');
+  if(!uuid.test(sentVisit))return fail('Visita inválida.');
+  const [already]=await db().query(`select v.id,
+   not exists(select 1 from route_stops s2 where s2.route_id=s.route_id
+    and not exists(select 1 from visits done where done.stop_id=s2.id and done.checkout_at is not null)) as route_completed
+   from visits v join route_stops s on s.id=v.stop_id join routes r on r.id=s.route_id
+   where v.id=$1 and v.stop_id=$2 and v.agent_id=$3 and r.agent_id=$3 and v.checkout_at is not null`,
+  [sentVisit,stop,u.id]);
+  if(already)return NextResponse.json({ok:true,id:already.id,route_completed:already.route_completed===true,already_registered:true},
+   {headers:{'Cache-Control':'no-store'}});
+ }
  const [assigned]=await db().query(`select s.id,s.route_id,r.status,e.legal_name from route_stops s join routes r on r.id=s.route_id join establishments e on e.id=s.establishment_id
  where s.id=$1 and r.agent_id=$2 and r.status in ('published','in_progress')`,[stop,u.id]);
  if(!assigned)return fail('Empresa não atribuída a uma rota ativa.',403);
@@ -33,7 +47,12 @@ export async function POST(req:Request){
    select $2,'field.arrived',jsonb_build_object('stop_id',$1::uuid) from registered
    returning id
   ) select registered.id from registered join audited on true`,[stop,u.id,lat,lon,accuracy]);
-  if(!rows.length)return fail('Já existe registro para esta parada. Atualize a jornada.',409);
+  if(!rows.length){
+   const [existing]=await db().query(`select id from visits where stop_id=$1 and agent_id=$2
+    and checkin_at is not null and checkout_at is null order by created_at desc limit 1`,[stop,u.id]);
+   if(existing)return NextResponse.json({id:existing.id,already_registered:true},{headers:{'Cache-Control':'no-store'}});
+   return fail('Esta parada já foi finalizada ou está indisponível. Atualize a jornada.',409);
+  }
   return NextResponse.json({id:rows[0].id});
  }
  const visit=String(data.visit_id||'');
@@ -73,13 +92,18 @@ export async function POST(req:Request){
       )
      )
    returning r.id
+  ), stopped_presence as (
+   update agent_live_presence p set active=false,last_position=null,accuracy_m=null,stopped_at=now(),updated_at=now()
+   where p.agent_id=$3 and p.route_id in (select id from closed_route) and p.active=true
+   returning p.agent_id
   ), audited as (
    insert into audit_logs(actor_id,action,details)
    select $3,'field.submitted',jsonb_build_object('visit_id',$1::uuid,'result',$4::text) from marked
    returning id
-  ) select completed.id,exists(select 1 from closed_route) as route_completed
+  ) select completed.id,exists(select 1 from closed_route) as route_completed,
+   exists(select 1 from stopped_presence) as tracking_stopped
     from completed join marked on marked.id=completed.stop_id join audited on true`,
   [visit,stop,u.id,result,notes,operating,signage,regularity,addressMatch,petActivity]);
  if(!rows.length)return fail('Visita já finalizada ou fora da sua rota.',409);
- return NextResponse.json({ok:true,id:visit,route_completed:rows[0].route_completed===true});
+ return NextResponse.json({ok:true,id:visit,route_completed:rows[0].route_completed===true,tracking_stopped:rows[0].tracking_stopped===true},{headers:{'Cache-Control':'no-store'}});
 }

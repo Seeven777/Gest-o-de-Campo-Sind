@@ -13,7 +13,7 @@ export async function GET(){
   const [totals]=await db().query(`select
    (select count(*)::int from establishments) as establishments,
    (select count(*)::int from routes) as routes,
-   (select count(*)::int from visits) as visits,
+   (select count(*)::int from visits where checkout_at is not null) as visits,
    (select count(*)::int from establishments where field_status='validated') as validated,
    ${registrations} as registrations,
    (select coalesce(sum(amount),0)::numeric from expenses where approval_status in ('approved','paid')) as approved_expenses`);

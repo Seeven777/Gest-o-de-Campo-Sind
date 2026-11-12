@@ -23,7 +23,7 @@ export async function POST(req:Request,{params}:{params:Promise<{id:string}>}){
  if(!/^[0-9a-f-]{36}$/i.test(id))return fail('Identificador da rota inválido.');
  const [route]=await db().query('select id,agent_id,status from routes where id=$1',[id]);
  if(!route||user.role==='agent'&&route.agent_id!==user.id)return fail('Rota não encontrada.',404);
- if(user.role==='agent'&&!['published','in_progress','completed'].includes(route.status))return fail('Esta rota ainda não foi liberada ao agente.',403);
+ if(user.role==='agent'&&!['published','in_progress'].includes(route.status))return fail('Esta rota ainda não foi liberada ao agente.',403);
  const raw=await db().query(`select s.id,s.position_order,e.legal_name,e.trade_name,e.street,e.street_number,e.city,e.state,e.postal_code,e.cnpj,
  ST_Y(e.position::geometry) as lat,ST_X(e.position::geometry) as lon
  from route_stops s join establishments e on e.id=s.establishment_id where s.route_id=$1 order by s.position_order`,[id]);

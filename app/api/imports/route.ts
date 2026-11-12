@@ -11,8 +11,16 @@ export async function POST(req:Request){return withRole(['admin','supervisor'],a
  for(const item of items){if(!item||typeof item!=='object'){invalid++;continue}const cnpj=digits(clean(item.cnpj,32));if(!validCnpj(cnpj)||!clean(item.legal_name,255)||seen.has(cnpj)){invalid++;continue}seen.add(cnpj);
    await db().query(`insert into establishments (cnpj,legal_name,trade_name,street,street_number,district,city,state,postal_code,main_cnae,source)
       values ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'import_csv') on conflict (cnpj) do update set
-      legal_name=excluded.legal_name,trade_name=excluded.trade_name,street=excluded.street,street_number=excluded.street_number,
-      district=excluded.district,city=excluded.city,state=excluded.state,postal_code=excluded.postal_code,main_cnae=excluded.main_cnae,updated_at=now()`,
+      legal_name=excluded.legal_name,
+      trade_name=coalesce(nullif(excluded.trade_name,''),establishments.trade_name),
+      street=coalesce(nullif(excluded.street,''),establishments.street),
+      street_number=coalesce(nullif(excluded.street_number,''),establishments.street_number),
+      district=coalesce(nullif(excluded.district,''),establishments.district),
+      city=coalesce(nullif(excluded.city,''),establishments.city),
+      state=coalesce(nullif(excluded.state,''),establishments.state),
+      postal_code=coalesce(nullif(excluded.postal_code,''),establishments.postal_code),
+      main_cnae=coalesce(nullif(excluded.main_cnae,''),establishments.main_cnae),
+      updated_at=now()`,
       [cnpj,clean(item.legal_name,255),clean(item.trade_name,255),clean(item.street,255),clean(item.number,30),clean(item.district,120),clean(item.city,120),clean(item.state,2).toUpperCase(),digits(clean(item.postal_code,20)),digits(clean(item.main_cnae,20))]);count++;
  }
  await db().query('insert into audit_logs (actor_id,action,details) values($1,$2,$3::jsonb)',[user.id,'companies.import',JSON.stringify({count,invalid})]);
