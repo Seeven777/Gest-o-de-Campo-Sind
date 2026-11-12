@@ -21,10 +21,13 @@ export function kmBetween(a:Pick<Location,'lat'|'lon'>,b:Pick<Location,'lat'|'lo
 }
 export function evaluateRoute(items:Location[]){
  const cities=new Map<string,{city:string;count:number}>();
+ const postalZones=new Set<string>(),neighborhoods=new Set<string>();
  let knownLegs=0,knownKm=0,maxJump=0,maxSpan=0,located=0;
  for(let i=0;i<items.length;i++){
   const key=normal(items[i].city);
   if(key){const v=cities.get(key);if(v)v.count++;else cities.set(key,{city:items[i].city!.trim(),count:1})}
+  const code=postal(items[i].postal_code);if(code.length>=3)postalZones.add(code.slice(0,3));
+  const district=normal(items[i].district);if(district)neighborhoods.add(key+':'+district);
   if(items[i].lat!==null&&items[i].lon!==null&&Number.isFinite(Number(items[i].lat))&&Number.isFinite(Number(items[i].lon)))located++;
   if(i){const d=kmBetween(items[i-1],items[i]);if(d!==null){knownLegs++;knownKm+=d;maxJump=Math.max(maxJump,d)}}
   for(let j=0;j<i;j++){const d=kmBetween(items[j],items[i]);if(d!==null)maxSpan=Math.max(maxSpan,d)}
@@ -35,8 +38,11 @@ export function evaluateRoute(items:Location[]){
  else if(risk==='attention')warnings.push('Algumas paradas estão dispersas. Considere empresas mais próximas.');
  if(cities.size>1)warnings.push('A seleção inclui '+cities.size+' municípios. Verifique se faz sentido atendê-los no mesmo dia.');
  if(located<items.length)warnings.push((items.length-located)+' empresa(s) sem coordenadas: a distância real não pode ser conferida integralmente.');
+ if(located<items.length&&postalZones.size>1)warnings.push('A seleção contém '+postalZones.size+' faixas de CEP diferentes. Confira bairros e deslocamentos no mapa antes de publicar.');
+ if(located<items.length&&neighborhoods.size>3)warnings.push('Há empresas em vários bairros. Uma única cidade não garante deslocamentos curtos.');
  if(items.length>20)warnings.push('Rota com muitas empresas. Reserve tempo para atendimento, pausas e deslocamentos.');
  return {selected:items.length,located,coverage:items.length?Math.round(located/items.length*100):0,
+  postal_zones:postalZones.size,neighborhoods:neighborhoods.size,
   known_legs:knownLegs,straight_leg_km:round(knownLegs?knownKm:null),
   max_jump_km:round(knownLegs?maxJump:null),span_km:round(located>1?maxSpan:null),risk,warnings,
   cities:[...cities.values()].sort((a,b)=>b.count-a.count),
