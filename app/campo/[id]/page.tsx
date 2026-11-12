@@ -236,7 +236,7 @@ function CampoGuiadoSession({id}:{id:string}){
  const gpsActive=started&&!!position&&!gpsNeedsRecovery;
  const gpsLowAccuracy=started&&(!position||position.accuracy>500||gpsNeedsRecovery);
  const gpsAccuracyText=position&&Number.isFinite(position.accuracy)?'Precisão estimada: ±'+Math.round(position.accuracy).toLocaleString('pt-BR')+' m':'';
- const gpsLabel=!started?'GPS parado':gpsNeedsRecovery?'GPS instável':position?'GPS ativo':'Buscando GPS';
+ const gpsLabel=!started?'GPS parado':gpsNeedsRecovery?'GPS instável':!position?'Buscando GPS':position.accuracy>500?'GPS aproximado':'GPS ativo';
  const remaining=ordered.length-complete;
  const currentStopId=current?.id;
  const havePosition=!!position;
@@ -578,7 +578,7 @@ function CampoGuiadoSession({id}:{id:string}){
     </button>:<button type="button" className="navigator-arrived-button" disabled={busy} onClick={()=>setArrivalDialog(true)}>
      <MapPin size={20}/> Cheguei
     </button>}
-    {gpsLowAccuracy&&<p className="navigator-driving-alert" role="status">
+    {gpsLowAccuracy&&!gpsNeedsRecovery&&<p className="navigator-driving-alert" role="status">
      {gpsAccuracyText||'Aguardando sinal GPS'}. Para registrar a chegada, obtenha uma localização precisa. Ajuste o GPS somente com o veículo parado.
     </p>}
     {!target&&<p className="navigator-driving-alert">Local sem coordenadas precisas. Confirme o endereço antes de registrar a chegada.</p>}
