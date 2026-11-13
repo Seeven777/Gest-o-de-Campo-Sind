@@ -53,10 +53,10 @@ export default function Visitas(){
     <div className="panel-title"><div><small>SUAS ROTAS</small><h2>Registrar nova visita</h2></div><Navigation size={22}/></div>
     <p className="muted" style={{fontSize:14,lineHeight:1.6}}>Escolha a rota. Ao chegar à empresa e estacionar, siga as etapas de registro.</p>
     <div style={{display:'grid',gap:12,marginTop:18}}>
-     {routes.filter(r=>r.status!=='completed').map(r=><div key={r.id} style={{padding:18,border:'1px solid var(--line)',borderRadius:15,display:'grid',gap:9}}>
+     {routes.filter(r=>r.status!=='completed').map(r=><div key={r.id} className="studio-visit-route">
        <strong style={{fontSize:19}}>{r.campaign_name}</strong>
        <span className="muted">{r.stops} empresas · {formatDate(r.route_date)}</span>
-       <Link className="button" style={{minHeight:56,justifyContent:'center',fontSize:17}} href={'/campo/'+r.id}>
+       <Link className="button" href={'/campo/'+r.id}>
         <Camera size={20}/> {r.status==='in_progress'?'Continuar jornada':'Abrir jornada guiada'}
        </Link>
       </div>)}
