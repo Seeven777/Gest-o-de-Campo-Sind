@@ -1,6 +1,7 @@
 'use client';
 import {useEffect,useRef,useState,type FormEvent} from 'react';
 import {Portal} from '@/components/portal';
+import {StudioPageBanner} from '@/components/studio-page-banner';
 import {Receipt,Wallet,Clock3,CheckCircle2,FileCheck2,History,ArrowRight,ChevronLeft,ChevronRight,AlertCircle,ShieldCheck} from 'lucide-react';
 import './reembolsos.css';
 
@@ -181,6 +182,7 @@ export default function Reembolsos(){
   </div>;
  };
  return <Portal title={rh?'Central de reembolsos':agent?'Meus reembolsos':'Reembolsos e histórico'} subtitle={rh?'Conferência da nota fiscal, contabilidade e controle de pagamentos.':agent?'Solicite na rota e acompanhe cada etapa, até confirmar seu recebimento.':'Visão administrativa dos comprovantes, aprovações e pagamentos.'}>
+  <StudioPageBanner eyebrow="CONTROLE DE DESPESAS" title={rh?'Cada etapa, sob controle.':agent?'Suas despesas, sem complicação.':'Transparência em cada solicitação.'} description={rh?'Conferência, contabilidade e pagamentos em um só fluxo.':agent?'Solicite e acompanhe seus reembolsos pelo aplicativo.':'Consulte o andamento e o histórico de reembolsos.'} icon={Receipt}/>
   <div className="expense-workspace">
    <div className="expense-stats">
     <div><span><Receipt size={16}/> Solicitações</span><strong>{summary.total}</strong></div>
