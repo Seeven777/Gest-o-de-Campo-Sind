@@ -1,6 +1,7 @@
 'use client';
 import {useCallback,useEffect,useState} from 'react';
 import {Portal} from '@/components/portal';
+import {StudioPageBanner} from '@/components/studio-page-banner';
 import {CheckCircle2,Clock3,ShieldCheck,UserCheck,UsersRound,XCircle,Info,ExternalLink} from 'lucide-react';
 import {getRoleReadinessStatus} from '@/lib/role-editor';
 import './equipes.css';
@@ -94,6 +95,7 @@ export default function Equipes(){
  };
  const qaPreview='https://gest-o-de-campo-sind-git-fix-cadastro-busca-cnpj-375062-seeven.vercel.app';
  return <Portal title="Pessoas & Acessos" subtitle="Analise novos cadastros e defina quem pode utilizar a plataforma.">
+  <StudioPageBanner eyebrow="PESSOAS & PERMISSÕES" title="Sua equipe, organizada." description="Aprove solicitações e acompanhe os acessos com segurança." icon={UsersRound}/>
   {loading?<section className="panel"><p className="muted">Carregando solicitações...</p></section>:denied?<section className="panel"><h2>Acesso reservado à administração</h2><p className="muted">Somente administradores podem aprovar novas contas.</p></section>:<>
    <div className="cards" style={{gridTemplateColumns:'repeat(auto-fit,minmax(185px,1fr))'}}>
     <div className="card"><div className="metric-top"><span className="label">Aguardando aprovação</span><span className="metric-icon orange"><Clock3 size={19}/></span></div><strong>{pending.length}</strong><em>Solicitações para analisar</em></div>
