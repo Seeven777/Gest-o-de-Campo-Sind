@@ -20,7 +20,7 @@ export function RouteCompanyEditor({routeId,date,editToken,stops,published,onCan
  const city=singleArea?stops[0]?.city||'':'';
  const district=singleArea?stops[0]?.district||'':'';
  useEffect(()=>{let mounted=true;
-  fetch('/api/companies?'+new URLSearchParams({page:'1',city,district}),{cache:'no-store'}).then(async res=>{
+  fetch('/api/companies?'+new URLSearchParams({page:'1',city,district,available_on:date,except_route:routeId,purpose:'route'}),{cache:'no-store'}).then(async res=>{
    const body=await res.json();if(!res.ok)throw Error(body.error||'Falha ao consultar empresas.');return body
   }).then(body=>{if(mounted){setResults(body.items||[]);setMore(Boolean(body.hasMore))}})
    .catch(e=>{if(mounted)setError(e instanceof Error?e.message:'Não foi possível abrir empresas.')})
@@ -41,7 +41,7 @@ export function RouteCompanyEditor({routeId,date,editToken,stops,published,onCan
  async function search(nextPage=1,query=term){
   setLoading(true);setError('');
   try{
-   const res=await fetch('/api/companies?'+new URLSearchParams({q:query,page:String(nextPage),city,district}),{cache:'no-store'});
+   const res=await fetch('/api/companies?'+new URLSearchParams({q:query,page:String(nextPage),city,district,available_on:date,except_route:routeId,purpose:'route'}),{cache:'no-store'});
    const d=await res.json();if(!res.ok)throw Error(d.error||'Falha ao buscar empresas.');
    setResults(d.items||[]);setMore(Boolean(d.hasMore));setPage(nextPage);
   }catch(e){setError(e instanceof Error?e.message:'Busca indisponível')}

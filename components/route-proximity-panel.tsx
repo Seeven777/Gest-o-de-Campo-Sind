@@ -20,8 +20,9 @@ export function RouteProximityPanel({selectedIds,date,routeId,onAdd,city,distric
  selectedIds:string[];date:string;routeId?:string;city?:string;district?:string;onAdd:(company:NearbyCompany)=>void
 }){
  const [data,setData]=useState<Result|null>(null),[loading,setLoading]=useState(false),[error,setError]=useState('');
+ const [expanded,setExpanded]=useState(false);
  useEffect(()=>{
-  if(!selectedIds.length){setData(null);setError('');setLoading(false);return}
+  if(!selectedIds.length||!expanded){setData(null);setError('');setLoading(false);return}
   let live=true;const ctrl=new AbortController();
   setLoading(true);setError('');setData(null);
   const timer=window.setTimeout(()=>{
@@ -34,7 +35,7 @@ export function RouteProximityPanel({selectedIds,date,routeId,onAdd,city,distric
    .finally(()=>{if(live)setLoading(false)});
   },300);
   return()=>{live=false;window.clearTimeout(timer);ctrl.abort()};
- },[selectedIds,date,routeId]);
+ },[selectedIds,date,routeId,expanded]);
  const a=data?.assessment;
  const same=(a:string|null|undefined,b:string)=>String(a||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim()===b.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
  const suggestions=data?.suggestions.filter(x=>!city||!district||same(x.city,city)&&same(x.district,district))||[];
@@ -42,10 +43,13 @@ export function RouteProximityPanel({selectedIds,date,routeId,onAdd,city,distric
   order:selectedIds.filter(id=>a.points.some(p=>p.id===id)),points:a.points,
   geometry:{type:'LineString',coordinates:[]}
  }:null,[a,selectedIds]);
- if(!selectedIds.length)return <section className="routes-proximity routes-proximity-idle">
-  <div className="routes-proximity-heading"><Compass size={22}/><div><strong>Assistente de proximidade</strong><small>Selecione uma empresa para descobrir outras da mesma região.</small></div></div>
- </section>;
+ if(!selectedIds.length)return null;
  return <section className="routes-proximity" aria-label="Análise de proximidade da rota" aria-busy={loading}>
+  <button className="routes-proximity-toggle" type="button" aria-expanded={expanded} onClick={()=>setExpanded(v=>!v)}>
+   <Compass size={20}/><span><strong>Conferir proximidade e sugestões</strong><small>Opcional durante a seleção · {selectedIds.length} {selectedIds.length===1?'empresa':'empresas'}</small></span>
+   <span aria-hidden="true">{expanded?'Ocultar':'Analisar'}</span>
+  </button>
+  {expanded&&<>
   <div className="routes-proximity-heading">
    <Compass size={24}/>
    <div><strong>Inteligência de percurso</strong><small>Avaliação antes de enviar o agente à rua</small></div>
@@ -83,6 +87,7 @@ export function RouteProximityPanel({selectedIds,date,routeId,onAdd,city,distric
     </div>)}
    </div>:<p className="routes-geo-help">Nenhuma sugestão disponível no bairro escolhido. Crie outro roteiro para atender outro bairro.</p>}
    <p className="routes-proximity-disclaimer"><RouteIcon size={15}/> A proximidade ajuda a selecionar empresas; não substitui a otimização pelas ruas no detalhe da rota. Município e CEP semelhantes não comprovam distância física curta.</p>
+  </>}
   </>}
  </section>;
 }
