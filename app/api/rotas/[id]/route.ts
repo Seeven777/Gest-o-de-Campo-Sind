@@ -76,8 +76,8 @@ export async function PUT(req:Request,{params}:{params:Promise<{id:string}>}){
   sql.query(`select e.city,e.district from route_stops s join establishments e on e.id=s.establishment_id where s.route_id=$1`,[id]),
   sql.query('select city,district from establishments where id=any($1::uuid[])',[ids])
  ]);
- if(assessNeighborhoodSelection(originalAreas).valid){
-  const areaCheck=assessNeighborhoodSelection(newAreas);
+ if(assessNeighborhoodSelection(originalAreas.map(x=>({city:String(x.city||''),district:String(x.district||'')}))).valid){
+  const areaCheck=assessNeighborhoodSelection(newAreas.map(x=>({city:String(x.city||''),district:String(x.district||'')})));
   if(!areaCheck.valid)return fail(areaCheck.reason,409);
  }
 
