@@ -45,14 +45,13 @@ export default function Empresas(){
       <option value="review">Em análise</option><option value="invalid">Inconsistente</option>
      </select>
      <button className="button secondary" type="submit">Aplicar filtros</button>
-    </div>
-   </div>}
+    </div>}
    </form>
    <p className="ops-results-caption" aria-live="polite">{loading?'Consultando empresas...':items.length+' empresas nesta página'}{hasFilters?' · Filtros aplicados':''}</p>
    {error&&<p className="error" role="alert">{error}</p>}
    <div className="tablewrap ops-company-table"><table><thead><tr><th>Empresa</th><th className="ops-detail-cell">CNPJ</th><th>Município</th><th>Campo</th><th className="ops-detail-cell">Cadastro sindical</th></tr></thead>
     <tbody>{items.map(e=><tr key={e.id}>
-     <td><strong>{e.trade_name||e.legal_name}</strong>{e.trade_name&&<small style={{display:'block'}}>{e.legal_name}</small>}</td>
+     <td><strong>{e.trade_name||e.legal_name}</strong>{e.trade_name&&<small style={{display:'block'}}>{e.legal_name}</small>}<details className="ops-mobile-details"><summary>Ver CNPJ e cadastro</summary><p>CNPJ: {pretty(e.cnpj)}</p><p>Cadastro: {e.registration_state==='confirmed'?'Confirmado':e.registration_state==='unavailable'?'Conferência indisponível':'Não confirmado'}</p></details></td>
      <td className="ops-detail-cell">{pretty(e.cnpj)}</td><td>{e.city||'Não informado'}{e.state?' / '+e.state:''}</td>
      <td><span className={'pill'+(e.field_status==='validated'?'':' warn')}>{statusNames[e.field_status]||e.field_status}</span></td>
      <td className="ops-detail-cell">{e.registration_state==='confirmed'?<span className="pill"><ShieldCheck size={14}/> Confirmado</span>:e.registration_state==='unavailable'?<span className="muted">Conferência pendente de configuração</span>:<span className="muted">Não confirmado</span>}</td>
