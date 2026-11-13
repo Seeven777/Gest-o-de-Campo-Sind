@@ -77,7 +77,7 @@ export default function Rotas(){
   companyRequest.current++;setCompaniesLoading(false);
   setDistrict(next);setSelected([]);setSelectedNames({});setSearch('');setSearchInput('');
   setCompanies([]);setPage(1);setHasMore(false);
-  if(next)void findCompanies(1,'',city,next);
+  // Os resultados serão buscados apenas ao abrir a etapa de empresas.
  }
  function changeDate(next:string){
   if(next===date)return;
