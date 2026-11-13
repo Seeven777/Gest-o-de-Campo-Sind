@@ -1,5 +1,5 @@
 'use client';
-import {useEffect,useMemo,useState} from 'react';
+import {useEffect,useMemo,useRef,useState} from 'react';
 import Link from 'next/link';
 import {Portal} from '@/components/portal';
 import {Route as RouteIcon,Plus,Search,ChevronLeft,ChevronRight,CalendarDays,UserRound,MapPin,ArrowRight,Layers,Send} from 'lucide-react';
@@ -21,6 +21,7 @@ export default function Rotas(){
  const [searchInput,setSearchInput]=useState(''),[search,setSearch]=useState(''),[page,setPage]=useState(1),[hasMore,setHasMore]=useState(false);
  const [selected,setSelected]=useState<string[]>([]),[selectedNames,setSelectedNames]=useState<Record<string,string>>({});
  const [cities,setCities]=useState<AreaOption[]>([]),[districts,setDistricts]=useState<AreaOption[]>([]);
+ const districtRequest=useRef(0),companyRequest=useRef(0);
  const [city,setCity]=useState(''),[district,setDistrict]=useState(''),[areasLoading,setAreasLoading]=useState(false),[companiesLoading,setCompaniesLoading]=useState(false);
  const canPlan=role==='admin'||role==='supervisor';
  async function reload(){const res=await fetch('/api/rotas',{cache:'no-store'});const payload=await res.json();if(!res.ok)throw Error(payload.error||'Falha ao carregar rotas');setRows(payload.items||[])}
@@ -43,32 +44,35 @@ export default function Rotas(){
  },[]);
  async function findCompanies(nextPage=1,q=search,areaCity=city,areaDistrict=district){
   if(!areaCity||!areaDistrict)return;
+  const request=++companyRequest.current;
   setCompaniesLoading(true);setError('');
   try{
    const params=new URLSearchParams({q,page:String(nextPage),city:areaCity,district:areaDistrict});
    const res=await fetch('/api/companies?'+params,{cache:'no-store'});
    const data=await res.json();if(!res.ok)throw Error(data.error||'Falha na busca');
-   setCompanies(data.items||[]);setHasMore(Boolean(data.hasMore));setPage(nextPage);
-  }catch(e){setError(e instanceof Error?e.message:'Busca indisponível')}
-  finally{setCompaniesLoading(false)}
+   if(request===companyRequest.current){setCompanies(data.items||[]);setHasMore(Boolean(data.hasMore));setPage(nextPage)}
+  }catch(e){if(request===companyRequest.current)setError(e instanceof Error?e.message:'Busca indisponível')}
+  finally{if(request===companyRequest.current)setCompaniesLoading(false)}
  }
  async function chooseCity(next:string){
   if(next===city)return;
   if(selected.length&&!window.confirm('Mudar de município removerá as empresas selecionadas. Continuar?'))return;
-  setCity(next);setDistrict('');setDistricts([]);setSelected([]);setSelectedNames({});
+  const request=++districtRequest.current;companyRequest.current++;
+  setCompaniesLoading(false);setCity(next);setDistrict('');setDistricts([]);setSelected([]);setSelectedNames({});
   setCompanies([]);setSearch('');setSearchInput('');setPage(1);setHasMore(false);setError('');
   if(!next)return;
   setAreasLoading(true);
   try{
    const res=await fetch('/api/rotas/bairros?'+new URLSearchParams({city:next}),{cache:'no-store'});
    const data=await res.json();if(!res.ok)throw Error(data.error||'Não foi possível consultar bairros.');
-   setDistricts(data.districts||[]);
-  }catch(e){setError(e instanceof Error?e.message:'Falha ao consultar bairros')}
-  finally{setAreasLoading(false)}
+   if(request===districtRequest.current)setDistricts(data.districts||[]);
+  }catch(e){if(request===districtRequest.current)setError(e instanceof Error?e.message:'Falha ao consultar bairros')}
+  finally{if(request===districtRequest.current)setAreasLoading(false)}
  }
  function chooseDistrict(next:string){
   if(next===district)return;
   if(selected.length&&!window.confirm('Mudar de bairro removerá as empresas selecionadas. Continuar?'))return;
+  companyRequest.current++;setCompaniesLoading(false);
   setDistrict(next);setSelected([]);setSelectedNames({});setSearch('');setSearchInput('');
   setCompanies([]);setPage(1);setHasMore(false);
   if(next)void findCompanies(1,'',city,next);
