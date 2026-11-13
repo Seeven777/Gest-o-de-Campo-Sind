@@ -100,10 +100,10 @@ export default function Rotas(){
  const active=rows.filter(r=>['published','in_progress'].includes(r.status)).length,drafts=rows.filter(r=>r.status==='draft').length,done=rows.filter(r=>r.status==='completed').length;
  return <Portal title="Rotas" subtitle={canPlan?'Organize as empresas, atribua um responsável e acompanhe o trabalho.':'Suas jornadas de campo, em ordem de prioridade.'}>
   <div className="routes-shell">
-   <div className="routes-summary">
-    <div><span>Rotas em campo ou disponíveis</span><strong>{active}</strong></div>
-    <div><span>Aguardando publicação</span><strong>{drafts}</strong></div>
-    <div><span>Finalizadas</span><strong>{done}</strong></div>
+   <div className="routes-summary routes-summary-condensed">
+    <div><span>Em andamento</span><strong>{active}</strong></div>
+    <div><span>A publicar</span><strong>{drafts}</strong></div>
+    <div className="routes-summary-more"><span>Concluídas</span><strong>{done}</strong></div>
    </div>
    {error&&<p className="error" role="alert">{error}</p>}
    {message&&<p className="success" role="status">{message}</p>}
@@ -137,7 +137,7 @@ export default function Rotas(){
     </form>}
    </section>}
    <section className="routes-list-section">
-    <div className="routes-section-top"><div><span>ACOMPANHAMENTO</span><h2>{role==='agent'?'Minhas rotas':'Rotas cadastradas'}</h2><p>Abra uma rota para visualizar empresas e trajeto.</p></div></div>
+    <div className="routes-section-top"><div><span>ACOMPANHAMENTO</span><h2>{role==='agent'?'Minhas rotas':'Rotas cadastradas'}</h2><p>Escolha uma rota para continuar ou conferir detalhes.</p></div></div>
     <div className="routes-filters" role="group" aria-label="Filtrar rotas">
      {([['all','Todas'],['active','Em campo'],['draft','A publicar'],['completed','Concluídas']] as [string,string][]).filter(x=>role!=='agent'||x[0]!=='draft').map(([key,label])=><button type="button" aria-pressed={filter===key} className={filter===key?'active':''} key={key} onClick={()=>setFilter(key)}>{label}</button>)}
     </div>

@@ -1,0 +1,137 @@
+/* MODO ROTEIRIZADOR — redução de ruído em telas administrativas.
+   Sem ocultar ações críticas ou alterar lógica de negócio. */
+.app-shell:not(.journey-shell) .panel,
+.app-shell:not(.journey-shell) .routes-builder,
+.app-shell:not(.journey-shell) .routes-list-section{
+ border-color:#e8e7e3;box-shadow:0 8px 34px #1b1b1808;
+}
+.app-shell:not(.journey-shell) .panel-title h2{letter-spacing:-.045em}
+.app-shell:not(.journey-shell) .panel-title small,
+.app-shell:not(.journey-shell) .routes-section-top>div>span{color:#d76522}
+.app-shell:not(.journey-shell) :is(.tablewrap,.ops-company-table) th{background:#f9f9f7;color:#797e79}
+.app-shell:not(.journey-shell) :is(.tablewrap,.ops-company-table) tr:hover td{background:#fdfaf7}
+.app-shell:not(.journey-shell) .button:not(.secondary){background:#f36a21;border-color:#f36a21}
+.app-shell:not(.journey-shell) .button:not(.secondary):hover{background:#d95a14;border-color:#d95a14}
+.app-shell:not(.journey-shell) :is(a,button,input,select,textarea,summary):focus-visible{outline:3px solid #f47a30;outline-offset:3px}
+
+/* Empresas: busca instantaneamente identificável e filtros opcionais */
+.ops-companies-search{display:flex;align-items:center;gap:9px;flex-wrap:wrap}
+.ops-companies-search>div:first-child{flex:1 1 310px!important}
+.ops-companies-search>button{min-height:47px}
+.ops-filter-toggle{white-space:nowrap}
+.ops-company-filters{width:100%;display:flex;align-items:center;flex-wrap:wrap;gap:9px;padding:15px;margin-top:2px;background:#faf9f7;border:1px solid #ebe8e3;border-radius:14px}
+.ops-clear{border:0;color:#a2521d;background:transparent;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:800;min-height:42px;padding:9px}
+.ops-results-caption{margin:15px 0 9px;color:#626b64;font-size:12px;font-weight:750}
+.ops-results-note{color:#8d8c83;font-size:11px;margin:14px 0 0}
+.ops-mobile-details{display:none}
+.ops-company-table td{line-height:1.5}
+.ops-company-table td strong{color:#2c302c;font-size:13px}
+.ops-company-table .pill{white-space:nowrap}
+
+/* Revisão de visitas: colocar evidência e decisão acima do diagnóstico técnico. */
+.ops-review-list{max-width:1100px;margin-inline:auto}
+.ops-review-card{background:#fff;border-color:#e8e8e4!important;box-shadow:0 5px 23px #2222220a}
+.ops-review-priority{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 14px;background:#f7f8f5;border-radius:12px}
+.ops-review-priority strong{font-size:12px;color:#778177}
+.ops-review-priority span{font-size:14px;font-weight:850;color:#27352b}
+.ops-review-details{border:1px solid #e7eae5;border-radius:12px;padding:0 14px}
+.ops-review-details summary{display:flex;align-items:center;justify-content:space-between;cursor:pointer;padding:14px 2px;color:#a45420;font-size:13px;font-weight:850;list-style:none;min-height:48px}
+.ops-review-details summary:after{content:'⌄';font-size:18px}
+.ops-review-details[open] summary:after{transform:rotate(180deg)}
+.ops-review-details[open]>div{margin:4px 0 14px}
+.ops-review-details>p{padding-bottom:12px}
+.ops-visit-history{margin-top:14px}
+
+/* Relatórios — cartões iguais aos resumos do dashboard. */
+.ops-report-summary{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px;margin-bottom:17px}
+.ops-report-summary>div{background:#fff;padding:20px;border:1px solid #e7e8e3;border-radius:16px;display:flex;flex-direction:column;gap:15px;min-width:0}
+.ops-report-summary>div:first-child{background:#fff9f3;border-color:#f0d9c8}
+.ops-report-summary span{display:flex;align-items:center;gap:9px;color:#717971;font-size:11px;font-weight:800}
+.ops-report-summary span svg{color:#df722a}
+.ops-report-summary strong{font-size:clamp(24px,2.8vw,35px);font-family:'Plus Jakarta Sans',sans-serif;font-weight:850;letter-spacing:-.06em;color:#222924;font-variant-numeric:tabular-nums;overflow-wrap:anywhere}
+.ops-report-panel{max-width:1350px}
+
+/* Rotas: a próxima ação é mais visível que os totais secundários. */
+.routes-summary-condensed>div,.routes-summary-condensed>button{border:1px solid #e7e7e2;background:white;border-radius:15px}
+.routes-summary-condensed>div:first-child{border-color:#f2d6c0;background:#fffaf6}
+.routes-summary-condensed span{font-size:12px}
+.routes-summary-condensed strong{color:#292d28}
+.routes-summary-more{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:18px 21px;font-size:12px;font-weight:800;color:#71766e;min-height:68px}
+.routes-summary-more strong{font-size:clamp(26px,3vw,35px)}
+.routes-summary-caption{font-size:12px;color:#7c827a;margin:-7px 0 0}
+
+/* Tablet and phone: avoid squeezing content and horizontal gestures for common tasks. */
+@media(max-width:1020px){.ops-report-summary{grid-template-columns:repeat(2,minmax(0,1fr))}}
+@media(max-width:740px){
+ .ops-companies-search{display:grid;grid-template-columns:1fr 1fr}
+ .ops-companies-search>div:first-child{grid-column:1/-1}
+ .ops-companies-search>button{justify-content:center}
+ .ops-company-filters{grid-column:1/-1;display:grid}
+ .ops-company-filters>.field,.ops-company-filters>.button{width:100%;min-width:0}
+ .ops-companies-search>.ops-clear{grid-column:1/-1}
+ .ops-company-table{overflow:visible}
+ .ops-company-table table{min-width:0!important;table-layout:fixed}
+ .ops-company-table th,.ops-company-table td{padding:13px 8px}
+ .ops-company-table th:first-child,.ops-company-table td:first-child{width:45%}
+ .ops-company-table th:nth-child(3),.ops-company-table td:nth-child(3){width:29%}
+ .ops-company-table th:nth-child(4),.ops-company-table td:nth-child(4){width:26%}
+ .ops-company-table .ops-detail-cell{display:none}
+ .ops-company-table td{font-size:11px;overflow-wrap:anywhere}
+ .ops-company-table td strong{font-size:12px}
+ .ops-company-table .pill{font-size:9px;white-space:normal;line-height:1.3}
+ .ops-mobile-details{display:block;margin-top:7px;font-size:11px}
+ .ops-mobile-details summary{font-size:11px;color:#b15b25;font-weight:850;cursor:pointer;padding:5px 0}
+ .ops-mobile-details p{font-size:11px;margin:5px 0;color:#636f63}
+ .ops-review-card{padding:15px!important}
+ .ops-review-priority{align-items:flex-start;flex-wrap:wrap}
+ .ops-report-summary{gap:9px}
+ .ops-report-summary>div{padding:15px;min-height:123px}
+ .ops-report-summary strong{font-size:24px}
+ .routes-summary-more{padding:11px 10px;display:block}
+ .routes-summary-more strong{display:block}
+}
+@media(max-width:380px){
+ .ops-report-summary{grid-template-columns:1fr 1fr}
+ .ops-report-summary>div{padding:11px}
+ .ops-report-summary strong{font-size:21px}
+ .ops-report-summary span{font-size:10px}
+ .ops-companies-search{grid-template-columns:1fr}
+ .ops-companies-search>div:first-child,.ops-company-filters,.ops-companies-search>.ops-clear{grid-column:1}
+}
+@media(prefers-reduced-motion:reduce){.app-shell:not(.journey-shell) *{scroll-behavior:auto!important}.ops-review-details summary:after{transition:none}}
+
+/* Outras áreas por perfil — mesma identidade, sem alterar os processos. */
+.registration-workspace .registration-hero{
+ background:linear-gradient(120deg,#171819 0%,#272724 74%,#36271f 100%);
+ border-color:#363333;color:#fff;min-height:136px;
+}
+.registration-workspace .registration-hero:after{background:radial-gradient(circle,#f4752c35,transparent 72%)}
+.registration-workspace .registration-hero h2{color:#fff}
+.registration-workspace .registration-hero p{color:#d3cbc5}
+.registration-workspace .registration-eyebrow{color:#ffac72}
+.registration-workspace .registration-hero-icon{background:#ffffff17;color:#ff9b57;border-color:#ffffff2d}
+.registration-workspace .registration-stat{border-color:#e9e6e1;box-shadow:0 7px 25px #22210e0a}
+.registration-workspace .registration-stat.active{background:#fff7f0;border-color:#f0b98a}
+.registration-workspace .registration-stat:not(:disabled):hover{border-color:#e8a575}
+.expense-workspace{color:#292d29}
+.expense-stats>div{border-color:#e9e6e0;box-shadow:0 7px 22px #14120c09}
+.expense-stats strong{color:#242724}
+.expense-stats span{color:#73766f}
+.expense-heading h2{color:#232825}
+.expense-heading>svg{color:#e4772c}
+.expense-guidance{background:#fff9f4;border-color:#eddfd3;color:#715946}
+.expense-guidance>svg{color:#d16b24}
+.expense-primary{background:#f36a21}
+.expense-primary:hover:not(:disabled){background:#df5b16}
+.expense-item{border-color:#e9e5e0}
+.staff-tablewrap,.staff-role-editor{--line:#e8e6e2}
+.staff-role-controls .staff-role-save{background:#f36a21;border-color:#f36a21}
+.staff-role-controls .staff-role-select{border-color:#dddcd6}
+@media(max-width:740px){
+ .registration-workspace .registration-hero{padding:22px 18px;min-height:126px}
+ .registration-workspace .registration-hero-icon{display:none}
+ .expense-workspace .expense-heading h2{font-size:20px}
+ .expense-stats{gap:8px}
+ .expense-stats>div{padding:13px}
+ .expense-stats strong{font-size:25px}
+}

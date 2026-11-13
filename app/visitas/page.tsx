@@ -18,6 +18,7 @@ export default function Visitas(){
  const [visits,setVisits]=useState<Visit[]>([]);
  const [error,setError]=useState('');
  const [loading,setLoading]=useState(true);
+ const [showHistory,setShowHistory]=useState(false);
  useEffect(()=>{
   let active=true;
   void (async()=>{
@@ -48,7 +49,7 @@ export default function Visitas(){
   agent?<>
    <section className="panel" style={{marginBottom:18}}>
     <div className="panel-title"><div><small>SUAS ROTAS</small><h2>Registrar nova visita</h2></div><Navigation size={22}/></div>
-    <p className="muted" style={{fontSize:16,lineHeight:1.6}}>Escolha sua rota para abrir o mapa, confirmar a chegada, fotografar a fachada e responder às perguntas.</p>
+    <p className="muted" style={{fontSize:14,lineHeight:1.6}}>Escolha a rota. Ao chegar à empresa e estacionar, siga as etapas de registro.</p>
     <div style={{display:'grid',gap:12,marginTop:18}}>
      {routes.filter(r=>r.status!=='completed').map(r=><div key={r.id} style={{padding:18,border:'1px solid var(--line)',borderRadius:15,display:'grid',gap:9}}>
        <strong style={{fontSize:19}}>{r.campaign_name}</strong>
@@ -60,15 +61,16 @@ export default function Visitas(){
      {!routes.some(r=>r.status!=='completed')&&<div className="empty"><div><Navigation size={29}/><strong>Sem jornada pendente</strong><p>Quando uma nova rota for publicada para você, ela aparecerá aqui.</p></div></div>}
     </div>
    </section>
-   <section className="panel">
-    <div className="panel-title"><div><small>ACOMPANHAMENTO</small><h2>Meu histórico de visitas</h2></div><ClipboardCheck size={22}/></div>
+   <section className="panel ops-visit-history">
+    <div className="panel-title"><div><small>ACOMPANHAMENTO</small><h2>Meu histórico de visitas</h2></div><button className="button secondary" type="button" aria-expanded={showHistory} onClick={()=>setShowHistory(x=>!x)}>{showHistory?"Ocultar histórico":"Ver histórico"} ({visits.length})</button></div>
+    {showHistory&&<>
     <p className="muted">A central analisa suas respostas. Uma visita enviada pode continuar aguardando validação.</p>
     <div className="tablewrap"><table><thead><tr><th>Empresa</th><th>Chegada</th><th>Resultado</th><th>Situação</th></tr></thead><tbody>
      {visits.map(x=><tr key={x.id}><td><strong>{x.legal_name}</strong></td><td>{x.checkin_at?formatDate(x.checkin_at):'—'}</td>
       <td>{x.checkout_at?(resultLabels[x.result]||x.result):'Em andamento'}</td>
       <td>{x.checkout_at?(reviewLabels[x.review_status]||x.review_status):'Formulário pendente'}</td></tr>)}
      {!visits.length&&<tr><td colSpan={4}>Você ainda não possui visitas registradas.</td></tr>}
-    </tbody></table></div>
+    </tbody></table></div></>}
    </section>
   </>:
   <section className="panel">
