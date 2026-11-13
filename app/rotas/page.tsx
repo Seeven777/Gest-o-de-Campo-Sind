@@ -6,6 +6,7 @@ import {Route as RouteIcon,Plus,Search,ChevronLeft,ChevronRight,CalendarDays,Use
 import './rotas.css';
 import {RouteProximityPanel,type NearbyCompany} from '@/components/route-proximity-panel';
 import {RouteChosenList} from '@/components/route-chosen-list';
+import {neighborhoodKey} from '@/lib/route-neighborhood';
 type RouteRow={id:string;route_date:string;campaign_name:string;agent_name:string;status:string;stops:number};
 type Pick={id:string;name:string};
 type Company={id:string;legal_name:string;trade_name?:string|null;city:string|null;district:string|null;cnpj?:string};
@@ -85,7 +86,9 @@ export default function Rotas(){
   [next[index],next[at]]=[next[at],next[index]];return next;
  });
  const addNearby=(company:NearbyCompany)=>{
-  if(!city||!district||company.city?.normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().trim()!==city.normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().trim()||company.district?.normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().trim()!==district.normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').toLowerCase().trim()){setError('A sugestão pertence a outro bairro. Crie outro roteiro para essa região.');return}
+  if(!city||!district||neighborhoodKey(company)!==neighborhoodKey({city,district})){
+   setError('A sugestão pertence a outro bairro. Crie outro roteiro para essa região.');return;
+  }
   setSelectedNames(names=>({...names,[company.id]:company.trade_name||company.legal_name}));
   setSelected(previous=>previous.includes(company.id)||previous.length>=49?previous:[...previous,company.id]);
  };
