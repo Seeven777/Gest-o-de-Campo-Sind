@@ -44,14 +44,14 @@ export default function Dashboard(){
   {title:'Visitas concluídas',value:data?.visits,icon:MapPin,sub:'Atendimentos finalizados em campo',href:'/visitas',tone:'neutral'},
   {title:'Validadas em campo',value:data?.validated,icon:CheckCheck,sub:'Estabelecimentos validados',href:'/validacoes',tone:'neutral'},
   {title:'Cadastros confirmados',value:data?.registrations,icon:ShieldCheck,
-   sub:registrationReady?'Com verificação sindical registrada':'Etapa ainda não configurada',href:'/cadastros',tone:'neutral'},
+   sub:registrationReady?'Com verificação sindical registrada':'Etapa ainda não configurada',href:admin?'/cadastros':'/validacoes',tone:'neutral'},
  ];
  const pending=checks?.filter(c=>!c.ready)||[];
  const steps=[
   {number:'01',title:'Planejar',description:'Distribuir empresas e organizar percursos',href:'/rotas',icon:Route},
   {number:'02',title:'Visitar',description:'Acompanhar as ações realizadas em campo',href:'/visitas',icon:MapPin},
   {number:'03',title:'Validar',description:'Conferir os registros enviados pela equipe',href:'/validacoes',icon:ClipboardCheck},
-  {number:'04',title:'Confirmar',description:'Concluir a conferência sindical externa',href:'/cadastros',icon:FileCheck2},
+  ...(admin?[{number:'04',title:'Confirmar',description:'Concluir a conferência sindical externa',href:'/cadastros',icon:FileCheck2}]:[]),
  ];
  return <Portal title="Visão geral" subtitle="Central de acompanhamento da operação de campo.">
   <div className="overview-shell">
@@ -104,7 +104,7 @@ export default function Dashboard(){
    <div className="overview-content-grid">
     <section className="overview-workflow" aria-labelledby="overview-workflow-title">
      <div className="overview-panel-heading">
-      <div><span className="overview-kicker">JORNADA DE TRABALHO</span><h2 id="overview-workflow-title">Da rota à confirmação</h2><p>Quatro etapas para acompanhar a operação.</p></div>
+      <div><span className="overview-kicker">JORNADA DE TRABALHO</span><h2 id="overview-workflow-title">Da rota à confirmação</h2><p>{admin?'Quatro etapas para acompanhar a operação.':'Etapas de acompanhamento de campo.'}</p></div>
       <span className="overview-panel-heading-icon"><Compass size={21}/></span>
      </div>
      <div className="overview-timeline">{steps.map(({number,title,description,href,icon:Icon})=>
