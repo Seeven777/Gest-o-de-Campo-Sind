@@ -159,3 +159,13 @@
 .routes-selection-toolbar button:focus-visible,.routes-proximity-toggle:focus-visible{outline:3px solid #f5772d;outline-offset:3px}
 @media(max-width:690px){.routes-selection-toolbar{align-items:stretch}.routes-selection-toolbar>div{width:100%}.routes-selection-toolbar button{flex:1;min-height:48px}.routes-proximity-toggle{min-height:64px}}
 @media(prefers-reduced-motion:reduce){.routes-selection-toolbar *, .routes-proximity-toggle{transition:none!important;animation:none!important}}
+
+.routes-chosen-toggle{width:100%;display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:51px;padding:7px 3px;color:#365844;border:0;background:transparent;text-align:left;cursor:pointer}
+.routes-chosen-toggle span{display:grid;gap:3px}
+.routes-chosen-toggle strong{margin:0;font-size:13px;color:#315a40}
+.routes-chosen-toggle small{font-size:11px;color:#849286}
+.routes-chosen-toggle svg{color:#d36e2f;transition:transform .18s ease}
+.routes-chosen-toggle svg.is-open{transform:rotate(180deg)}
+.routes-chosen-list ol{max-height:min(38vh,360px);overflow:auto;padding-right:3px}
+.routes-chosen-toggle:focus-visible{outline:3px solid #f5772d;outline-offset:3px}
+@media(prefers-reduced-motion:reduce){.routes-chosen-toggle svg{transition:none}}
