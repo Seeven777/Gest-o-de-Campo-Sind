@@ -133,3 +133,6 @@
 .routes-area-confirm strong{font-weight:900}
 .routes-area-warning{margin:0;padding:10px 12px;border-radius:10px;border:1px solid #e9cd9a;background:#fff8ec;color:#8f5d24;font-size:12px;line-height:1.5}
 @media(max-width:690px){.routes-neighborhood-picker{padding:15px}.routes-area-fields{grid-template-columns:minmax(0,1fr)}}
+
+.routes-area-caption{display:inline-block;font-size:11px;margin-top:5px;color:#9f652f;font-weight:800}
+.routes-item-content>div strong{overflow-wrap:anywhere}
