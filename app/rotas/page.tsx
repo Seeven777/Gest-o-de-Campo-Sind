@@ -71,22 +71,28 @@ export default function Rotas(){
  async function publish(id:string){
   setBusy(true);setError('');setMessage('');
   try{
-   const detailRes=await fetch('/api/rotas/'+encodeURIComponent(id),{cache:'no-store'});
-   const detail=await detailRes.json();if(!detailRes.ok)throw Error(detail.error||'Não foi possível conferir a rota.');
-   const ids=(detail.stops||[]).map((s:{establishment_id:string})=>s.establishment_id);
-   if(!ids.length)throw Error('Adicione empresas antes de publicar a rota.');
-   const checkRes=await fetch('/api/rotas/planejamento',{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({establishment_ids:ids,date:String(detail.route.route_date).slice(0,10),route_id:id}),cache:'no-store'});
-   const check=await checkRes.json();
-   if(!checkRes.ok)throw Error(check.error||'Falha ao verificar a concentração geográfica.');
-   const assessment=check.assessment as {risk:string;cities:{city:string}[];coverage:number;warnings:string[]};
-   const attention=assessment.risk==='high'||assessment.risk==='attention'||assessment.cities.length>1||ids.length>1&&assessment.coverage<100;
-   if(attention&&!window.confirm('Revisão territorial antes da publicação:\n\n'+
-      (assessment.warnings.length?assessment.warnings.join('\n'):'Confirme a distribuição das empresas.')+
-      '\n\nA rota está pronta para o deslocamento real?'))return;
-   const res=await fetch('/api/rotas',{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify({id})});
-   const data=await res.json();if(!res.ok)throw Error(data.error||'Não foi possível publicar');
-   setMessage('Rota publicada após conferência territorial. O responsável já pode iniciar a jornada.');await reload();
+   const request=async (territoryConfirmed=false,editToken?:string)=>{
+    const response=await fetch('/api/rotas',{method:'PATCH',
+     headers:{'Content-Type':'application/json'},
+     body:JSON.stringify({id,territory_confirmed:territoryConfirmed,edit_token:editToken}),
+     cache:'no-store'});
+    const payload=await response.json() as {ok?:boolean;error?:string;requires_confirmation?:boolean;edit_token?:string;
+     assessment?:{risk:string;coverage:number;warnings:string[];cities:{city:string}[];selected:number}};
+    return {response,payload};
+   };
+   let {response,payload}=await request();
+   if(response.status===409&&payload.requires_confirmation&&payload.assessment){
+    const warnings=payload.assessment.warnings.length?payload.assessment.warnings.join('\n'):
+     'Confira a concentração geográfica e a capacidade de atendimento.';
+    const confirmed=window.confirm('Revisão territorial antes da publicação:\n\n'+warnings+
+     '\n\n'+payload.assessment.selected+' empresas · '+
+     payload.assessment.coverage+'% com coordenadas.\n\nConfirma a publicação desta versão da rota?');
+    if(!confirmed)return;
+    ({response,payload}=await request(true,payload.edit_token));
+   }
+   if(!response.ok||payload.ok!==true)throw Error(payload.error||'Não foi possível publicar a rota.');
+   setMessage('Rota publicada com conferência territorial registrada. O agente já pode iniciar a jornada.');
+   await reload();
   }catch(e){setError(e instanceof Error?e.message:'Falha ao publicar')}
   finally{setBusy(false)}
  }
