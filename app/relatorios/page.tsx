@@ -2,7 +2,6 @@
 import {useEffect,useState} from 'react';
 import {Portal} from '@/components/portal';
 import {Download,BarChart3,Route,CheckCheck,Wallet,ChevronDown} from 'lucide-react';
-import './relatorios.css';
 
 type Row={campaign:string;start_date:string;end_date:string;routes:number;planned_visits:number;completed_visits:number;costs:number};
 const fmt=(n:number)=>Number(n||0).toLocaleString('pt-BR');
