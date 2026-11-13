@@ -1,6 +1,7 @@
 'use client';
 import {useEffect,useState} from 'react';
 import {Portal} from '@/components/portal';
+import {StudioPageBanner} from '@/components/studio-page-banner';
 import {FieldNavigationMap,type FieldPlan} from '@/components/field-navigation-map';
 import {MapPin,RefreshCw,ShieldCheck} from 'lucide-react';
 import '../campo/jornada.css';
@@ -14,6 +15,7 @@ export default function Localizacoes(){
  useEffect(()=>{void refresh();const timer=window.setInterval(()=>void refresh(),15000);return()=>window.clearInterval(timer)},[]);
  const plan:FieldPlan={order:items.map(x=>x.agent_id),points:items.map(x=>({id:x.agent_id,lat:Number(x.lat),lon:Number(x.lon)})),geometry:{type:'LineString',coordinates:[]}};
  return <Portal title="Equipe em campo" subtitle="Localização atual compartilhada voluntariamente durante a jornada.">
+ <StudioPageBanner eyebrow="EQUIPE EM CAMPO" title="Acompanhe com respeito à privacidade." description="Posições compartilhadas com consentimento e exibidas apenas durante a jornada." icon={MapPin}/>
  <section className="panel"><div className="panel-title"><div><small>ACOMPANHAMENTO OPERACIONAL</small><h2>Quem está com GPS ativo?</h2></div><MapPin size={23}/></div>
  <div className="field-privacy"><ShieldCheck size={22}/><span>O mapa mostra somente a última posição recebida há menos de dois minutos. Não exibe trajetos históricos, agentes sem consentimento ou quem interrompeu o compartilhamento. Atualização a cada 15 segundos.</span></div>
  {error&&<p className="field-error" role="alert">{error}</p>}

@@ -2,6 +2,7 @@
 import {useEffect,useRef,useState} from 'react';
 import {useParams} from 'next/navigation';
 import {Portal} from '@/components/portal';
+import {StudioPageBanner} from '@/components/studio-page-banner';
 import Link from 'next/link';
 import {MapPinned,Route as RouteIcon,RefreshCw,Navigation,Edit3,LockKeyhole} from 'lucide-react';
 import {RouteCompanyEditor} from '@/components/route-company-editor';
@@ -69,6 +70,13 @@ export default function DetalheRota(){
  useEffect(()=>{let mounted=true;fetch('/api/me',{cache:'no-store'}).then(async r=>r.ok?r.json():null)
  .then(d=>{if(mounted)setCanManage(['admin','supervisor'].includes(d?.user?.role))})
  .catch(()=>{if(mounted)setCanManage(false)});return()=>{mounted=false}},[]);
+ useEffect(()=>{
+  if(!canManage||!meta?.can_edit||meta.stored_status!=='draft')return;
+  // Atalho "Editar" na lista abre o editor sem passos extras.
+  if(new URLSearchParams(window.location.search).get('editar')!=='1')return;
+  setEditing(true);
+  window.history.replaceState(window.history.state,'',window.location.pathname);
+ },[canManage,meta]);
  async function refreshAfterEdit(){
   const response=await fetch('/api/rotas/'+encodeURIComponent(id),{cache:'no-store'});
   const d=await response.json();if(!response.ok)throw Error(d.error||'Não foi possível atualizar o percurso.');
@@ -97,6 +105,7 @@ export default function DetalheRota(){
  const byId=new Map(stops.map(s=>[s.id,s]));
  const sorted=data?[...data.order.map(i=>byId.get(i)).filter((s):s is Stop=>Boolean(s)),...stops.filter(s=>!data.order.includes(s.id))]:stops;
  return <Portal title="Percurso de campo" subtitle={title||'Empresas atribuídas à rota'}>
+ <StudioPageBanner eyebrow="TRAJETO & TERRITÓRIO" title="Cada parada no lugar certo." description="Revise as empresas e a sequência antes de enviar a equipe para campo." icon={MapPinned}/>
  {error&&<p className="error" role="alert">{error}</p>}
  {saved&&<p className="success" role="status">{saved}</p>}
  {canManage&&meta&&<section className="panel" style={{marginBottom:18}}>

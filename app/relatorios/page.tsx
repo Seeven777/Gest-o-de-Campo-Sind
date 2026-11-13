@@ -1,6 +1,7 @@
 'use client';
 import {useEffect,useState} from 'react';
 import {Portal} from '@/components/portal';
+import {StudioPageBanner} from '@/components/studio-page-banner';
 import {Download,BarChart3,Route,CheckCheck,Wallet,ChevronDown} from 'lucide-react';
 
 type Row={campaign:string;start_date:string;end_date:string;routes:number;planned_visits:number;completed_visits:number;costs:number};
@@ -23,6 +24,7 @@ export default function Relatorios(){
  return <Portal title="Relatórios" subtitle="Visão consolidada dos registros de campo." action={
   <a className="button" href="/api/relatorios?format=csv"><Download size={17}/> Exportar CSV</a>
  }>
+  <StudioPageBanner eyebrow="INTELIGÊNCIA OPERACIONAL" title="Resultados em perspectiva." description="Indicadores consolidados, detalhamento por campanha e exportação." icon={BarChart3}/>
   {error&&<p className="error" role="alert">{error}</p>}
   <section className="ops-report-summary" aria-label="Resumo de registros">
    <div><span><Route size={18}/> Rotas</span><strong>{loading?'—':fmt(totals.routes)}</strong></div>

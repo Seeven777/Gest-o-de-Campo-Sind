@@ -2,6 +2,7 @@
 import {useEffect,useState} from 'react';
 import Link from 'next/link';
 import {Portal} from '@/components/portal';
+import {StudioPageBanner} from '@/components/studio-page-banner';
 import {Navigation,Camera,ClipboardCheck,Clock3} from 'lucide-react';
 
 type Route={id:string;campaign_name:string;route_date:string;stops:number;status:string};
@@ -43,6 +44,7 @@ export default function Visitas(){
  },[]);
  return <Portal title={agent?'Minhas visitas':'Visitas registradas'}
   subtitle={agent?'Comece uma jornada e acompanhe as visitas que você já enviou.':'Acompanhe os registros enviados pelas equipes.'}>
+  <StudioPageBanner eyebrow="JORNADA DE CAMPO" title={agent?'Seu próximo atendimento.':'Cada visita importa.'} description={agent?'Retome uma rota ou consulte suas visitas. Registre somente com o veículo parado.':'Acompanhe a execução das visitas e os registros enviados.'} icon={Navigation}/>
   {error&&<p className="error" role="alert">{error}</p>}
   {loading?<section className="panel" role="status"><Clock3 size={23}/> Carregando visitas e jornadas...</section>:
   agent===null?<section className="panel" role="status">Não foi possível confirmar seu perfil. Entre novamente no sistema.</section>:
@@ -51,10 +53,10 @@ export default function Visitas(){
     <div className="panel-title"><div><small>SUAS ROTAS</small><h2>Registrar nova visita</h2></div><Navigation size={22}/></div>
     <p className="muted" style={{fontSize:14,lineHeight:1.6}}>Escolha a rota. Ao chegar à empresa e estacionar, siga as etapas de registro.</p>
     <div style={{display:'grid',gap:12,marginTop:18}}>
-     {routes.filter(r=>r.status!=='completed').map(r=><div key={r.id} style={{padding:18,border:'1px solid var(--line)',borderRadius:15,display:'grid',gap:9}}>
+     {routes.filter(r=>r.status!=='completed').map(r=><div key={r.id} className="studio-visit-route">
        <strong style={{fontSize:19}}>{r.campaign_name}</strong>
        <span className="muted">{r.stops} empresas · {formatDate(r.route_date)}</span>
-       <Link className="button" style={{minHeight:56,justifyContent:'center',fontSize:17}} href={'/campo/'+r.id}>
+       <Link className="button" href={'/campo/'+r.id}>
         <Camera size={20}/> {r.status==='in_progress'?'Continuar jornada':'Abrir jornada guiada'}
        </Link>
       </div>)}

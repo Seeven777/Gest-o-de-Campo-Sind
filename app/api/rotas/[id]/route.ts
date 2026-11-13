@@ -37,6 +37,45 @@ export async function GET(_req:Request,{params}:{params:Promise<{id:string}>}){
 }
 
 /**
+ * Exclui da operação somente rascunhos nunca utilizados. O cancelamento é
+ * auditável: mantém trilha histórica, mas libera as empresas para outras rotas.
+ */
+export async function DELETE(req:Request,{params}:{params:Promise<{id:string}>}){
+ const user=await currentIdentity();
+ if(!user)return fail('Faça login novamente.',401);
+ if(!['admin','supervisor'].includes(user.role))return fail('Exclusão restrita à administração e supervisão.',403);
+ const origin=req.headers.get('origin');
+ if(origin&&new URL(origin).origin!==new URL(req.url).origin)return fail('Origem não autorizada.',403);
+ const {id}=await params;
+ if(!uuid.test(id))return fail('Rota inválida.');
+ const body=await req.json().catch(()=>({}));
+ const token=String(body.edit_token||'');
+ if(!/^[a-f0-9]{32}$/.test(token))return fail('Atualize a rota antes de excluí-la.',409);
+ try{
+  const [result]=await db().query(`with changed as (
+   update routes r set status='cancelled'
+    where r.id=$1 and r.status='draft'
+     and md5(coalesce((select string_agg(s.establishment_id::text,',' order by s.position_order)
+      from route_stops s where s.route_id=r.id),'') || ':' || r.status)=$2
+     and not exists(select 1 from route_stops s join visits v on v.stop_id=s.id where s.route_id=r.id)
+     and not exists(select 1 from agent_live_presence gps where gps.route_id=r.id and gps.active)
+    returning r.id
+   ), recorded as (
+    insert into audit_logs(actor_id,action,details)
+     select $3,'route.draft_deleted',jsonb_build_object('route_id',changed.id,'method','cancelled')
+     from changed returning id
+   ) select (select count(*)::int from changed) as changed,
+            (select count(*)::int from recorded) as recorded`,[id,token,user.id]);
+  if(result?.changed!==1||result?.recorded!==1)
+   return fail('A rota foi publicada, alterada ou iniciada. Atualize a lista antes de tentar excluí-la.',409);
+  return NextResponse.json({ok:true,deleted:true},{headers:{'Cache-Control':'no-store'}});
+ }catch(error){
+  console.error('[route-draft-delete]',error instanceof Error?error.message:'Erro inesperado');
+  return fail('Não foi possível excluir o rascunho. Atualize e tente novamente.',500);
+ }
+}
+
+/**
  * Reorganiza, adiciona e remove empresas de rotas ainda não iniciadas.
  * Todos os passos são atômicos; o token impede sobrescrever outro planejador.
  */

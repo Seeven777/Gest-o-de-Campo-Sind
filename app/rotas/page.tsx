@@ -2,7 +2,7 @@
 import {useEffect,useMemo,useRef,useState} from 'react';
 import Link from 'next/link';
 import {Portal} from '@/components/portal';
-import {Route as RouteIcon,Plus,Search,ChevronLeft,ChevronRight,CalendarDays,UserRound,MapPin,ArrowRight,ArrowLeft,Check,Layers,Send,Sparkles} from 'lucide-react';
+import {Route as RouteIcon,Plus,Search,ChevronLeft,ChevronRight,CalendarDays,UserRound,MapPin,ArrowRight,ArrowLeft,Check,Layers,Send,Sparkles,Pencil,Trash2} from 'lucide-react';
 import './rotas.css';
 import {RouteProximityPanel,type NearbyCompany} from '@/components/route-proximity-panel';
 import {RouteChosenList} from '@/components/route-chosen-list';
@@ -124,6 +124,31 @@ export default function Rotas(){
    setMessage('Rota criada com '+data.count+' empresas. Publique-a quando estiver pronta para a equipe.');
    setSelected([]);setSelectedNames({});setShowForm(false);setStep(0);await reload();
   }catch(e){setError(e instanceof Error?e.message:'Falha ao criar a rota')}finally{setBusy(false)}
+ }
+ async function deleteDraft(route:RouteRow){
+  if(route.status!=='draft'||busy)return;
+  const description=route.neighborhood_label&&route.neighborhood_label!=='Bairro não informado'
+   ?route.neighborhood_label:'Rota de '+dateLabel(route.route_date);
+  if(!window.confirm('Excluir o rascunho de '+description+'?\\n\\n'+
+   route.stops+' empresas · '+route.agent_name+' · '+dateLabel(route.route_date)+
+   '\\n\\nO roteiro sairá da lista e as empresas ficarão disponíveis para novo planejamento. A auditoria será mantida.'))return;
+  setBusy(true);setError('');setMessage('');
+  try{
+   const current=await fetch('/api/rotas/'+encodeURIComponent(route.id),{cache:'no-store'});
+   const detail=await current.json();
+   if(!current.ok)throw Error(detail.error||'Não foi possível conferir o rascunho.');
+   if(detail.route?.stored_status!=='draft'||!detail.route?.can_edit||!detail.route?.edit_token)
+    throw Error('Esta rota não está mais disponível para exclusão. Atualize a lista.');
+   const response=await fetch('/api/rotas/'+encodeURIComponent(route.id),{
+    method:'DELETE',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({edit_token:detail.route.edit_token}),cache:'no-store'
+   });
+   const result=await response.json();
+   if(!response.ok||result.ok!==true)throw Error(result.error||'Não foi possível excluir a rota.');
+   setMessage('Rascunho excluído. As empresas estão liberadas para outro planejamento.');
+   await reload();
+  }catch(e){setError(e instanceof Error?e.message:'Falha ao excluir o rascunho.')}
+  finally{setBusy(false)}
  }
  async function publish(id:string){
   setBusy(true);setError('');setMessage('');
@@ -274,7 +299,11 @@ export default function Rotas(){
       {(r.neighborhood_label==='Regiões variadas'||r.neighborhood_label==='Bairro não informado')&&<small className="routes-area-caption">{r.neighborhood_label}</small>}
      </div>
      <div className="routes-item-actions">
-      {canPlan&&r.status==='draft'&&<button type="button" className="routes-publish" disabled={busy} onClick={()=>void publish(r.id)}><Send size={16}/> Publicar</button>}
+      {canPlan&&r.status==='draft'&&<>
+       <Link href={'/rotas/'+r.id+'?editar=1'} className="routes-draft-edit" aria-label={'Editar rascunho '+(r.neighborhood_label||'da rota')}><Pencil size={16}/> Editar</Link>
+       <button type="button" className="routes-draft-delete" disabled={busy} onClick={()=>void deleteDraft(r)} aria-label={'Excluir rascunho '+(r.neighborhood_label||'da rota')}><Trash2 size={16}/> Excluir</button>
+       <button type="button" className="routes-publish" disabled={busy} onClick={()=>void publish(r.id)}><Send size={16}/> Publicar</button>
+      </>}
       <Link href={(role==='agent'?'/campo/':'/rotas/')+r.id} className="routes-open">{role==='agent'?'Abrir jornada':'Ver percurso'}<ChevronRight size={17}/></Link>
      </div>
     </article>)}

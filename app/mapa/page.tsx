@@ -1,6 +1,7 @@
 'use client';
 import {useEffect,useMemo,useRef,useState} from 'react';
 import {Portal} from '@/components/portal';
+import {StudioPageBanner} from '@/components/studio-page-banner';
 import {Building2,CheckCircle2,MapPin,Search,Layers,CalendarDays,ChevronLeft,ChevronRight} from 'lucide-react';
 import './territorio.css';
 type Metric='total'|'pending'|'review'|'validated'|'invalid'|'registered';
@@ -103,6 +104,7 @@ export default function Territorio(){
  },[selected,companiesPage,from,to]);
  const choose=(city:string)=>{setSelected(city);setCompaniesPage(1)};
  return <Portal title="Mapa de cobertura" subtitle="645 municípios paulistas · empresas por cidade e situação">
+  <StudioPageBanner eyebrow="TERRITÓRIO & COBERTURA" title="Entenda onde atuar." description="Visualize a presença territorial e explore os municípios da base." icon={MapPin}/>
   <div className="territory-shell">
    <section className="territory-stats" aria-label="Resumo da base">
     <div><span><Building2 size={17}/> Empresas na base</span><strong>{fmt(totals.total)}</strong></div>

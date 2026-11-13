@@ -3,6 +3,7 @@ import {useEffect,useState,type FormEvent} from 'react';
 import Link from 'next/link';
 import {Building2,ChevronDown,ChevronLeft,ChevronRight,FileUp,Search,ShieldCheck,SlidersHorizontal,X} from 'lucide-react';
 import {Portal} from '@/components/portal';
+import {StudioPageBanner} from '@/components/studio-page-banner';
 
 type Company={id:string;cnpj:string;legal_name:string;trade_name:string|null;city:string|null;state:string|null;field_status:string;registration_state:string};
 const pretty=(s:string)=>s?.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/,'$1.$2.$3/$4-$5');
@@ -26,6 +27,7 @@ export default function Empresas(){
  const hasFilters=Boolean(filters.city||filters.cnae||filters.status);
  const clear=()=>{setCity('');setCnae('');setStatus('');setTerm('');setPage(1);setQ('');setFilters({city:'',cnae:'',status:''})};
  return <Portal title="Empresas" subtitle="Empresas da base operacional, da visita até a confirmação sindical." action={canImport?<Link href="/importacoes" className="button"><FileUp size={16}/> Importar</Link>:undefined}>
+  <StudioPageBanner eyebrow="BASE OPERACIONAL" title="Encontre. Avalie. Acompanhe." description="Uma busca direta para localizar empresas e consultar a situação em campo." icon={Building2}/>
   <section className="panel">
    <div className="panel-title"><div><small>BASE OPERACIONAL</small><h2>Encontre uma empresa</h2></div><Building2 size={22} color="#e36e29"/></div>
    <form className="toolbar ops-companies-search" onSubmit={apply}>
