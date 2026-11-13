@@ -2,6 +2,7 @@
 import {useEffect,useRef,useState} from 'react';
 import {useParams} from 'next/navigation';
 import {Portal} from '@/components/portal';
+import {StudioPageBanner} from '@/components/studio-page-banner';
 import Link from 'next/link';
 import {MapPinned,Route as RouteIcon,RefreshCw,Navigation,Edit3,LockKeyhole} from 'lucide-react';
 import {RouteCompanyEditor} from '@/components/route-company-editor';
@@ -104,6 +105,7 @@ export default function DetalheRota(){
  const byId=new Map(stops.map(s=>[s.id,s]));
  const sorted=data?[...data.order.map(i=>byId.get(i)).filter((s):s is Stop=>Boolean(s)),...stops.filter(s=>!data.order.includes(s.id))]:stops;
  return <Portal title="Percurso de campo" subtitle={title||'Empresas atribuídas à rota'}>
+ <StudioPageBanner eyebrow="TRAJETO & TERRITÓRIO" title="Cada parada no lugar certo." description="Revise as empresas e a sequência antes de enviar a equipe para campo." icon={MapPinned}/>
  {error&&<p className="error" role="alert">{error}</p>}
  {saved&&<p className="success" role="status">{saved}</p>}
  {canManage&&meta&&<section className="panel" style={{marginBottom:18}}>
