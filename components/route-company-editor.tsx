@@ -4,8 +4,9 @@ import {ChevronLeft,ChevronRight,Search,Save,ShieldAlert,X} from 'lucide-react';
 import {RouteProximityPanel,type NearbyCompany} from '@/components/route-proximity-panel';
 import {RouteChosenList} from '@/components/route-chosen-list';
 import {readRouteEditResponse} from '@/lib/route-edit-response';
-type Stop={establishment_id:string;legal_name:string;trade_name:string|null};
-type Company={id:string;legal_name:string;trade_name:string|null;city:string|null;cnpj?:string};
+import {assessNeighborhoodSelection} from '@/lib/route-neighborhood';
+type Stop={establishment_id:string;legal_name:string;trade_name:string|null;city?:string|null;district?:string|null};
+type Company={id:string;legal_name:string;trade_name:string|null;city:string|null;district?:string|null;cnpj?:string};
 export function RouteCompanyEditor({routeId,date,editToken,stops,published,onCancel,onSaved}:{
  routeId:string;date:string;editToken:string;stops:Stop[];published:boolean;
  onCancel:()=>void;onSaved:()=>Promise<void>
@@ -15,14 +16,18 @@ export function RouteCompanyEditor({routeId,date,editToken,stops,published,onCan
  const [results,setResults]=useState<Company[]>([]),[term,setTerm]=useState(''),[page,setPage]=useState(1),[more,setMore]=useState(false);
  const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
  const changed=ids.length!==stops.length||ids.some((id,i)=>id!==stops[i].establishment_id);
+ const singleArea=assessNeighborhoodSelection(stops).valid;
+ const city=singleArea?stops[0]?.city||'':'';
+ const district=singleArea?stops[0]?.district||'':'';
+ const areaParams=()=>new URLSearchParams({city,district});
  useEffect(()=>{let mounted=true;
-  fetch('/api/companies?page=1',{cache:'no-store'}).then(async res=>{
+  fetch('/api/companies?'+new URLSearchParams({page:'1',city,district}),{cache:'no-store'}).then(async res=>{
    const body=await res.json();if(!res.ok)throw Error(body.error||'Falha ao consultar empresas.');return body
   }).then(body=>{if(mounted){setResults(body.items||[]);setMore(Boolean(body.hasMore))}})
    .catch(e=>{if(mounted)setError(e instanceof Error?e.message:'Não foi possível abrir empresas.')})
    .finally(()=>{if(mounted)setLoading(false)});
   return()=>{mounted=false};
- },[]);
+ },[city,district]);
  const move=(index:number,dir:-1|1)=>setIds(current=>{
   const next=[...current],to=index+dir;if(to<0||to>=next.length)return current;
   [next[index],next[to]]=[next[to],next[index]];return next
@@ -37,7 +42,7 @@ export function RouteCompanyEditor({routeId,date,editToken,stops,published,onCan
  async function search(nextPage=1,query=term){
   setLoading(true);setError('');
   try{
-   const res=await fetch('/api/companies?'+new URLSearchParams({q:query,page:String(nextPage)}),{cache:'no-store'});
+   const res=await fetch('/api/companies?'+new URLSearchParams({q:query,page:String(nextPage),city,district}),{cache:'no-store'});
    const d=await res.json();if(!res.ok)throw Error(d.error||'Falha ao buscar empresas.');
    setResults(d.items||[]);setMore(Boolean(d.hasMore));setPage(nextPage);
   }catch(e){setError(e instanceof Error?e.message:'Busca indisponível')}
@@ -62,7 +67,7 @@ export function RouteCompanyEditor({routeId,date,editToken,stops,published,onCan
  }
  return <section className="routes-editor-card" aria-label="Editar empresas da rota">
   <div className="routes-editor-header">
-   <div><h3>Editar paradas da rota</h3><p>Acrescente empresas, remova itens ou mude a ordem antes da saída do agente.</p></div>
+   <div><h3>Editar paradas da rota</h3><p>{singleArea?'Roteiro de '+district+' · '+city+'. Adicione empresas deste mesmo bairro.':'Acrescente empresas, remova itens ou mude a ordem antes da saída do agente.'}</p></div>
    <button type="button" className="button secondary" onClick={onCancel} disabled={busy}><X size={16}/> Fechar</button>
   </div>
   {published&&<p className="routes-editor-note"><ShieldAlert size={17}/> A rota já foi publicada, mas ainda não foi iniciada. Ao salvar, a nova sequência ficará disponível para o responsável. A edição será bloqueada após o primeiro check-in ou início do GPS.</p>}
@@ -75,7 +80,7 @@ export function RouteCompanyEditor({routeId,date,editToken,stops,published,onCan
    {results.map(company=><label key={company.id} className={ids.includes(company.id)?'is-selected':''}>
     <input type="checkbox" checked={ids.includes(company.id)} disabled={!ids.includes(company.id)&&ids.length>=49||busy}
      onChange={()=>toggle(company)}/>
-    <span><strong>{company.trade_name||company.legal_name}</strong><small>{company.city||'Cidade não informada'} · {company.cnpj||'CNPJ não informado'}</small></span>
+    <span><strong>{company.trade_name||company.legal_name}</strong><small>{company.district||'Bairro não informado'} · {company.city||'Cidade não informada'} · {company.cnpj||'CNPJ não informado'}</small></span>
    </label>)}
    {!loading&&!results.length&&<p className="routes-empty">Nenhuma empresa encontrada. Revise a busca.</p>}
    {loading&&<p className="routes-empty" role="status">Carregando opções...</p>}
@@ -86,7 +91,7 @@ export function RouteCompanyEditor({routeId,date,editToken,stops,published,onCan
    <button type="button" disabled={loading||!more} onClick={()=>void search(page+1)}>Próxima <ChevronRight size={16}/></button>
   </div>
   <RouteChosenList ids={ids} names={names} onMove={move} onRemove={remove}/>
-  <RouteProximityPanel selectedIds={ids} date={date} routeId={routeId} onAdd={suggestion}/>
+  <RouteProximityPanel selectedIds={ids} date={date} routeId={routeId} onAdd={suggestion} city={city||undefined} district={district||undefined}/>
   {error&&<p className="error" role="alert">{error}</p>}
   {message&&<p className="success" role="status">{message}</p>}
   <div className="routes-editor-actions">
