@@ -6,8 +6,9 @@ export const dynamic='force-dynamic';
 
 export async function GET(req:Request){
  return withRole(['admin','supervisor','agent'],async user=>{
-  const registrationReady=await isSchemaReady('cadastro');
   const url=new URL(req.url),term=(url.searchParams.get('q')||'').trim().slice(0,120);
+  const planning=url.searchParams.get('purpose')==='route'&&['admin','supervisor'].includes(user.role);
+  const registrationReady=planning?false:await isSchemaReady('cadastro');
   const rawPage=Number(url.searchParams.get('page')||1);
   const page=Number.isInteger(rawPage)?Math.max(1,Math.min(10000,rawPage)):1;
   const city=(url.searchParams.get('city')||'').trim().slice(0,120);
@@ -36,7 +37,7 @@ export async function GET(req:Request){
     e.id,e.cnpj,e.legal_name,e.trade_name,e.city,e.district,e.state,e.field_status,
     ${registrationExpr} as registration_state
     from establishments e
-    left join registration_records rr on rr.establishment_id=e.id
+    ${planning?'':"left join registration_records rr on rr.establishment_id=e.id"}
     where ($1='' or upper(e.cnpj) like '%'||upper(regexp_replace($1,'[^A-Za-z0-9]','','g'))||'%' or unaccent(e.legal_name) ilike '%'||unaccent($1)||'%'
      or unaccent(coalesce(e.trade_name,'')) ilike '%'||unaccent($1)||'%'
      or unaccent(coalesce(e.city,'')) ilike '%'||unaccent($1)||'%')
