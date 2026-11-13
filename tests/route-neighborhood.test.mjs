@@ -41,3 +41,13 @@ test('interface separa escolha município bairro e busca restrita',()=>{
  assert.match(page,/neighborhoodKey\(company\)!==neighborhoodKey/);
  assert.match(page,/disabled=\{busy\|\|!selected.length\|\|!agent\|\|!date\|\|!city\|\|!district\}/);
 });
+
+test('troca de bairro invalida buscas antigas e lista mostra identificação territorial',()=>{
+ const page=src('app/rotas/page.tsx');
+ assert.match(page,/companyRequest\.current\+\+/);
+ assert.match(page,/request===companyRequest\.current/);
+ assert.match(page,/request===districtRequest\.current/);
+ assert.match(page,/neighborhood_label/);
+ const api=src('app/api/rotas/route.ts');
+ assert.match(api,/district_label/);
+});
