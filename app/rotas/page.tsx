@@ -15,7 +15,7 @@ const defaultDate=()=>new Date().toLocaleDateString('sv-SE');
 export default function Rotas(){
  const [rows,setRows]=useState<RouteRow[]>([]),[agents,setAgents]=useState<Pick[]>([]),[companies,setCompanies]=useState<Company[]>([]);
  const [role,setRole]=useState<'admin'|'supervisor'|'agent'|null>(null),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
- const [showForm,setShowForm]=useState(false),[filter,setFilter]=useState('all'),[agent,setAgent]=useState(''),[date,setDate]=useState(defaultDate);
+ const [showForm,setShowForm]=useState(false),[showSummary,setShowSummary]=useState(false),[filter,setFilter]=useState('all'),[agent,setAgent]=useState(''),[date,setDate]=useState(defaultDate);
  const [searchInput,setSearchInput]=useState(''),[search,setSearch]=useState(''),[page,setPage]=useState(1),[hasMore,setHasMore]=useState(false);
  const [selected,setSelected]=useState<string[]>([]),[selectedNames,setSelectedNames]=useState<Record<string,string>>({});
  const canPlan=role==='admin'||role==='supervisor';
@@ -100,11 +100,12 @@ export default function Rotas(){
  const active=rows.filter(r=>['published','in_progress'].includes(r.status)).length,drafts=rows.filter(r=>r.status==='draft').length,done=rows.filter(r=>r.status==='completed').length;
  return <Portal title="Rotas" subtitle={canPlan?'Organize as empresas, atribua um responsável e acompanhe o trabalho.':'Suas jornadas de campo, em ordem de prioridade.'}>
   <div className="routes-shell">
-   <div className="routes-summary">
-    <div><span>Rotas em campo ou disponíveis</span><strong>{active}</strong></div>
-    <div><span>Aguardando publicação</span><strong>{drafts}</strong></div>
-    <div><span>Finalizadas</span><strong>{done}</strong></div>
+   <div className="routes-summary routes-summary-condensed">
+    <div><span>Em andamento</span><strong>{active}</strong></div>
+    <div><span>A publicar</span><strong>{drafts}</strong></div>
+    <button type="button" className="routes-summary-more" onClick={()=>setShowSummary(x=>!x)} aria-expanded={showSummary}>Concluídas <strong>{done}</strong></button>
    </div>
+   {showSummary&&<p className="routes-summary-caption">Os totais representam as rotas carregadas nesta página. Use os filtros abaixo para consultar o histórico.</p>}
    {error&&<p className="error" role="alert">{error}</p>}
    {message&&<p className="success" role="status">{message}</p>}
    {canPlan&&<section className="routes-builder">
@@ -137,7 +138,7 @@ export default function Rotas(){
     </form>}
    </section>}
    <section className="routes-list-section">
-    <div className="routes-section-top"><div><span>ACOMPANHAMENTO</span><h2>{role==='agent'?'Minhas rotas':'Rotas cadastradas'}</h2><p>Abra uma rota para visualizar empresas e trajeto.</p></div></div>
+    <div className="routes-section-top"><div><span>ACOMPANHAMENTO</span><h2>{role==='agent'?'Minhas rotas':'Rotas cadastradas'}</h2><p>Escolha uma rota para continuar ou conferir detalhes.</p></div></div>
     <div className="routes-filters" role="group" aria-label="Filtrar rotas">
      {([['all','Todas'],['active','Em campo'],['draft','A publicar'],['completed','Concluídas']] as [string,string][]).filter(x=>role!=='agent'||x[0]!=='draft').map(([key,label])=><button type="button" aria-pressed={filter===key} className={filter===key?'active':''} key={key} onClick={()=>setFilter(key)}>{label}</button>)}
     </div>
