@@ -10,6 +10,10 @@ export type Candidate=Location&{
 const normal=(s:string|null|undefined)=>String(s??'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim().replace(/\s+/g,' ');
 const postal=(s:string|null|undefined)=>String(s??'').replace(/\D/g,'');
 const round=(n:number|null):number|null=>n===null?null:Math.round(n*10)/10;
+/** Coordenadas incompletas ou fora da faixa não representam um ponto mapeável. */
+const validCoordinates=(p:Pick<Location,'lat'|'lon'>):boolean=>
+ typeof p.lat==='number'&&Number.isFinite(p.lat)&&Math.abs(p.lat)<=90&&
+ typeof p.lon==='number'&&Number.isFinite(p.lon)&&Math.abs(p.lon)<=180;
 export function kmBetween(a:Pick<Location,'lat'|'lon'>,b:Pick<Location,'lat'|'lon'>):number|null{
  const v=[a.lat,a.lon,b.lat,b.lon];
  if(v.some(x=>typeof x!=='number'||!Number.isFinite(x)))return null;
@@ -28,7 +32,7 @@ export function evaluateRoute(items:Location[]){
   if(key){const v=cities.get(key);if(v)v.count++;else cities.set(key,{city:items[i].city!.trim(),count:1})}
   const code=postal(items[i].postal_code);if(code.length>=3)postalZones.add(code.slice(0,3));
   const district=normal(items[i].district);if(district)neighborhoods.add(key+':'+district);
-  if(items[i].lat!==null&&items[i].lon!==null&&Number.isFinite(Number(items[i].lat))&&Number.isFinite(Number(items[i].lon)))located++;
+  if(validCoordinates(items[i]))located++;
   if(i){const d=kmBetween(items[i-1],items[i]);if(d!==null){knownLegs++;knownKm+=d;maxJump=Math.max(maxJump,d)}}
   for(let j=0;j<i;j++){const d=kmBetween(items[j],items[i]);if(d!==null)maxSpan=Math.max(maxSpan,d)}
  }
@@ -46,7 +50,7 @@ export function evaluateRoute(items:Location[]){
   known_legs:knownLegs,straight_leg_km:round(knownLegs?knownKm:null),
   max_jump_km:round(knownLegs?maxJump:null),span_km:round(located>1?maxSpan:null),risk,warnings,
   cities:[...cities.values()].sort((a,b)=>b.count-a.count),
-  points:items.filter(x=>x.lat!==null&&x.lon!==null).map(x=>({id:x.id,lat:Number(x.lat),lon:Number(x.lon)}))};
+  points:items.filter(validCoordinates).map(x=>({id:x.id,lat:x.lat as number,lon:x.lon as number}))};
 }
 export function rankCandidates(selected:Location[],possible:Location[],limit=12):Candidate[]{
  return possible.map(item=>{
