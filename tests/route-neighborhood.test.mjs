@@ -51,3 +51,12 @@ test('troca de bairro invalida buscas antigas e lista mostra identificação ter
  const api=src('app/api/rotas/route.ts');
  assert.match(api,/district_label/);
 });
+
+test('editor usa município e bairro da rota e não mistura pesquisa de outras regiões',()=>{
+ const editor=src('components/route-company-editor.tsx');
+ const route=src('app/rotas/[id]/page.tsx');
+ assert.match(editor,/singleArea=assessNeighborhoodSelection\(stops\).valid/);
+ assert.match(editor,/page:String\(nextPage\),city,district/);
+ assert.match(editor,/city=\{city\|\|undefined\} district=\{district\|\|undefined\}/);
+ assert.match(route,/district:string\|null;city:string\|null/);
+});
