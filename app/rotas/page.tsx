@@ -48,7 +48,7 @@ export default function Rotas(){
   const request=++companyRequest.current;
   setCompaniesLoading(true);setError('');
   try{
-   const params=new URLSearchParams({q,page:String(nextPage),city:areaCity,district:areaDistrict,available_on:areaDate});
+   const params=new URLSearchParams({q,page:String(nextPage),city:areaCity,district:areaDistrict,available_on:areaDate,purpose:'route'});
    const res=await fetch('/api/companies?'+params,{cache:'no-store'});
    const data=await res.json();if(!res.ok)throw Error(data.error||'Falha na busca');
    if(request===companyRequest.current){setCompanies(data.items||[]);setHasMore(Boolean(data.hasMore));setPage(nextPage)}
