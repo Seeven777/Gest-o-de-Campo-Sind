@@ -28,8 +28,11 @@ test('API de empresas filtra bairro exato normalizado sem perder escopo do agent
 });
 test('servidor impede criação de nova rota com bairros misturados',()=>{
  const api=src('app/api/rotas/route.ts');
- assert.match(api,/assessNeighborhoodSelection\(check\)/);
+ assert.match(api,/assessNeighborhoodSelection\(check\.map/);
  assert.match(api,/if\(!territory.valid\)return fail\(territory.reason,409\)/);
+ const editor=src('app/api/rotas/[id]/route.ts');
+ assert.match(editor,/assessNeighborhoodSelection\(originalAreas\.map/);
+ assert.match(editor,/assessNeighborhoodSelection\(newAreas\.map/);
 });
 test('interface separa escolha município bairro e busca restrita',()=>{
  const page=src('app/rotas/page.tsx');
