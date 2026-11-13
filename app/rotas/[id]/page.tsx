@@ -7,7 +7,7 @@ import {MapPinned,Route as RouteIcon,RefreshCw,Navigation,Edit3,LockKeyhole} fro
 import {RouteCompanyEditor} from '@/components/route-company-editor';
 import '../rotas.css';
 
-type Stop={id:string;establishment_id:string;position_order:number;legal_name:string;trade_name:string|null;street:string|null;street_number:string|null;city:string|null;state:string|null;postal_code:string|null;cnpj:string};
+type Stop={id:string;establishment_id:string;position_order:number;legal_name:string;trade_name:string|null;street:string|null;street_number:string|null;district:string|null;city:string|null;state:string|null;postal_code:string|null;cnpj:string};
 type RouteMeta={id:string;route_date:string;status:string;stored_status:string;campaign_name:string;can_edit:boolean;edit_token:string};
 type Point={id:string;lat:number;lon:number};
 type Missing={id:string;name:string;address:string};

@@ -1,14 +1,16 @@
 'use client';
-import {useEffect,useMemo,useState} from 'react';
+import {useEffect,useMemo,useRef,useState} from 'react';
 import Link from 'next/link';
 import {Portal} from '@/components/portal';
 import {Route as RouteIcon,Plus,Search,ChevronLeft,ChevronRight,CalendarDays,UserRound,MapPin,ArrowRight,Layers,Send} from 'lucide-react';
 import './rotas.css';
 import {RouteProximityPanel,type NearbyCompany} from '@/components/route-proximity-panel';
 import {RouteChosenList} from '@/components/route-chosen-list';
-type RouteRow={id:string;route_date:string;campaign_name:string;agent_name:string;status:string;stops:number};
+import {neighborhoodKey} from '@/lib/route-neighborhood';
+type RouteRow={id:string;route_date:string;campaign_name:string;agent_name:string;status:string;stops:number;neighborhood_label?:string};
 type Pick={id:string;name:string};
-type Company={id:string;legal_name:string;trade_name?:string|null;city:string|null;cnpj?:string};
+type Company={id:string;legal_name:string;trade_name?:string|null;city:string|null;district:string|null;cnpj?:string};
+type AreaOption={name:string;count:number};
 const states:Record<string,string>={draft:'A publicar',published:'Disponível',in_progress:'Em campo',completed:'Concluída',cancelled:'Cancelada'};
 const dateLabel=(value:string)=>{const raw=String(value).slice(0,10);return raw.split('-').reverse().join('/')};
 const defaultDate=()=>new Date().toLocaleDateString('sv-SE');
@@ -18,6 +20,9 @@ export default function Rotas(){
  const [showForm,setShowForm]=useState(false),[filter,setFilter]=useState('all'),[agent,setAgent]=useState(''),[date,setDate]=useState(defaultDate);
  const [searchInput,setSearchInput]=useState(''),[search,setSearch]=useState(''),[page,setPage]=useState(1),[hasMore,setHasMore]=useState(false);
  const [selected,setSelected]=useState<string[]>([]),[selectedNames,setSelectedNames]=useState<Record<string,string>>({});
+ const [cities,setCities]=useState<AreaOption[]>([]),[districts,setDistricts]=useState<AreaOption[]>([]);
+ const districtRequest=useRef(0),companyRequest=useRef(0);
+ const [city,setCity]=useState(''),[district,setDistrict]=useState(''),[areasLoading,setAreasLoading]=useState(false),[companiesLoading,setCompaniesLoading]=useState(false);
  const canPlan=role==='admin'||role==='supervisor';
  async function reload(){const res=await fetch('/api/rotas',{cache:'no-store'});const payload=await res.json();if(!res.ok)throw Error(payload.error||'Falha ao carregar rotas');setRows(payload.items||[])}
  useEffect(()=>{let live=true;
@@ -28,19 +33,49 @@ export default function Rotas(){
    if(!routes.ok)throw Error(list.error||'Rotas indisponíveis.');
    if(!live)return;setRole(user.user.role);setRows(list.items||[]);
    if(user.user.role==='agent')return;
-   const [people,company]=await Promise.all([fetch('/api/equipe',{cache:'no-store'}),fetch('/api/companies?page=1',{cache:'no-store'})]);
-   const [pd,cd]=await Promise.all([people.json(),company.json()]);
-   if(!people.ok||!company.ok)throw Error(pd.error||cd.error||'Falha ao carregar opções.');
+   const [people,areas]=await Promise.all([fetch('/api/equipe',{cache:'no-store'}),fetch('/api/rotas/bairros',{cache:'no-store'})]);
+   const [pd,ad]=await Promise.all([people.json(),areas.json()]);
+   if(!people.ok||!areas.ok)throw Error(pd.error||ad.error||'Falha ao carregar os bairros.');
    if(!live)return;setAgents((pd.items||[]).map((x:{id:string;full_name:string})=>({id:x.id,name:x.full_name})));
-   setCompanies(cd.items||[]);setHasMore(Boolean(cd.hasMore));
+   setCities(ad.cities||[]);
   }catch(e){if(live)setError(e instanceof Error?e.message:'Falha ao abrir as rotas')}
   finally{if(live)setLoading(false)}})();
   return()=>{live=false};
  },[]);
- async function findCompanies(nextPage=1){
-  setError('');const res=await fetch('/api/companies?'+new URLSearchParams({q:search,page:String(nextPage)}).toString(),{cache:'no-store'});
-  const data=await res.json();if(!res.ok)throw Error(data.error||'Falha na busca');
-  setCompanies(data.items||[]);setHasMore(Boolean(data.hasMore));setPage(nextPage);
+ async function findCompanies(nextPage=1,q=search,areaCity=city,areaDistrict=district){
+  if(!areaCity||!areaDistrict)return;
+  const request=++companyRequest.current;
+  setCompaniesLoading(true);setError('');
+  try{
+   const params=new URLSearchParams({q,page:String(nextPage),city:areaCity,district:areaDistrict});
+   const res=await fetch('/api/companies?'+params,{cache:'no-store'});
+   const data=await res.json();if(!res.ok)throw Error(data.error||'Falha na busca');
+   if(request===companyRequest.current){setCompanies(data.items||[]);setHasMore(Boolean(data.hasMore));setPage(nextPage)}
+  }catch(e){if(request===companyRequest.current)setError(e instanceof Error?e.message:'Busca indisponível')}
+  finally{if(request===companyRequest.current)setCompaniesLoading(false)}
+ }
+ async function chooseCity(next:string){
+  if(next===city)return;
+  if(selected.length&&!window.confirm('Mudar de município removerá as empresas selecionadas. Continuar?'))return;
+  const request=++districtRequest.current;companyRequest.current++;
+  setCompaniesLoading(false);setCity(next);setDistrict('');setDistricts([]);setSelected([]);setSelectedNames({});
+  setCompanies([]);setSearch('');setSearchInput('');setPage(1);setHasMore(false);setError('');
+  if(!next)return;
+  setAreasLoading(true);
+  try{
+   const res=await fetch('/api/rotas/bairros?'+new URLSearchParams({city:next}),{cache:'no-store'});
+   const data=await res.json();if(!res.ok)throw Error(data.error||'Não foi possível consultar bairros.');
+   if(request===districtRequest.current)setDistricts(data.districts||[]);
+  }catch(e){if(request===districtRequest.current)setError(e instanceof Error?e.message:'Falha ao consultar bairros')}
+  finally{if(request===districtRequest.current)setAreasLoading(false)}
+ }
+ function chooseDistrict(next:string){
+  if(next===district)return;
+  if(selected.length&&!window.confirm('Mudar de bairro removerá as empresas selecionadas. Continuar?'))return;
+  companyRequest.current++;setCompaniesLoading(false);
+  setDistrict(next);setSelected([]);setSelectedNames({});setSearch('');setSearchInput('');
+  setCompanies([]);setPage(1);setHasMore(false);
+  if(next)void findCompanies(1,'',city,next);
  }
  function toggle(company:Company){
   setSelected(previous=>{
@@ -55,11 +90,14 @@ export default function Rotas(){
   [next[index],next[at]]=[next[at],next[index]];return next;
  });
  const addNearby=(company:NearbyCompany)=>{
+  if(!city||!district||neighborhoodKey(company)!==neighborhoodKey({city,district})){
+   setError('A sugestão pertence a outro bairro. Crie outro roteiro para essa região.');return;
+  }
   setSelectedNames(names=>({...names,[company.id]:company.trade_name||company.legal_name}));
   setSelected(previous=>previous.includes(company.id)||previous.length>=49?previous:[...previous,company.id]);
  };
  async function create(e:React.FormEvent){
-  e.preventDefault();if(!agent||!selected.length||!date)return;
+  e.preventDefault();if(!agent||!selected.length||!date||!city||!district)return;
   setBusy(true);setError('');setMessage('');
   try{
    const res=await fetch('/api/rotas',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent_id:agent,date,establishment_ids:selected})});
@@ -108,7 +146,7 @@ export default function Rotas(){
    {error&&<p className="error" role="alert">{error}</p>}
    {message&&<p className="success" role="status">{message}</p>}
    {canPlan&&<section className="routes-builder">
-    <div className="routes-section-top"><div><span>PLANEJAMENTO SIMPLES</span><h2>Nova rota de captação</h2><p>Escolha quem irá visitar, a data e até 49 empresas. Não é necessário criar uma campanha antes.</p></div>
+    <div className="routes-section-top"><div><span>PLANEJAMENTO POR BAIRRO</span><h2>Novo roteiro por bairro</h2><p>Defina o responsável, a data e o bairro. Cada roteiro terá empresas de uma única região.</p></div>
      <button className="routes-primary-action" type="button" onClick={()=>setShowForm(x=>!x)} aria-expanded={showForm}>
       <Plus size={20}/>{showForm?'Fechar planejamento':'Criar rota'}</button>
     </div>
@@ -121,19 +159,35 @@ export default function Rotas(){
        <input type="date" required value={date} onChange={e=>setDate(e.target.value)}/>
       </label>
      </div>
-     <div className="routes-company-heading"><div><strong>Selecione as empresas</strong><p>Pesquise pelo nome, CNPJ ou município. A seleção fica salva ao trocar de página.</p></div><span>{selected.length} / 49</span></div>
-     <div className="routes-search"><Search size={18}/><input aria-label="Buscar empresa" value={searchInput} onChange={e=>setSearchInput(e.target.value)} placeholder="Nome, CNPJ ou município"/><button type="button" onClick={()=>{setSearch(searchInput);void (async()=>{try{const res=await fetch('/api/companies?'+new URLSearchParams({q:searchInput,page:'1'}),{cache:'no-store'});const d=await res.json();if(!res.ok)throw Error(d.error);setCompanies(d.items||[]);setHasMore(Boolean(d.hasMore));setPage(1)}catch(e){setError(e instanceof Error?e.message:'Falha na busca')}})()}}>Buscar</button></div>
-     <div className="routes-company-choices">{companies.map(company=><label key={company.id} className={selected.includes(company.id)?'is-selected':''}>
+     <div className="routes-neighborhood-picker" aria-label="Separar roteiro por município e bairro">
+      <div><strong>1. Escolha a região do roteiro</strong><p>Uma rota por bairro. Empresas de outros bairros ficam em um roteiro separado.</p></div>
+      <div className="routes-area-fields">
+       <label>Município<select value={city} onChange={e=>void chooseCity(e.target.value)} required>
+        <option value="">Selecione o município</option>
+        {cities.map(x=><option key={x.name} value={x.name}>{x.name} ({x.count})</option>)}
+       </select></label>
+       <label>Bairro<select value={district} onChange={e=>chooseDistrict(e.target.value)} required disabled={!city||areasLoading}>
+        <option value="">{areasLoading?'Carregando bairros...':'Selecione o bairro'}</option>
+        {districts.map(x=><option key={x.name} value={x.name}>{x.name} ({x.count})</option>)}
+       </select></label>
+      </div>
+      {city&&district&&<p className="routes-area-confirm"><MapPin size={16}/> Região escolhida: <strong>{district} · {city}</strong></p>}
+      {city&&!areasLoading&&!districts.length&&<p className="routes-area-warning">Não há empresas com bairro preenchido neste município. Corrija os cadastros antes de planejar.</p>}
+     </div>
+     <div className="routes-company-heading"><div><strong>2. Selecione as empresas</strong><p>{district?'Somente empresas em '+district+', '+city+'.':'Escolha município e bairro acima para visualizar as empresas.'}</p></div><span>{selected.length} / 49</span></div>
+     {city&&district&&<div className="routes-search"><Search size={18}/><input aria-label="Buscar empresa no bairro" value={searchInput} onChange={e=>setSearchInput(e.target.value)} placeholder="Nome ou CNPJ neste bairro"/>
+      <button type="button" disabled={companiesLoading} onClick={()=>{setSearch(searchInput);void findCompanies(1,searchInput)}}>Buscar</button></div>}
+     {city&&district&&<div className="routes-company-choices">{companies.map(company=><label key={company.id} className={selected.includes(company.id)?'is-selected':''}>
       <input type="checkbox" checked={selected.includes(company.id)} disabled={!selected.includes(company.id)&&selected.length>=49} onChange={()=>toggle(company)}/>
-      <span><strong>{company.trade_name||company.legal_name}</strong><small>{company.city||'Município não informado'} {company.cnpj?'· '+company.cnpj:''}</small></span>
+      <span><strong>{company.trade_name||company.legal_name}</strong><small>{company.district||'Bairro não informado'} · {company.city||'Município não informado'} {company.cnpj?'· '+company.cnpj:''}</small></span>
      </label>)}
-     {!companies.length&&<p className="routes-empty">Nenhuma empresa encontrada. Experimente outra busca.</p>}</div>
-     <div className="routes-pagination"><button type="button" disabled={page===1} onClick={()=>void findCompanies(page-1).catch(e=>setError(e.message))}><ChevronLeft size={17}/> Anterior</button><span>Página {page}</span><button type="button" disabled={!hasMore} onClick={()=>void findCompanies(page+1).catch(e=>setError(e.message))}>Próxima <ChevronRight size={17}/></button></div>
+     {!companies.length&&<p className="routes-empty">{companiesLoading?'Carregando empresas...':'Nenhuma empresa encontrada neste bairro.'}</p>}</div>}
+     {city&&district&&<div className="routes-pagination"><button type="button" disabled={page===1||companiesLoading} onClick={()=>void findCompanies(page-1)}><ChevronLeft size={17}/> Anterior</button><span>Página {page}</span><button type="button" disabled={!hasMore||companiesLoading} onClick={()=>void findCompanies(page+1)}>Próxima <ChevronRight size={17}/></button></div>}
      <RouteChosenList ids={selected} names={selectedNames} onMove={moveSelected}
       onRemove={id=>setSelected(previous=>previous.filter(x=>x!==id))}/>
-     <RouteProximityPanel selectedIds={selected} date={date} onAdd={addNearby}/>
+     <RouteProximityPanel selectedIds={selected} date={date} onAdd={addNearby} city={city} district={district}/>
      <p className="routes-proximity-disclaimer">Confira a proximidade antes de salvar. A nova rota será criada em rascunho; a publicação exige outra confirmação.</p>
-     <button className="routes-create" disabled={busy||!selected.length||!agent||!date} type="submit"><RouteIcon size={19}/>{busy?'Salvando rota...':'Criar rota com '+selected.length+' empresa(s)'}<ArrowRight size={20}/></button>
+     <button className="routes-create" disabled={busy||!selected.length||!agent||!date||!city||!district} type="submit"><RouteIcon size={19}/>{busy?'Salvando rota...':'Criar rota com '+selected.length+' empresa(s)'}<ArrowRight size={20}/></button>
     </form>}
    </section>}
    <section className="routes-list-section">
@@ -144,8 +198,9 @@ export default function Rotas(){
     <div className="routes-cards">{visible.map(r=><article key={r.id} className="routes-item">
      <div className="routes-item-icon"><RouteIcon size={22}/></div>
      <div className="routes-item-content">
-      <div><strong>Rota de {dateLabel(r.route_date)}</strong><span className={'routes-state routes-state-'+r.status}>{states[r.status]||r.status}</span></div>
-      <p><UserRound size={15}/>{r.agent_name}<span>·</span><MapPin size={15}/>{r.stops} {r.stops===1?'empresa':'empresas'}</p>
+      <div><strong>{r.neighborhood_label&&r.neighborhood_label!=='Bairro não informado'&&r.neighborhood_label!=='Regiões variadas'?r.neighborhood_label:'Rota de '+dateLabel(r.route_date)}</strong><span className={'routes-state routes-state-'+r.status}>{states[r.status]||r.status}</span></div>
+      <p><UserRound size={15}/>{r.agent_name}<span>·</span><MapPin size={15}/>{r.stops} {r.stops===1?'empresa':'empresas'}<span>·</span><CalendarDays size={15}/>{dateLabel(r.route_date)}</p>
+      {(r.neighborhood_label==='Regiões variadas'||r.neighborhood_label==='Bairro não informado')&&<small className="routes-area-caption">{r.neighborhood_label}</small>}
      </div>
      <div className="routes-item-actions">
       {canPlan&&r.status==='draft'&&<button type="button" className="routes-publish" disabled={busy} onClick={()=>void publish(r.id)}><Send size={16}/> Publicar</button>}

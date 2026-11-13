@@ -7,7 +7,7 @@ type Props={
  wazeUrl:string|null;driving:boolean;busy:boolean;gpsUnavailable:boolean;
  gpsMessage:string;navigationError:boolean;error:string;
  onArrive:()=>void;onGpsFix:()=>void;onReport:()=>void;onBreak:()=>void;
- onBlockedWaze:()=>void;
+ onBlockedWaze:()=>void;onWazeOpen:()=>void;
 };
 
 /** Uma ação prioritária por etapa. Todo controle requer veículo estacionado. */
@@ -41,7 +41,7 @@ export function CrewTravelPanel(p:Props){
     {p.wazeUrl&&<a className={'crew-waze-link crew-sheet-waze'+(p.driving?' is-driving':'')}
      href={p.wazeUrl} target="_blank" rel="noopener noreferrer" tabIndex={p.driving?-1:0}
      aria-disabled={p.driving} title="Abrir o Waze com o veículo parado, para orientação por voz" aria-label="Abrir a próxima empresa no Waze"
-     onClick={e=>{if(p.driving){e.preventDefault();p.onBlockedWaze()}}}>
+     onClick={e=>{if(p.driving){e.preventDefault();p.onBlockedWaze()}else p.onWazeOpen()}}>
      <Navigation size={19} aria-hidden="true"/><span>WAZE</span>
      <ExternalLink size={14} aria-hidden="true"/></a>}
    </div>

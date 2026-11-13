@@ -16,8 +16,8 @@ type Assessment={
 type Result={assessment:Assessment;suggestions:NearbyCompany[];basis:string;error?:string};
 const fmt=(n:number|null)=>n===null?'—':n.toLocaleString('pt-BR',{maximumFractionDigits:1})+' km';
 
-export function RouteProximityPanel({selectedIds,date,routeId,onAdd}:{
- selectedIds:string[];date:string;routeId?:string;onAdd:(company:NearbyCompany)=>void
+export function RouteProximityPanel({selectedIds,date,routeId,onAdd,city,district}:{
+ selectedIds:string[];date:string;routeId?:string;city?:string;district?:string;onAdd:(company:NearbyCompany)=>void
 }){
  const [data,setData]=useState<Result|null>(null),[loading,setLoading]=useState(false),[error,setError]=useState('');
  useEffect(()=>{
@@ -36,6 +36,8 @@ export function RouteProximityPanel({selectedIds,date,routeId,onAdd}:{
   return()=>{live=false;window.clearTimeout(timer);ctrl.abort()};
  },[selectedIds,date,routeId]);
  const a=data?.assessment;
+ const same=(a:string|null|undefined,b:string)=>String(a||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim()===b.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().trim();
+ const suggestions=data?.suggestions.filter(x=>!city||!district||same(x.city,city)&&same(x.district,district))||[];
  const map=useMemo<FieldPlan|null>(()=>a?.points?.length?{
   order:selectedIds.filter(id=>a.points.some(p=>p.id===id)),points:a.points,
   geometry:{type:'LineString',coordinates:[]}
@@ -72,14 +74,14 @@ export function RouteProximityPanel({selectedIds,date,routeId,onAdd}:{
    </div>}
    {!map&&<p className="routes-geo-help"><Info size={16}/> Nenhuma das empresas selecionadas possui coordenadas. Você ainda pode aproveitar as sugestões pelo município, bairro e CEP.</p>}
    <div className="routes-suggestions-title"><div><strong>Empresas próximas que ainda podem entrar na rota</strong><p>Sugestões do cadastro interno, ainda não selecionadas e sem atribuição a outra rota ativa na mesma data.</p></div></div>
-   {data!.suggestions.length>0?<div className="routes-suggestions">
-    {data!.suggestions.map(x=><div className="routes-suggestion" key={x.id}>
+   {suggestions.length>0?<div className="routes-suggestions">
+    {suggestions.map(x=><div className="routes-suggestion" key={x.id}>
      <div><strong>{x.trade_name||x.legal_name}</strong><small>{[x.district,x.city].filter(Boolean).join(' · ')||'Local não informado'}</small>
       <span>{x.reason}</span></div>
      <button type="button" onClick={()=>onAdd(x)} disabled={selectedIds.length>=49}
       aria-label={'Adicionar '+(x.trade_name||x.legal_name)+' à rota'}><Plus size={16}/> Adicionar</button>
     </div>)}
-   </div>:<p className="routes-geo-help">Nenhuma sugestão disponível nessa região. Pesquise empresas de outro município ou revise os endereços.</p>}
+   </div>:<p className="routes-geo-help">Nenhuma sugestão disponível no bairro escolhido. Crie outro roteiro para atender outro bairro.</p>}
    <p className="routes-proximity-disclaimer"><RouteIcon size={15}/> A proximidade ajuda a selecionar empresas; não substitui a otimização pelas ruas no detalhe da rota. Município e CEP semelhantes não comprovam distância física curta.</p>
   </>}
  </section>;

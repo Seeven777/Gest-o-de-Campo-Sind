@@ -1,4 +1,5 @@
 import {validISODate} from '@/lib/iso-date';
+import {assessNeighborhoodSelection} from '@/lib/route-neighborhood';
 import {evaluateRoute,type Location} from '@/lib/route-proximity';
 import {requiresTerritoryConfirmation,validPublicationConfirmation} from '@/lib/route-publication';
 import {NextResponse} from 'next/server';import {currentIdentity} from '@/lib/access';import {db} from '@/lib/db';
@@ -20,7 +21,8 @@ export async function GET(){
       else r.status end as status,
  c.name as campaign_name,p.full_name as agent_name,
  progress.total_stops as stops,
- progress.total_stops-progress.remaining_stops as completed_stops
+ progress.total_stops-progress.remaining_stops as completed_stops,
+ coalesce(area.district_label,'Bairro não informado') as neighborhood_label
  from routes r
  join campaigns c on c.id=r.campaign_id
  join app_profiles p on p.auth_user_id=r.agent_id
@@ -34,6 +36,17 @@ export async function GET(){
   ) v on true
   where s.route_id=r.id
  ) progress
+ cross join lateral (
+  select case
+    when count(*)>0 and count(distinct lower(unaccent(trim(coalesce(e.city,'')))))=1
+      and count(distinct lower(unaccent(trim(coalesce(e.district,'')))))=1
+      and min(nullif(trim(e.city),'')) is not null
+      and min(nullif(trim(e.district),'')) is not null
+    then min(trim(e.district))||' · '||min(trim(e.city))
+    when count(*)>0 then 'Regiões variadas'
+    else null end as district_label
+  from route_stops s join establishments e on e.id=s.establishment_id where s.route_id=r.id
+ ) area
  ${scope} order by r.route_date desc limit 100`,params);
  return NextResponse.json({items},{headers:{'Cache-Control':'no-store'}});
 }
@@ -46,7 +59,9 @@ export async function POST(req:Request){
  const [c]=campaign?await db().query('select id from campaigns where id=$1 and $2::date between start_date and end_date and status<>\'cancelled\'',[campaign,date]):[{id:'automatic'}];
  const [a]=await db().query('select auth_user_id from app_profiles where auth_user_id=$1 and role=\'agent\' and is_active=true',[agent]);
  if(!c||!a)return fail('Rota fora do período configurado ou agente não encontrado.');
- const check=await db().query('select id from establishments where id=ANY($1::uuid[])',[stops]);if(check.length!==stops.length)return fail('Há empresas inexistentes na seleção.');
+ const check=await db().query('select id,city,district from establishments where id=ANY($1::uuid[])',[stops]);if(check.length!==stops.length)return fail('Há empresas inexistentes na seleção.');
+ const territory=assessNeighborhoodSelection(check.map(x=>({city:String(x.city||''),district:String(x.district||'')})));
+ if(!territory.valid)return fail(territory.reason,409);
  const dup=await db().query(`select 1 from routes r join route_stops s on s.route_id=r.id
  where r.route_date=$1 and r.status<>'cancelled' and s.establishment_id=ANY($2::uuid[]) limit 1`,[date,stops]);
  if(dup.length)return fail('Uma das empresas já consta em outra rota ativa nessa data.',409);
