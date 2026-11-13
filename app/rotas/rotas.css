@@ -120,3 +120,16 @@
 .routes-editor-note{font-size:12px;color:#7f6b50;line-height:1.6;margin:14px 0}
 @media(max-width:740px){.routes-suggestions{grid-template-columns:1fr}.routes-proximity-stats{grid-template-columns:repeat(2,minmax(0,1fr))}.routes-proximity{padding:12px}.routes-geo-map .field-map{height:255px;min-height:255px}.routes-editor-card{padding:12px}}
 @media(prefers-reduced-motion:reduce){.routes-suggestion button,.routes-chosen-list button{transition:none}}
+
+/* Separação territorial obrigatória no fluxo de criação. */
+.routes-neighborhood-picker{display:grid;gap:13px;margin-top:22px;padding:20px;border:1px solid #efd7c0;border-radius:17px;background:linear-gradient(125deg,#fff9f2,#fff)}
+.routes-neighborhood-picker>div:first-child strong{font-size:16px;color:#292a27}
+.routes-neighborhood-picker>div:first-child p{margin:5px 0 0;color:#776d61;font-size:12px;line-height:1.5}
+.routes-area-fields{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:13px}
+.routes-area-fields label{display:flex;flex-direction:column;gap:7px;font-size:12px;font-weight:800;color:#6a5948}
+.routes-area-fields select{width:100%;min-height:49px;background:white;border:1px solid #ddcdbc;border-radius:11px;padding:9px 12px;color:#2c2d29;font:inherit;font-size:14px}
+.routes-area-fields select:disabled{opacity:.65;background:#f5f3ef;cursor:not-allowed}
+.routes-area-confirm{display:flex;gap:7px;align-items:center;margin:0;color:#2e704b;font-size:12px;line-height:1.5}
+.routes-area-confirm strong{font-weight:900}
+.routes-area-warning{margin:0;padding:10px 12px;border-radius:10px;border:1px solid #e9cd9a;background:#fff8ec;color:#8f5d24;font-size:12px;line-height:1.5}
+@media(max-width:690px){.routes-neighborhood-picker{padding:15px}.routes-area-fields{grid-template-columns:minmax(0,1fr)}}
