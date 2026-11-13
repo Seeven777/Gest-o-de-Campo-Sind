@@ -32,7 +32,8 @@ export async function GET(req:Request){
     where ($1='' or upper(e.cnpj) like '%'||upper(regexp_replace($1,'[^A-Za-z0-9]','','g'))||'%' or unaccent(e.legal_name) ilike '%'||unaccent($1)||'%'
      or unaccent(coalesce(e.trade_name,'')) ilike '%'||unaccent($1)||'%'
      or unaccent(coalesce(e.city,'')) ilike '%'||unaccent($1)||'%')
-    and ($4='' or unaccent(coalesce(e.city,'')) ilike '%'||unaccent($4)||'%')
+    and ($4='' or (${districtParam}<>'' and lower(unaccent(trim(coalesce(e.city,''))))=lower(unaccent(trim($4))))
+      or (${districtParam}='' and unaccent(coalesce(e.city,'')) ilike '%'||unaccent($4)||'%'))
     and ($5='' or e.main_cnae like $5||'%')
     and ($6='' or e.field_status=$6)
     and (${districtParam}='' or lower(unaccent(trim(coalesce(e.district,''))))=lower(unaccent(trim(${districtParam}))))
