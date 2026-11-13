@@ -20,11 +20,11 @@ test('proximidade disponivel durante criacao e edicao',()=>{
  assert.match(source('components/route-company-editor.tsx'),/<RouteProximityPanel/);
  assert.match(source('components/route-company-editor.tsx'),/method:'PUT'/);
 });
-test('nova publicação consulta avaliacao de dispersao antes de enviar agente',()=>{
+test('publicação exige confirmação territorial emitida pelo servidor',()=>{
  const s=source('app/rotas/page.tsx');
- assert.match(s,/fetch\('\/api\/rotas\/planejamento'/);
- assert.match(s,/assessment\.risk==='high'/);
- assert.match(s,/window\.confirm/);
+ assert.match(s,/requires_confirmation/);
+ assert.match(s,/window.confirm/);
+ assert.match(s,/request\(true,payload.edit_token\)/);
 });
 test('finalizacao e visitas anteriores bloqueiam alteracao',()=>{
  const s=source('app/api/rotas/[id]/route.ts');

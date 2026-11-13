@@ -1,4 +1,6 @@
 import {validISODate} from '@/lib/iso-date';
+import {evaluateRoute,type Location} from '@/lib/route-proximity';
+import {requiresTerritoryConfirmation,validPublicationConfirmation} from '@/lib/route-publication';
 import {NextResponse} from 'next/server';import {currentIdentity} from '@/lib/access';import {db} from '@/lib/db';
 export const dynamic='force-dynamic';
 const fail=(error:string,status=400)=>NextResponse.json({error},{status});
@@ -69,11 +71,63 @@ export async function POST(req:Request){
 }
 
 export async function PATCH(req:Request){
- const u=await currentIdentity();if(!u||!['admin','supervisor'].includes(u.role))return fail('Apenas administração e supervisão.',403);
+ const u=await currentIdentity();
+ if(!u)return fail('Faça login novamente.',401);
+ if(!['admin','supervisor'].includes(u.role))return fail('Apenas administração e supervisão.',403);
+ const origin=req.headers.get('origin');
+ if(origin&&new URL(origin).origin!==new URL(req.url).origin)return fail('Origem não autorizada.',403);
  const data=await req.json().catch(()=>({}));const id=String(data.id||'');
- if(!/^[0-9a-f-]{36}$/i.test(id))return fail('Rota inválida.');
- const rows=await db().query("update routes set status='published' where id=$1 and status='draft' and exists(select 1 from route_stops where route_id=$1) returning id",[id]);
- if(!rows.length)return fail('A rota deve existir, possuir paradas e estar em rascunho.',409);
- await db().query('insert into audit_logs(actor_id,action,details) values($1,$2,$3::jsonb)',[u.id,'route.published',JSON.stringify({route_id:id})]);
- return NextResponse.json({ok:true});
+ if(!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id))return fail('Rota inválida.');
+ try{
+  const sql=db();
+  // A regra de publicação é verificada no servidor, independentemente da interface.
+  const [route]=await sql.query(`select r.status,
+   md5(coalesce((select string_agg(s.establishment_id::text,',' order by s.position_order)
+    from route_stops s where s.route_id=r.id),'') || ':' || r.status) as edit_token
+   from routes r where r.id=$1`,[id]);
+  if(!route||route.status!=='draft')return fail('A rota deve estar em rascunho para ser publicada.',409);
+  const stops=await sql.query(`select e.id::text,e.legal_name,e.trade_name,e.city,e.district,e.postal_code,
+   ST_Y(e.position::geometry) as lat,ST_X(e.position::geometry) as lon
+   from route_stops s join establishments e on e.id=s.establishment_id
+   where s.route_id=$1 order by s.position_order,s.id`,[id]) as Location[];
+  if(!stops.length)return fail('Adicione empresas antes de publicar a rota.',409);
+  const assessment=evaluateRoute(stops);
+  const needsConfirmation=requiresTerritoryConfirmation(assessment,stops.length);
+  if(needsConfirmation&&!validPublicationConfirmation(data.territory_confirmed,data.edit_token,String(route.edit_token))){
+   // Confirmação de uma revisão expirada nunca pode ser reutilizada.
+   if(data.territory_confirmed===true)return fail('As paradas foram alteradas. Revise a rota novamente antes de confirmar.',409);
+   return NextResponse.json({error:'A rota exige revisão territorial antes da publicação.',
+    requires_confirmation:true,edit_token:route.edit_token,assessment:{
+     risk:assessment.risk,coverage:assessment.coverage,warnings:assessment.warnings,
+     cities:assessment.cities,selected:assessment.selected
+    }},{status:409,headers:{'Cache-Control':'no-store'}});
+  }
+  const evidence=JSON.stringify({route_id:id,territory_confirmed:needsConfirmation,
+   risk:assessment.risk,coverage:assessment.coverage,municipalities:assessment.cities.length,
+   selected:stops.length,warnings:assessment.warnings});
+  // O update confere a mesma versão de paradas usada no diagnóstico. O editor de
+  // rotas bloqueia o registro de routes antes de alterar as paradas.
+  // A auditoria é persistida no mesmo comando SQL, sem falso sucesso parcial.
+  const [result]=await sql.query(`with changed as (
+   update routes r set status='published'
+   where r.id=$1 and r.status='draft'
+    and md5(coalesce((select string_agg(s.establishment_id::text,',' order by s.position_order)
+     from route_stops s where s.route_id=r.id),'') || ':' || r.status)=$2
+    and exists(select 1 from route_stops where route_id=r.id)
+    and not exists(select 1 from route_stops s join visits v on v.stop_id=s.id where s.route_id=r.id)
+    and not exists(select 1 from agent_live_presence gps where gps.route_id=r.id and gps.active)
+   returning r.id
+  ), recorded as (
+   insert into audit_logs(actor_id,action,details)
+   select $3,'route.published',$4::jsonb from changed returning id
+  ) select (select count(*)::int from changed) as changed,
+    (select count(*)::int from recorded) as recorded`,[id,route.edit_token,u.id,evidence]);
+  if(result?.changed!==1||result?.recorded!==1)
+   return fail('A rota foi alterada ou a jornada começou. Atualize a página antes de publicar.',409);
+  return NextResponse.json({ok:true,territory_confirmed:needsConfirmation},
+   {headers:{'Cache-Control':'no-store'}});
+ }catch(error){
+  console.error('[route-publish]',error instanceof Error?error.message:'Erro inesperado');
+  return fail('Não foi possível publicar a rota. Atualize a página e tente novamente.',500);
+ }
 }
