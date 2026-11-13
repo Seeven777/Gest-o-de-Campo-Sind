@@ -21,7 +21,8 @@ export async function GET(){
       else r.status end as status,
  c.name as campaign_name,p.full_name as agent_name,
  progress.total_stops as stops,
- progress.total_stops-progress.remaining_stops as completed_stops
+ progress.total_stops-progress.remaining_stops as completed_stops,
+ coalesce(area.district_label,'Bairro não informado') as neighborhood_label
  from routes r
  join campaigns c on c.id=r.campaign_id
  join app_profiles p on p.auth_user_id=r.agent_id
@@ -35,6 +36,17 @@ export async function GET(){
   ) v on true
   where s.route_id=r.id
  ) progress
+ cross join lateral (
+  select case
+    when count(*)>0 and count(distinct lower(unaccent(trim(coalesce(e.city,'')))))=1
+      and count(distinct lower(unaccent(trim(coalesce(e.district,'')))))=1
+      and min(nullif(trim(e.city),'')) is not null
+      and min(nullif(trim(e.district),'')) is not null
+    then min(trim(e.district))||' · '||min(trim(e.city))
+    when count(*)>0 then 'Regiões variadas'
+    else null end as district_label
+  from route_stops s join establishments e on e.id=s.establishment_id where s.route_id=r.id
+ ) area
  ${scope} order by r.route_date desc limit 100`,params);
  return NextResponse.json({items},{headers:{'Cache-Control':'no-store'}});
 }
