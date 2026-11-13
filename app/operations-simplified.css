@@ -135,3 +135,27 @@
  .expense-stats>div{padding:13px}
  .expense-stats strong{font-size:25px}
 }
+
+/* Segunda rodada: informações de auditoria acessíveis sem ocupar o primeiro plano. */
+.expense-record-details{margin:8px 0 10px;border:1px solid #e8e7e2;border-radius:11px;padding:0 12px}
+.expense-record-details summary,.registration-instruction-compact summary,.staff-verified-collapsible summary{
+ cursor:pointer;list-style:none;display:flex;gap:10px;align-items:center;min-height:46px;font-size:12px;font-weight:850;color:#a65a23
+}
+.expense-record-details summary:after,.registration-instruction-compact summary:after,.staff-verified-collapsible summary:after{
+ content:'⌄';margin-left:auto;font-size:18px
+}
+.expense-record-details[open] summary:after,.registration-instruction-compact[open] summary:after,.staff-verified-collapsible[open] summary:after{transform:rotate(180deg)}
+.expense-record-details .expense-inline-proof{margin:7px 0;padding:8px 0;font-size:12px;line-height:1.5;overflow-wrap:anywhere}
+.registration-instruction-compact{display:block;padding:0 13px!important}
+.registration-instruction-compact summary{color:#9c5b2c!important}
+.registration-instruction-compact summary svg{flex-shrink:0}
+.registration-instruction-compact p{padding:0 2px 13px;margin:0!important;font-size:12px!important;line-height:1.6}
+.staff-verified-collapsible{padding:8px 20px!important}
+.staff-verified-collapsible summary{font-size:14px;min-height:50px;color:#35483b}
+.staff-verified-collapsible summary>strong{background:#fff0e4;color:#b45b21;border-radius:9px;padding:4px 8px;font-size:12px}
+.staff-verified-content{padding:12px 0 18px;border-top:1px solid #eeeae5}
+.staff-verified-content>h2{font-size:16px;margin:0 0 8px}
+@media(max-width:740px){
+ .staff-verified-collapsible{padding:7px 14px!important}
+ .expense-record-details summary,.registration-instruction-compact summary{min-height:48px;font-size:13px}
+}
