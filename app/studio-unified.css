@@ -1,0 +1,165 @@
+/* STUDIO DESIGN SYSTEM — consistente com o criador de rotas.
+   Escopo não-imersivo: manter a ergonomia de campo independente. */
+.app-shell:not(.journey-shell){
+ --studio-ink:#1d2420;--studio-dark:#161d1a;--studio-orange:#f47730;
+ --studio-line:#e7e9e4;--studio-muted:#758078;
+ --shadow:0 12px 32px #15231a0a;
+}
+.app-shell:not(.journey-shell) .workspace{
+ background:radial-gradient(ellipse 720px 380px at 100% 0%,#fff2e62a,transparent 85%),#f7f8f5;
+ min-width:0;
+}
+.app-shell:not(.journey-shell) .topbar{
+ height:70px;background:#ffffffec;backdrop-filter:blur(18px);
+ border-bottom:1px solid #e9ece6;position:sticky;top:0;z-index:19;
+}
+.app-shell:not(.journey-shell) .side{
+ background:#fcfcfa;border-right:1px solid #e8ebe6;
+}
+.app-shell:not(.journey-shell) .side-unit{
+ border:1px solid #353b31;background:linear-gradient(145deg,#1b2520,#344138);
+ color:#fff;position:relative;overflow:hidden;
+}
+.app-shell:not(.journey-shell) .side-unit:after{
+ content:'';position:absolute;right:-40px;top:-50px;border:1px solid #ffffff1c;
+ width:160px;height:160px;border-radius:50%;box-shadow:0 0 0 43px #ffffff06;
+}
+.app-shell:not(.journey-shell) .side-unit .eyebrow{color:#f8ab78;position:relative;z-index:1}
+.app-shell:not(.journey-shell) .side-unit strong{color:#fff;position:relative;z-index:1}
+.app-shell:not(.journey-shell) .side-link{
+ font-weight:700;border:1px solid transparent;transition:background .2s,color .2s,transform .2s,border-color .2s;
+}
+.app-shell:not(.journey-shell) .side-link:hover{background:#fff6ee;border-color:#f0e0d2;color:#a95521;transform:translateX(3px)}
+.app-shell:not(.journey-shell) .side-link.active{background:#fff0e3;color:#bb581c;border-color:#f3dfcd}
+.app-shell:not(.journey-shell) .page-heading h1{
+ color:var(--studio-ink);letter-spacing:-.065em;font-size:clamp(27px,3.1vw,39px);
+}
+.app-shell:not(.journey-shell) .page-heading p{color:#828b84}
+.app-shell:not(.journey-shell) .kicker{color:#be6c39;letter-spacing:.14em}
+.app-shell:not(.journey-shell) .panel,
+.app-shell:not(.journey-shell) .card{
+ border-color:var(--studio-line);box-shadow:var(--shadow);
+ border-radius:19px;transition:border-color .22s ease,box-shadow .22s ease,transform .22s ease;
+}
+.app-shell:not(.journey-shell) .card:hover{
+ border-color:#efd4bd;box-shadow:0 15px 32px #25291d13;transform:translateY(-2px);
+}
+.app-shell:not(.journey-shell) .panel-title h2{font-size:clamp(17px,1.6vw,20px);letter-spacing:-.045em;color:#253029}
+.app-shell:not(.journey-shell) .panel-title small{color:#c3743d;font-size:10px}
+.app-shell:not(.journey-shell) .button{
+ border-radius:12px;min-height:43px;transition:background .19s,transform .19s,box-shadow .19s,border-color .19s;
+}
+.app-shell:not(.journey-shell) .button:not(:disabled):hover{transform:translateY(-1px);box-shadow:0 6px 19px #f4773025}
+.app-shell:not(.journey-shell) .button:active:not(:disabled){transform:scale(.98)}
+.app-shell:not(.journey-shell) .field,
+.app-shell:not(.journey-shell) select,
+.app-shell:not(.journey-shell) textarea{
+ border-radius:12px;transition:border-color .18s,box-shadow .18s;background-color:#fdfefc;
+}
+.app-shell:not(.journey-shell) :is(input,select,textarea):focus-visible{
+ outline:2px solid #f3864e;outline-offset:2px;
+}
+.app-shell:not(.journey-shell) :is(a,button,summary):focus-visible{
+ outline:3px solid #f3864e;outline-offset:3px;
+}
+.app-shell:not(.journey-shell) .tablewrap{border-radius:16px;border-color:#e6e9e4}
+.app-shell:not(.journey-shell) .tablewrap thead th{
+ background:#f7f9f5;color:#78837a;font-size:10px;letter-spacing:.06em;
+}
+.app-shell:not(.journey-shell) .tablewrap tbody tr{transition:background .16s}
+.app-shell:not(.journey-shell) .tablewrap tbody tr:hover{background:#fffaf5}
+.app-shell:not(.journey-shell) .workspace-tabs{
+ background:#ffffffbf;backdrop-filter:blur(14px);
+ border-color:#e8eae5;border-radius:15px;
+}
+.app-shell:not(.journey-shell) .workspace-tab.active{color:#b75a20}
+.app-shell:not(.journey-shell) .page-footer{color:#a5aea6}
+.app-shell:not(.journey-shell) .pill{border-radius:9px}
+.app-shell:not(.journey-shell) .card strong{letter-spacing:-.055em}
+.app-shell:not(.journey-shell) .card .metric-icon.orange{background:#fff1e6}
+.app-shell:not(.journey-shell) .card .metric-icon{border-radius:11px}
+
+/* Compact Studio hero: visible hierarchy, not another sprawling dashboard. */
+.studio-page-banner{
+ position:relative;isolation:isolate;display:flex;align-items:center;justify-content:space-between;
+ gap:22px;overflow:hidden;margin:0 0 20px;padding:clamp(23px,3.2vw,33px) clamp(23px,3.5vw,38px);
+ border:1px solid #343b33;border-radius:21px;
+ background:radial-gradient(circle at 85% -45%,#a75d3466,transparent 46%),linear-gradient(113deg,#151b19 12%,#29372f 77%,#3b2c22);
+ box-shadow:0 16px 36px #17231a1c;color:#fff;
+ animation:studio-intro .36s cubic-bezier(.16,1,.3,1) both;
+}
+.studio-banner-halo{position:absolute;z-index:-1;right:-75px;top:-185px;width:370px;height:370px;border:1px solid #ffffff24;border-radius:50%;box-shadow:0 0 0 62px #ffffff04,0 0 0 132px #ffffff04}
+.studio-banner-main{min-width:0}
+.studio-banner-eyebrow{display:flex;align-items:center;gap:9px;color:#ffac73;font-size:10px;letter-spacing:.13em;font-weight:900}
+.studio-banner-live{width:7px;height:7px;border-radius:50%;background:#ff9a56;box-shadow:0 0 0 4px #f7924e25}
+.studio-page-banner h2{font-size:clamp(25px,2.8vw,35px);line-height:1.12;letter-spacing:-.055em;margin:13px 0 8px;color:#fff}
+.studio-page-banner p{font-size:12px;line-height:1.6;color:#d4d9d0;max-width:620px;margin:0}
+.studio-banner-side{display:grid;place-items:center;flex-shrink:0}
+.studio-banner-symbol{display:grid;place-items:center;position:relative;width:80px;height:80px;border:1px solid #ffffff34;background:#ffffff0d;border-radius:20px;color:#ffaa71;transform:rotate(-7deg);transition:transform .3s,background .3s}
+.studio-banner-mini{position:absolute;top:9px;right:9px;color:#ffffff72}
+.studio-page-banner:hover .studio-banner-symbol{transform:rotate(0) translateY(-3px);background:#ffffff18}
+
+/* Common empty, status, and form states. */
+.studio-page-banner+.panel,.studio-page-banner+.cards,.studio-page-banner+.ops-report-summary{animation:studio-rise .34s .045s both}
+.app-shell:not(.journey-shell) .empty{color:#829087}
+.app-shell:not(.journey-shell) .empty strong{letter-spacing:-.03em;color:#2a3b2d}
+.app-shell:not(.journey-shell) .notice{background:#fff8f0;border-color:#f5ddc4}
+.app-shell:not(.journey-shell) .error{font-weight:650}
+.app-shell:not(.journey-shell) .registration-hero,.app-shell:not(.journey-shell) .overview-hero{box-shadow:0 17px 35px #19281b16}
+.app-shell:not(.journey-shell) .registration-panel,.app-shell:not(.journey-shell) .expense-panel,
+.app-shell:not(.journey-shell) .ops-review-card{border-radius:19px}
+.app-shell:not(.journey-shell) .registration-stat,
+.app-shell:not(.journey-shell) .expense-stats>div,
+.app-shell:not(.journey-shell) .ops-report-summary>div,
+.app-shell:not(.journey-shell) .territory-stats>div{
+ transition:border-color .2s,box-shadow .2s,transform .2s;
+}
+.app-shell:not(.journey-shell) .registration-stat:not(:disabled):hover,
+.app-shell:not(.journey-shell) .expense-stats>div:hover,
+.app-shell:not(.journey-shell) .ops-report-summary>div:hover,
+.app-shell:not(.journey-shell) .territory-stats>div:hover{
+ border-color:#eed4bc;transform:translateY(-2px);box-shadow:0 12px 25px #16261c10;
+}
+.app-shell:not(.journey-shell) .ops-review-card{animation:studio-rise .33s ease both}
+.app-shell:not(.journey-shell) .ops-review-card>div:first-child>strong{font-size:clamp(17px,2vw,21px)!important;letter-spacing:-.04em}
+.app-shell:not(.journey-shell) .ops-review-details[open]{border-color:#efc7a4;background:#fffcf8}
+.app-shell:not(.journey-shell) .expense-workspace .expense-primary{background:#f47730}
+.app-shell:not(.journey-shell) .ops-report-summary>div:first-child{background:#fff7ee}
+.app-shell:not(.journey-shell) .territory-toolbar{border-color:#e5e9e3}
+.app-shell:not(.journey-shell) .territory-map-panel{box-shadow:0 11px 27px #1a26191b}
+.app-shell:not(.journey-shell) .staff-verified-collapsible{background:#fbfcfa}
+.app-shell:not(.journey-shell) .ops-company-table td:first-child strong{color:#233128}
+.studio-profile-identity{display:flex;align-items:center;gap:16px;margin:8px 0 22px}
+.studio-profile-avatar{display:grid;place-items:center;flex:0 0 57px;width:57px;height:57px;border-radius:17px;background:#283f30;color:#ffab74;font-size:22px;font-weight:850}
+.studio-profile-identity>div:last-child{display:grid;gap:6px;min-width:0}
+.studio-profile-identity strong{font-size:19px;letter-spacing:-.04em;overflow-wrap:anywhere}
+.studio-profile-identity small{color:#758579;font-weight:750;font-size:12px;overflow-wrap:anywhere}
+.studio-visit-route{border:1px solid #e6ebe3;border-radius:17px;padding:19px;background:linear-gradient(125deg,#fff,#fafcf7);display:grid;gap:10px;transition:transform .2s,box-shadow .2s,border-color .2s}
+.studio-visit-route:hover{border-color:#f0d6c0;box-shadow:0 12px 26px #202b1d12;transform:translateY(-2px)}
+.studio-visit-route>strong{color:#2b342c;letter-spacing:-.035em}
+.studio-visit-route>a{align-self:start;justify-self:start}
+@keyframes studio-intro{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:translateY(0)}}
+@keyframes studio-rise{from{opacity:0;transform:translateY(9px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:900px){
+ .studio-banner-symbol{width:65px;height:65px}
+ .app-shell:not(.journey-shell) .topbar{height:65px}
+}
+@media(max-width:650px){
+ .studio-page-banner{padding:23px 20px;margin-bottom:15px;border-radius:17px;gap:12px}
+ .studio-page-banner h2{font-size:26px}
+ .studio-page-banner p{font-size:11px}
+ .studio-banner-side{display:none}
+ .app-shell:not(.journey-shell) .page-heading{margin-bottom:17px}
+ .app-shell:not(.journey-shell) .page-heading h1{font-size:27px}
+ .studio-profile-identity{gap:11px}
+ .studio-profile-avatar{width:48px;height:48px;flex-basis:48px}
+ .studio-visit-route>a{justify-self:stretch}
+}
+@media(prefers-reduced-motion:reduce){
+ .studio-page-banner,.studio-page-banner+.panel,.studio-page-banner+.cards,.studio-page-banner+.ops-report-summary,
+ .app-shell:not(.journey-shell) .ops-review-card{animation:none!important}
+ .studio-page-banner *,.app-shell:not(.journey-shell) .side-link,.app-shell:not(.journey-shell) .card,
+ .app-shell:not(.journey-shell) .button,.app-shell:not(.journey-shell) .tablewrap tr,
+ .studio-visit-route{transition:none!important}
+ .studio-visit-route:hover,.app-shell:not(.journey-shell) .card:hover{transform:none}
+}
