@@ -1,6 +1,7 @@
 'use client';
 import {useCallback,useEffect,useState} from 'react';
 import {Portal} from '@/components/portal';
+import {StudioPageBanner} from '@/components/studio-page-banner';
 import {AlertTriangle,Trash2,Search,ShieldAlert} from 'lucide-react';
 type Kind='route'|'visit'|'expense'|'campaign'|'company';
 type Item={id:string;label:string;linked:number;visits:number};
@@ -34,6 +35,7 @@ export default function Limpeza(){
   finally{setBusy(false)}
  }
  return <Portal title="Limpeza de testes" subtitle="Exclusão individual e auditada, reservada à administração.">
+ <StudioPageBanner eyebrow="MANUTENÇÃO CONTROLADA" title="Segurança em cada exclusão." description="Consulte e elimine apenas registros de teste autorizados, com confirmação e auditoria." icon={ShieldAlert}/>
  <section className="panel" style={{marginBottom:18}}>
  <div className="panel-title"><div><small>ATENÇÃO · OPERAÇÃO IRREVERSÍVEL</small><h2>Excluir registros de teste com segurança</h2></div><ShieldAlert size={22} color="#b54b24"/></div>
  <p style={{lineHeight:1.65}}>Esta página <strong>não executa limpeza automática</strong>. Selecione um registro e confirme seu nome completo. Antes de remover dados reais ou importações grandes, realize um backup do Neon. Não existe opção de apagar todos os registros de uma vez.</p>
