@@ -29,10 +29,11 @@ export default function Configuracoes(){
   {error&&<p className="error" role="alert">{error}</p>}
   <section className="panel" style={{marginBottom:18}}>
    <div className="panel-title"><div><small>IDENTIFICAÇÃO</small><h2>Sua conta</h2></div></div>
-   <p><strong>Nome: </strong>{data?.profile.name||'Carregando...'}</p>
-   <p><strong>E-mail: </strong>{data?.profile.email||'—'}</p>
-   <p><strong>Cargo: </strong>{roleNames[data?.profile.role||'']||data?.profile.role||'—'}</p>
-   <p className="muted">O acesso é atribuído pela administração. Para recuperar a senha, utilize o fluxo de autenticação.</p>
+   <div className="studio-profile-identity">
+    <span className="studio-profile-avatar" aria-hidden="true">{data?.profile.name?.charAt(0).toUpperCase()||'—'}</span>
+    <div><strong>{data?.profile.name||'Carregando perfil...'}</strong><small>{data?.profile.email||'E-mail não disponível'}</small><span className="pill">{roleNames[data?.profile.role||'']||data?.profile.role||'Cargo indisponível'}</span></div>
+   </div>
+   <p className="muted">As permissões são definidas pela administração. A recuperação de senha utiliza o fluxo seguro de autenticação.</p>
   </section>
   {data?.administrator&&<>
    <section className="panel" style={{marginBottom:18}}>
