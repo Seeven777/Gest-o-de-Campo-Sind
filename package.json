@@ -12,7 +12,7 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test:smoke": "node scripts/smoke-pages.mjs",
-    "test:cadastro": "node --experimental-strip-types --test tests/cadastro-search.test.mjs tests/equipes-role-ui.test.mjs tests/field-hardening.test.mjs tests/field-navigation-handoff.test.mjs tests/route-proximity.test.mjs tests/route-proximity-coordinates.test.mjs tests/route-neighborhood.test.mjs tests/route-planning-performance.test.mjs tests/routes-studio-wizard.test.mjs tests/route-publication.test.mjs tests/dashboard-admin.test.mjs tests/operations-simplified.test.mjs tests/operations-secondary-ux.test.mjs tests/route-edit.test.mjs tests/route-draft-actions.test.mjs tests/route-edit-response.test.mjs"
+    "test:cadastro": "node --experimental-strip-types --test tests/cadastro-search.test.mjs tests/equipes-role-ui.test.mjs tests/field-hardening.test.mjs tests/field-navigation-handoff.test.mjs tests/route-proximity.test.mjs tests/route-proximity-coordinates.test.mjs tests/route-neighborhood.test.mjs tests/route-planning-performance.test.mjs tests/routes-studio-wizard.test.mjs tests/studio-unified-ux.test.mjs tests/route-publication.test.mjs tests/dashboard-admin.test.mjs tests/operations-simplified.test.mjs tests/operations-secondary-ux.test.mjs tests/route-edit.test.mjs tests/route-draft-actions.test.mjs tests/route-edit-response.test.mjs"
   },
   "dependencies": {
     "next": "16.4.6",
