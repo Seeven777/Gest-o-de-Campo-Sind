@@ -30,3 +30,11 @@ test('API permanece responsável por exigir consentimento no início e encerrar 
  assert.match(api,/if\(d.consent!==true\)/);
  assert.match(api,/where agent_id=\$1 and active=true and route_id=\$2::uuid/);
 });
+
+test('observações opcionais ficam somente no fim, mantendo registro enviado',()=>{
+ const field=source('app/campo/[id]/page.tsx');
+ assert.match(field,/finalQuestion&&<div className="crew-observation-field">/);
+ assert.match(field,/maxLength=\{2000\} value=\{notes\}/);
+ assert.match(field,/onChange=\{e=>setNotes\(e.target.value\)\}/);
+ assert.match(field,/notes,?\b/);
+});
