@@ -6,6 +6,7 @@ import {Portal} from '@/components/portal';
 import {FieldNavigationMap,type ActiveLeg,type CurrentPosition,type FieldPlan} from '@/components/field-navigation-map';
 import {ArrowLeft,ArrowRight,Camera,CheckCircle2,LocateFixed,MapPin,Navigation,Route as RouteIcon,X,ExternalLink,RotateCcw,CornerUpLeft,CornerUpRight,MoveUp} from 'lucide-react';
 import {CrewTravelPanel} from '@/components/crew-travel-panel';
+import {isRecentNavigationHandoff} from '@/lib/field-navigation-handoff';
 import '../jornada.css';
 import '../equipe.css';
 import '../equipe-motion.css';
@@ -201,6 +202,7 @@ function CampoGuiadoSession({id}:{id:string}){
  const [leg,setLeg]=useState<ActiveLeg|null>(null),[legBusy,setLegBusy]=useState(false),[legError,setLegError]=useState('');
  const [rerouteToken,setRerouteToken]=useState(0);
  const sentAt=useRef(0),positionRef=useRef<CurrentPosition|null>(null),positionUpdatedAt=useRef(0);
+ const wazeHandoffAt=useRef(0);
  const cacheKey='sind-jornada-plan:'+id;
  async function reload(){
   const r=await fetch('/api/campo/'+encodeURIComponent(id),{cache:'no-store'});
@@ -415,10 +417,14 @@ function CampoGuiadoSession({id}:{id:string}){
  },[started,id,gpsRestart]);
  useEffect(()=>{
   if(!started)return;
-  const leave=()=>{try{navigator.sendBeacon('/api/campo/localizacao',new Blob([JSON.stringify({action:'stop',route_id:id})],{type:'application/json'}))}catch{}};
+  const leave=()=>{
+   // O Waze é uma transferência temporária de navegação, não uma saída da rota.
+   if(isRecentNavigationHandoff(wazeHandoffAt.current,Date.now()))return;
+   try{navigator.sendBeacon('/api/campo/localizacao',new Blob([JSON.stringify({action:'stop',route_id:id})],{type:'application/json'}))}catch{}
+  };
   window.addEventListener('pagehide',leave);
   return()=>{window.removeEventListener('pagehide',leave);leave()};
- },[started]);
+ },[started,id]);
  async function arrive(){
   if(!current||busy)return;
   const stopId=current.id;
@@ -569,6 +575,7 @@ function CampoGuiadoSession({id}:{id:string}){
       onGpsFix={()=>void (gpsNeedsRecovery?begin(true):improveGps())}
       onReport={()=>setReportOpen(true)} onBreak={()=>void openBreak()}
       onBlockedWaze={()=>setError('Abra o Waze somente com o veículo parado.')}
+      onWazeOpen={()=>{wazeHandoffAt.current=Date.now()}}
      />}
      {(stage==='prepare'||stage==='ready'||stage==='done'||sentScreen)&&
       <footer className="crew-fixed-footer">
