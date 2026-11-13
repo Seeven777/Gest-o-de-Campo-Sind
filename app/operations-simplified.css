@@ -99,3 +99,39 @@
  .ops-companies-search>div:first-child,.ops-company-filters,.ops-companies-search>.ops-clear{grid-column:1}
 }
 @media(prefers-reduced-motion:reduce){.app-shell:not(.journey-shell) *{scroll-behavior:auto!important}.ops-review-details summary:after{transition:none}}
+
+/* Outras áreas por perfil — mesma identidade, sem alterar os processos. */
+.registration-workspace .registration-hero{
+ background:linear-gradient(120deg,#171819 0%,#272724 74%,#36271f 100%);
+ border-color:#363333;color:#fff;min-height:136px;
+}
+.registration-workspace .registration-hero:after{background:radial-gradient(circle,#f4752c35,transparent 72%)}
+.registration-workspace .registration-hero h2{color:#fff}
+.registration-workspace .registration-hero p{color:#d3cbc5}
+.registration-workspace .registration-eyebrow{color:#ffac72}
+.registration-workspace .registration-hero-icon{background:#ffffff17;color:#ff9b57;border-color:#ffffff2d}
+.registration-workspace .registration-stat{border-color:#e9e6e1;box-shadow:0 7px 25px #22210e0a}
+.registration-workspace .registration-stat.active{background:#fff7f0;border-color:#f0b98a}
+.registration-workspace .registration-stat:not(:disabled):hover{border-color:#e8a575}
+.expense-workspace{color:#292d29}
+.expense-stats>div{border-color:#e9e6e0;box-shadow:0 7px 22px #14120c09}
+.expense-stats strong{color:#242724}
+.expense-stats span{color:#73766f}
+.expense-heading h2{color:#232825}
+.expense-heading>svg{color:#e4772c}
+.expense-guidance{background:#fff9f4;border-color:#eddfd3;color:#715946}
+.expense-guidance>svg{color:#d16b24}
+.expense-primary{background:#f36a21}
+.expense-primary:hover:not(:disabled){background:#df5b16}
+.expense-item{border-color:#e9e5e0}
+.staff-tablewrap,.staff-role-editor{--line:#e8e6e2}
+.staff-role-controls .staff-role-save{background:#f36a21;border-color:#f36a21}
+.staff-role-controls .staff-role-select{border-color:#dddcd6}
+@media(max-width:740px){
+ .registration-workspace .registration-hero{padding:22px 18px;min-height:126px}
+ .registration-workspace .registration-hero-icon{display:none}
+ .expense-workspace .expense-heading h2{font-size:20px}
+ .expense-stats{gap:8px}
+ .expense-stats>div{padding:13px}
+ .expense-stats strong{font-size:25px}
+}
