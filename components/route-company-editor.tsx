@@ -5,7 +5,7 @@ import {RouteProximityPanel,type NearbyCompany} from '@/components/route-proximi
 import {RouteChosenList} from '@/components/route-chosen-list';
 import {readRouteEditResponse} from '@/lib/route-edit-response';
 import {assessNeighborhoodSelection} from '@/lib/route-neighborhood';
-type Stop={establishment_id:string;legal_name:string;trade_name:string|null;city?:string|null;district?:string|null};
+type Stop={establishment_id:string;legal_name:string;trade_name:string|null;city:string|null;district:string|null};
 type Company={id:string;legal_name:string;trade_name:string|null;city:string|null;district?:string|null;cnpj?:string};
 export function RouteCompanyEditor({routeId,date,editToken,stops,published,onCancel,onSaved}:{
  routeId:string;date:string;editToken:string;stops:Stop[];published:boolean;
@@ -19,7 +19,6 @@ export function RouteCompanyEditor({routeId,date,editToken,stops,published,onCan
  const singleArea=assessNeighborhoodSelection(stops).valid;
  const city=singleArea?stops[0]?.city||'':'';
  const district=singleArea?stops[0]?.district||'':'';
- const areaParams=()=>new URLSearchParams({city,district});
  useEffect(()=>{let mounted=true;
   fetch('/api/companies?'+new URLSearchParams({page:'1',city,district}),{cache:'no-store'}).then(async res=>{
    const body=await res.json();if(!res.ok)throw Error(body.error||'Falha ao consultar empresas.');return body
