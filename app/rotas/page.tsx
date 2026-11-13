@@ -7,7 +7,7 @@ import './rotas.css';
 import {RouteProximityPanel,type NearbyCompany} from '@/components/route-proximity-panel';
 import {RouteChosenList} from '@/components/route-chosen-list';
 import {neighborhoodKey} from '@/lib/route-neighborhood';
-type RouteRow={id:string;route_date:string;campaign_name:string;agent_name:string;status:string;stops:number};
+type RouteRow={id:string;route_date:string;campaign_name:string;agent_name:string;status:string;stops:number;neighborhood_label?:string};
 type Pick={id:string;name:string};
 type Company={id:string;legal_name:string;trade_name?:string|null;city:string|null;district:string|null;cnpj?:string};
 type AreaOption={name:string;count:number};
@@ -142,7 +142,7 @@ export default function Rotas(){
    {error&&<p className="error" role="alert">{error}</p>}
    {message&&<p className="success" role="status">{message}</p>}
    {canPlan&&<section className="routes-builder">
-    <div className="routes-section-top"><div><span>PLANEJAMENTO SIMPLES</span><h2>Nova rota de captação</h2><p>Escolha quem irá visitar, a data e até 49 empresas. Não é necessário criar uma campanha antes.</p></div>
+    <div className="routes-section-top"><div><span>PLANEJAMENTO POR BAIRRO</span><h2>Novo roteiro por bairro</h2><p>Defina o responsável, a data e o bairro. Cada roteiro terá empresas de uma única região.</p></div>
      <button className="routes-primary-action" type="button" onClick={()=>setShowForm(x=>!x)} aria-expanded={showForm}>
       <Plus size={20}/>{showForm?'Fechar planejamento':'Criar rota'}</button>
     </div>
@@ -194,8 +194,9 @@ export default function Rotas(){
     <div className="routes-cards">{visible.map(r=><article key={r.id} className="routes-item">
      <div className="routes-item-icon"><RouteIcon size={22}/></div>
      <div className="routes-item-content">
-      <div><strong>Rota de {dateLabel(r.route_date)}</strong><span className={'routes-state routes-state-'+r.status}>{states[r.status]||r.status}</span></div>
-      <p><UserRound size={15}/>{r.agent_name}<span>·</span><MapPin size={15}/>{r.stops} {r.stops===1?'empresa':'empresas'}</p>
+      <div><strong>{r.neighborhood_label&&r.neighborhood_label!=='Bairro não informado'&&r.neighborhood_label!=='Regiões variadas'?r.neighborhood_label:'Rota de '+dateLabel(r.route_date)}</strong><span className={'routes-state routes-state-'+r.status}>{states[r.status]||r.status}</span></div>
+      <p><UserRound size={15}/>{r.agent_name}<span>·</span><MapPin size={15}/>{r.stops} {r.stops===1?'empresa':'empresas'}<span>·</span><CalendarDays size={15}/>{dateLabel(r.route_date)}</p>
+      {(r.neighborhood_label==='Regiões variadas'||r.neighborhood_label==='Bairro não informado')&&<small className="routes-area-caption">{r.neighborhood_label}</small>}
      </div>
      <div className="routes-item-actions">
       {canPlan&&r.status==='draft'&&<button type="button" className="routes-publish" disabled={busy} onClick={()=>void publish(r.id)}><Send size={16}/> Publicar</button>}
