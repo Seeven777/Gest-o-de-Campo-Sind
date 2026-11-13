@@ -7,6 +7,7 @@ import './rotas.css';
 import {RouteProximityPanel,type NearbyCompany} from '@/components/route-proximity-panel';
 import {RouteChosenList} from '@/components/route-chosen-list';
 import {neighborhoodKey} from '@/lib/route-neighborhood';
+import {addVisibleStops} from '@/lib/route-bulk-selection';
 type RouteRow={id:string;route_date:string;campaign_name:string;agent_name:string;status:string;stops:number;neighborhood_label?:string};
 type Pick={id:string;name:string};
 type Company={id:string;legal_name:string;trade_name?:string|null;city:string|null;district:string|null;cnpj?:string};
@@ -86,10 +87,9 @@ export default function Rotas(){
   if(city&&district&&next)void findCompanies(1,search,city,district,next);
  }
  function selectPage(){
-  const remaining=49-selected.length;
-  if(remaining<=0)return;
-  const fresh=companies.filter(x=>!selected.includes(x.id)).slice(0,remaining);
-  setSelected(old=>[...old,...fresh.map(x=>x.id)]);
+  const next=addVisibleStops(selected,companies.map(x=>x.id));
+  const fresh=companies.filter(x=>next.includes(x.id)&&!selected.includes(x.id));
+  setSelected(next);
   setSelectedNames(old=>Object.assign({},old,...fresh.map(x=>({[x.id]:x.trade_name||x.legal_name}))));
   setSelectionNotice(fresh.length?fresh.length+' empresas adicionadas desta página.':'Nenhuma empresa nova disponível nesta página.');
  }
