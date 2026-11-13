@@ -2,7 +2,7 @@
 import {useEffect,useMemo,useRef,useState} from 'react';
 import Link from 'next/link';
 import {Portal} from '@/components/portal';
-import {Route as RouteIcon,Plus,Search,ChevronLeft,ChevronRight,CalendarDays,UserRound,MapPin,ArrowRight,Layers,Send} from 'lucide-react';
+import {Route as RouteIcon,Plus,Search,ChevronLeft,ChevronRight,CalendarDays,UserRound,MapPin,ArrowRight,ArrowLeft,Check,Layers,Send,Sparkles} from 'lucide-react';
 import './rotas.css';
 import {RouteProximityPanel,type NearbyCompany} from '@/components/route-proximity-panel';
 import {RouteChosenList} from '@/components/route-chosen-list';
@@ -18,7 +18,7 @@ const defaultDate=()=>new Date().toLocaleDateString('sv-SE');
 export default function Rotas(){
  const [rows,setRows]=useState<RouteRow[]>([]),[agents,setAgents]=useState<Pick[]>([]),[companies,setCompanies]=useState<Company[]>([]);
  const [role,setRole]=useState<'admin'|'supervisor'|'agent'|null>(null),[loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
- const [showForm,setShowForm]=useState(false),[filter,setFilter]=useState('all'),[agent,setAgent]=useState(''),[date,setDate]=useState(defaultDate);
+ const [showForm,setShowForm]=useState(false),[step,setStep]=useState(0),[filter,setFilter]=useState('all'),[agent,setAgent]=useState(''),[date,setDate]=useState(defaultDate);
  const [searchInput,setSearchInput]=useState(''),[search,setSearch]=useState(''),[page,setPage]=useState(1),[hasMore,setHasMore]=useState(false);
  const [selected,setSelected]=useState<string[]>([]),[selectedNames,setSelectedNames]=useState<Record<string,string>>({});
  const [cities,setCities]=useState<AreaOption[]>([]),[districts,setDistricts]=useState<AreaOption[]>([]);
@@ -119,7 +119,7 @@ export default function Rotas(){
    const res=await fetch('/api/rotas',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent_id:agent,date,establishment_ids:selected})});
    const data=await res.json();if(!res.ok)throw Error(data.error||'Não foi possível criar');
    setMessage('Rota criada com '+data.count+' empresas. Publique-a quando estiver pronta para a equipe.');
-   setSelected([]);setSelectedNames({});setShowForm(false);await reload();
+   setSelected([]);setSelectedNames({});setShowForm(false);setStep(0);await reload();
   }catch(e){setError(e instanceof Error?e.message:'Falha ao criar a rota')}finally{setBusy(false)}
  }
  async function publish(id:string){
@@ -151,69 +151,119 @@ export default function Rotas(){
   finally{setBusy(false)}
  }
  const visible=useMemo(()=>rows.filter(r=>filter==='all'||filter==='active'&&['published','in_progress'].includes(r.status)||filter===r.status),[rows,filter]);
+ const steps=[{label:'Região',detail:'Onde visitar',icon:MapPin},{label:'Equipe',detail:'Quem e quando',icon:UserRound},{label:'Empresas',detail:'Monte o percurso',icon:Layers},{label:'Revisão',detail:'Tudo pronto',icon:Check}];
+ const regionReady=Boolean(city&&district);
+ const teamReady=Boolean(agent&&date);
+ const companiesReady=selected.length>0&&selected.length<=49;
+ const reached=[true,regionReady,regionReady&&teamReady,regionReady&&teamReady&&companiesReady];
+ const canNext=step===0?regionReady:step===1?teamReady:step===2?companiesReady:false;
+ const currentAgent=agents.find(a=>a.id===agent)?.name||'Selecione o responsável';
+ const progress=Math.round((step+1)/4*100);
  const active=rows.filter(r=>['published','in_progress'].includes(r.status)).length,drafts=rows.filter(r=>r.status==='draft').length,done=rows.filter(r=>r.status==='completed').length;
- return <Portal title="Rotas" subtitle={canPlan?'Organize as empresas, atribua um responsável e acompanhe o trabalho.':'Suas jornadas de campo, em ordem de prioridade.'}>
-  <div className="routes-shell">
-   <div className="routes-summary routes-summary-condensed">
-    <div><span>Em andamento</span><strong>{active}</strong></div>
-    <div><span>A publicar</span><strong>{drafts}</strong></div>
-    <div className="routes-summary-more"><span>Concluídas</span><strong>{done}</strong></div>
-   </div>
+ return <Portal title="Rotas" subtitle={canPlan?'Planejamento inteligente por bairro e acompanhamento de campo.':'Suas jornadas de campo, em ordem de prioridade.'}>
+  <div className="routes-shell routes-premium">
    {error&&<p className="error" role="alert">{error}</p>}
    {message&&<p className="success" role="status">{message}</p>}
-   {canPlan&&<section className="routes-builder">
-    <div className="routes-section-top"><div><span>PLANEJAMENTO POR BAIRRO</span><h2>Novo roteiro por bairro</h2><p>Defina o responsável, a data e o bairro. Cada roteiro terá empresas de uma única região.</p></div>
-     <button className="routes-primary-action" type="button" onClick={()=>setShowForm(x=>!x)} aria-expanded={showForm}>
-      <Plus size={20}/>{showForm?'Fechar planejamento':'Criar rota'}</button>
+   {canPlan&&<section className={'routes-builder routes-studio'+(showForm?' routes-studio-open':'')}>
+    <div className="routes-studio-hero">
+     <div className="routes-studio-orbit" aria-hidden="true"/>
+     <div className="routes-studio-intro">
+      <span className="routes-studio-kicker"><Sparkles size={14}/> ESTÚDIO DE ROTAS</span>
+      <h2>Um bairro.<br/><em>Um roteiro melhor.</em></h2>
+      <p>Planeje em quatro passos, sem formulários extensos.</p>
+     </div>
+     <button className="routes-studio-start" type="button" disabled={busy} onClick={()=>setShowForm(v=>!v)} aria-expanded={showForm}>
+      {showForm?'Fechar planejamento':'Planejar nova rota'} {showForm?<Check size={18}/>:<ArrowRight size={19}/>}
+     </button>
     </div>
-    {showForm&&<form onSubmit={create} className="routes-form">
-     <div className="routes-form-top">
-      <label><UserRound size={17}/> Responsável
-       <select required value={agent} onChange={e=>setAgent(e.target.value)}><option value="">Selecione um agente</option>{agents.map(a=><option value={a.id} key={a.id}>{a.name}</option>)}</select>
-      </label>
-      <label><CalendarDays size={17}/> Data
-       <input type="date" required value={date} onChange={e=>changeDate(e.target.value)}/>
-      </label>
-     </div>
-     <div className="routes-neighborhood-picker" aria-label="Separar roteiro por município e bairro">
-      <div><strong>1. Escolha a região do roteiro</strong><p>Uma rota por bairro. Empresas de outros bairros ficam em um roteiro separado.</p></div>
-      <div className="routes-area-fields">
-       <label>Município<select value={city} onChange={e=>void chooseCity(e.target.value)} required>
-        <option value="">Selecione o município</option>
-        {cities.map(x=><option key={x.name} value={x.name}>{x.name} ({x.count})</option>)}
-       </select></label>
-       <label>Bairro<select value={district} onChange={e=>chooseDistrict(e.target.value)} required disabled={!city||areasLoading}>
-        <option value="">{areasLoading?'Carregando bairros...':'Selecione o bairro'}</option>
-        {districts.map(x=><option key={x.name} value={x.name}>{x.name} ({x.count})</option>)}
-       </select></label>
+    {showForm&&<div className="routes-wizard" aria-label="Assistente de criação de rota">
+     <nav className="routes-wizard-steps" aria-label="Etapas do planejamento">
+      {steps.map((item,i)=><button key={item.label} type="button" className={'routes-wizard-step'+(step===i?' active':'')+(i<step?' done':'')} disabled={!reached[i]||busy} aria-current={step===i?'step':undefined} onClick={()=>setStep(i)}>
+       <span className="routes-wizard-step-dot">{i<step?<Check size={15}/>:String(i+1).padStart(2,'0')}</span>
+       <span><strong>{item.label}</strong><small>{item.detail}</small></span>
+      </button>)}
+     </nav>
+     <div className="routes-wizard-meter" role="progressbar" aria-label="Progresso da criação" aria-valuemin={0} aria-valuemax={4} aria-valuenow={step+1}><span style={{width:progress+'%'}}/></div>
+     <form onSubmit={create} className="routes-wizard-form">
+      <div className="routes-wizard-scene" key={step}>
+      {step===0&&<div className="routes-scene-content">
+       <div className="routes-wizard-heading"><span>01 / REGIÃO</span><h3>Por onde começamos?</h3><p>Escolha a cidade e o bairro. Cada roteiro cobre uma região.</p></div>
+       <div className="routes-neighborhood-picker" aria-label="Separar roteiro por município e bairro">
+        <div className="routes-area-fields">
+         <label>Município<select value={city} onChange={e=>void chooseCity(e.target.value)} required>
+          <option value="">Escolha a cidade</option>
+          {cities.map(x=><option key={x.name} value={x.name}>{x.name} · {x.count} empresas</option>)}
+         </select></label>
+         <label>Bairro<select value={district} onChange={e=>chooseDistrict(e.target.value)} required disabled={!city||areasLoading}>
+          <option value="">{areasLoading?'Consultando bairros...':'Escolha o bairro'}</option>
+          {districts.map(x=><option key={x.name} value={x.name}>{x.name} · {x.count} empresas</option>)}
+         </select></label>
+        </div>
+        {city&&district&&<div className="routes-area-highlight"><MapPin size={19}/><span><strong>{district}</strong><small>{city} · {districts.find(x=>x.name===district)?.count??'—'} empresas cadastradas</small></span><Check size={20}/></div>}
+        {city&&!areasLoading&&!districts.length&&<p className="routes-area-warning">Sem bairros cadastrados nesta cidade. Confira os endereços da base.</p>}
+       </div>
+      </div>}
+      {step===1&&<div className="routes-scene-content">
+       <div className="routes-wizard-heading"><span>02 / EQUIPE</span><h3>Quem vai para campo?</h3><p>Defina o responsável e a data. A disponibilidade das empresas será conferida para esse dia.</p></div>
+       <div className="routes-form-top routes-wizard-team">
+        <label><UserRound size={17}/> Responsável<select value={agent} onChange={e=>setAgent(e.target.value)} required><option value="">Selecione o agente</option>{agents.map(a=><option value={a.id} key={a.id}>{a.name}</option>)}</select></label>
+        <label><CalendarDays size={17}/> Data de atendimento<input type="date" required value={date} onChange={e=>changeDate(e.target.value)}/></label>
+       </div>
+       {teamReady&&<div className="routes-wizard-ready"><Check size={18}/> Equipe e data definidas. Avance para selecionar as empresas.</div>}
+      </div>}
+      {step===2&&<div className="routes-scene-content">
+       <div className="routes-wizard-heading"><span>03 / EMPRESAS</span><h3>Monte o percurso.</h3><p>{district+' · '+city} — selecione até 49 empresas disponíveis em {dateLabel(date)}.</p></div>
+       <div className="routes-company-heading"><div><strong>Empresas disponíveis</strong><p>Toque para adicionar ou use a seleção rápida.</p></div><span>{selected.length} / 49</span></div>
+       <div className="routes-search" role="search"><Search size={18}/><input aria-label="Buscar empresa no bairro" value={searchInput} onChange={e=>setSearchInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();setSearch(searchInput);void findCompanies(1,searchInput)}}} placeholder="Buscar por nome ou CNPJ"/>
+        <button type="button" disabled={companiesLoading} onClick={()=>{setSearch(searchInput);void findCompanies(1,searchInput)}}>Buscar</button></div>
+       <div className="routes-selection-toolbar"><span>{companiesLoading?'Buscando empresas...':companies.length+' empresas nesta página'} · {selected.length} selecionadas</span>
+        <div><button type="button" disabled={!companies.length||selected.length>=49||!companies.some(x=>!selected.includes(x.id))} onClick={selectPage}><Plus size={15}/> Adicionar página</button>
+        <button type="button" disabled={!selected.length} onClick={()=>{setSelected([]);setSelectedNames({});setSelectionNotice('')}}>Limpar</button></div>
+       </div>
+       {selectionNotice&&<p className="routes-selection-note" role="status">{selectionNotice}</p>}
+       <div className="routes-company-choices" aria-busy={companiesLoading}>{companies.map(company=><label key={company.id} className={selected.includes(company.id)?'is-selected':''}>
+        <input type="checkbox" checked={selected.includes(company.id)} disabled={!selected.includes(company.id)&&selected.length>=49} onChange={()=>toggle(company)}/>
+        <span className="routes-company-avatar" aria-hidden="true"><Layers size={18}/></span>
+        <span><strong>{company.trade_name||company.legal_name}</strong><small>{company.district||'Bairro não informado'} · {company.city||'Município não informado'} {company.cnpj?'· '+company.cnpj:''}</small></span>
+        <span className="routes-company-check" aria-hidden="true"><Check size={16}/></span>
+       </label>)}
+       {!companies.length&&<p className="routes-empty" role="status">{companiesLoading?'Consultando empresas...':'Nenhuma empresa encontrada. Tente outra busca.'}</p>}</div>
+       <div className="routes-pagination"><button type="button" disabled={page===1||companiesLoading} onClick={()=>void findCompanies(page-1)}><ChevronLeft size={17}/> Anterior</button><span>Página {page}</span><button type="button" disabled={!hasMore||companiesLoading} onClick={()=>void findCompanies(page+1)}>Próxima <ChevronRight size={17}/></button></div>
+      </div>}
+      {step===3&&<div className="routes-scene-content">
+       <div className="routes-wizard-heading"><span>04 / REVISÃO</span><h3>Seu roteiro está pronto.</h3><p>Confira os dados e salve em rascunho. A publicação será feita depois.</p></div>
+       <div className="routes-review-grid">
+        <div><MapPin size={18}/><small>Região</small><strong>{district} · {city}</strong></div>
+        <div><UserRound size={18}/><small>Agente</small><strong>{currentAgent}</strong></div>
+        <div><CalendarDays size={18}/><small>Data</small><strong>{dateLabel(date)}</strong></div>
+        <div><Layers size={18}/><small>Paradas</small><strong>{selected.length} de 49</strong></div>
+       </div>
+       <RouteChosenList ids={selected} names={selectedNames} onMove={moveSelected} onRemove={id=>setSelected(previous=>previous.filter(x=>x!==id))}/>
+       <RouteProximityPanel selectedIds={selected} date={date} onAdd={addNearby} city={city} district={district}/>
+       <p className="routes-proximity-disclaimer">A rota ficará em rascunho. Antes de publicar, confira a proximidade e o trajeto viário.</p>
+      </div>}
       </div>
-      {city&&district&&<p className="routes-area-confirm"><MapPin size={16}/> Região escolhida: <strong>{district} · {city}</strong></p>}
-      {city&&!areasLoading&&!districts.length&&<p className="routes-area-warning">Não há empresas com bairro preenchido neste município. Corrija os cadastros antes de planejar.</p>}
-     </div>
-     <div className="routes-company-heading"><div><strong>2. Selecione as empresas</strong><p>{district?'Somente empresas em '+district+', '+city+'.':'Escolha município e bairro acima para visualizar as empresas.'}</p></div><span>{selected.length} / 49</span></div>
-     {city&&district&&<div className="routes-search" role="search"><Search size={18}/><input aria-label="Buscar empresa no bairro" value={searchInput} onChange={e=>setSearchInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();setSearch(searchInput);void findCompanies(1,searchInput)}}} placeholder="Nome ou CNPJ neste bairro"/>
-      <button type="button" disabled={companiesLoading} onClick={()=>{setSearch(searchInput);void findCompanies(1,searchInput)}}>Buscar</button></div>}
-     {city&&district&&<div className="routes-selection-toolbar"><span>{companiesLoading?'Buscando empresas...':companies.length+' empresas nesta página'} · {selected.length} selecionadas</span><div><button type="button" disabled={!companies.length||selected.length>=49||!companies.some(x=>!selected.includes(x.id))} onClick={selectPage}>Adicionar desta página</button><button type="button" disabled={!selected.length} onClick={()=>{setSelected([]);setSelectedNames({});setSelectionNotice('')}}>Limpar seleção</button></div></div>}
-     {selectionNotice&&<p className="routes-selection-note" role="status">{selectionNotice}</p>}
-     {city&&district&&<div className="routes-company-choices">{companies.map(company=><label key={company.id} className={selected.includes(company.id)?'is-selected':''}>
-      <input type="checkbox" checked={selected.includes(company.id)} disabled={!selected.includes(company.id)&&selected.length>=49} onChange={()=>toggle(company)}/>
-      <span><strong>{company.trade_name||company.legal_name}</strong><small>{company.district||'Bairro não informado'} · {company.city||'Município não informado'} {company.cnpj?'· '+company.cnpj:''}</small></span>
-     </label>)}
-     {!companies.length&&<p className="routes-empty">{companiesLoading?'Carregando empresas...':'Nenhuma empresa encontrada neste bairro.'}</p>}</div>}
-     {city&&district&&<div className="routes-pagination"><button type="button" disabled={page===1||companiesLoading} onClick={()=>void findCompanies(page-1)}><ChevronLeft size={17}/> Anterior</button><span>Página {page}</span><button type="button" disabled={!hasMore||companiesLoading} onClick={()=>void findCompanies(page+1)}>Próxima <ChevronRight size={17}/></button></div>}
-     <RouteChosenList ids={selected} names={selectedNames} onMove={moveSelected}
-      onRemove={id=>setSelected(previous=>previous.filter(x=>x!==id))}/>
-     <RouteProximityPanel selectedIds={selected} date={date} onAdd={addNearby} city={city} district={district}/>
-     <p className="routes-proximity-disclaimer">A rota será salva em rascunho. Antes de publicar, confira o trajeto viário.</p>
-     <button className="routes-create" disabled={busy||!selected.length||!agent||!date||!city||!district} type="submit"><RouteIcon size={19}/>{busy?'Salvando rota...':'Criar rota com '+selected.length+' empresa(s)'}<ArrowRight size={20}/></button>
-    </form>}
+      <div className="routes-wizard-footer">
+       <div className="routes-wizard-summary"><span>SEU ROTEIRO</span><strong>{district||'Escolha um bairro'}</strong><small>{selected.length} {selected.length===1?'empresa':'empresas'} selecionadas</small></div>
+       <div className="routes-wizard-controls">
+        {step>0&&<button type="button" className="routes-wizard-back" disabled={busy} onClick={()=>setStep(x=>x-1)}><ArrowLeft size={17}/> Voltar</button>}
+        {step<3?<button type="button" className="routes-wizard-next" disabled={!canNext||busy} onClick={()=>{if(step===1&&regionReady&&teamReady&&city&&district)void findCompanies(1,search,city,district,date);setStep(x=>Math.min(3,x+1))}}>
+         Continuar <ArrowRight size={18}/>
+        </button>:<button className="routes-wizard-next" disabled={busy||!selected.length||!agent||!date||!city||!district} type="submit"><RouteIcon size={18}/>{busy?'Salvando...':'Criar roteiro'}<ArrowRight size={17}/></button>}
+       </div>
+      </div>
+     </form>
+    </div>}
    </section>}
-   <section className="routes-list-section">
-    <div className="routes-section-top"><div><span>ACOMPANHAMENTO</span><h2>{role==='agent'?'Minhas rotas':'Rotas cadastradas'}</h2><p>Escolha uma rota para continuar ou conferir detalhes.</p></div></div>
+   <div className="routes-section-divider">
+    <div><span className="routes-section-kicker">CENTRAL OPERACIONAL</span><h2>{role==='agent'?'Minhas rotas':'Seus roteiros'}</h2><p>Encontre o que precisa e continue de onde parou.</p></div>
+    <div className="routes-overview-mini" aria-label="Resumo de rotas"><span><strong>{active}</strong> em campo</span><span><strong>{drafts}</strong> a publicar</span><span><strong>{done}</strong> concluídas</span></div>
+   </div>
+   <section className="routes-list-section routes-list-premium">
     <div className="routes-filters" role="group" aria-label="Filtrar rotas">
      {([['all','Todas'],['active','Em campo'],['draft','A publicar'],['completed','Concluídas']] as [string,string][]).filter(x=>role!=='agent'||x[0]!=='draft').map(([key,label])=><button type="button" aria-pressed={filter===key} className={filter===key?'active':''} key={key} onClick={()=>setFilter(key)}>{label}</button>)}
     </div>
-    <div className="routes-cards">{visible.map(r=><article key={r.id} className="routes-item">
+    <div className="routes-cards">{visible.map((r,index)=><article key={r.id} className="routes-item routes-item-premium" style={{animationDelay:Math.min(index,8)*45+'ms'}}>
      <div className="routes-item-icon"><RouteIcon size={22}/></div>
      <div className="routes-item-content">
       <div><strong>{r.neighborhood_label&&r.neighborhood_label!=='Bairro não informado'&&r.neighborhood_label!=='Regiões variadas'?r.neighborhood_label:'Rota de '+dateLabel(r.route_date)}</strong><span className={'routes-state routes-state-'+r.status}>{states[r.status]||r.status}</span></div>
@@ -222,10 +272,10 @@ export default function Rotas(){
      </div>
      <div className="routes-item-actions">
       {canPlan&&r.status==='draft'&&<button type="button" className="routes-publish" disabled={busy} onClick={()=>void publish(r.id)}><Send size={16}/> Publicar</button>}
-      <Link href={(role==='agent'?'/campo/':'/rotas/')+r.id} className="routes-open">{role==='agent'?'Abrir jornada':'Ver percurso e editar'}<ChevronRight size={17}/></Link>
+      <Link href={(role==='agent'?'/campo/':'/rotas/')+r.id} className="routes-open">{role==='agent'?'Abrir jornada':'Ver percurso'}<ChevronRight size={17}/></Link>
      </div>
     </article>)}
-     {!visible.length&&<div className="routes-empty"><Layers size={29}/><strong>{loading?'Carregando rotas...':'Nenhuma rota neste filtro'}</strong><p>{role==='agent'?'Sua equipe visualizará as rotas aqui quando forem publicadas.':'Crie uma rota ou selecione outro filtro.'}</p></div>}
+     {!visible.length&&<div className="routes-empty"><Layers size={29}/><strong>{loading?'Carregando rotas...':'Nenhuma rota neste filtro'}</strong><p>{role==='agent'?'Suas rotas aparecem aqui quando publicadas.':'Crie uma rota ou selecione outro filtro.'}</p></div>}
     </div>
    </section>
   </div>
