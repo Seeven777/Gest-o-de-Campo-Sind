@@ -2,6 +2,7 @@
 import {useEffect,useState} from 'react';
 import Link from 'next/link';
 import {Portal} from '@/components/portal';
+import {StudioPageBanner} from '@/components/studio-page-banner';
 import {ArrowRight,CheckCircle2,Database,ShieldAlert,Users} from 'lucide-react';
 
 type Cfg={profile:{name:string;email:string;role:string};administrator:boolean;company_count?:number;auth_provider?:string};
@@ -24,6 +25,7 @@ export default function Configuracoes(){
   return()=>{live=false};
  },[]);
  return <Portal title={data?.administrator?'Configurações e acesso':'Meu perfil'} subtitle="Identidade, permissões e preparação dos recursos da plataforma.">
+  <StudioPageBanner eyebrow="CONTA & SEGURANÇA" title="Seu espaço, suas permissões." description="Consulte seus dados e as condições de acesso à plataforma." icon={Database}/>
   {error&&<p className="error" role="alert">{error}</p>}
   <section className="panel" style={{marginBottom:18}}>
    <div className="panel-title"><div><small>IDENTIFICAÇÃO</small><h2>Sua conta</h2></div></div>
