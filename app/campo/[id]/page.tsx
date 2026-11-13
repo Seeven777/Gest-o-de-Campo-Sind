@@ -615,9 +615,11 @@ function CampoGuiadoSession({id}:{id:string}){
       {current?.review_status==='needs_more'&&current.review_notes&&
        <p className="crew-inline-error">A central solicitou revisão: {current.review_notes}</p>}
       <QuestionView question={nextQuestion} value={answers[nextQuestion.key]} onChange={v=>answer(nextQuestion.key,v)}/>
-      <label className="crew-observation-label" htmlFor="crew-notes">OBSERVAÇÕES</label>
-      <textarea id="crew-notes" rows={3} maxLength={2000} value={notes}
-       onChange={e=>setNotes(e.target.value)} placeholder="O que a central precisa saber sobre a visita?"/>
+      {finalQuestion&&<div className="crew-observation-field">
+       <label className="crew-observation-label" htmlFor="crew-notes">Observações (opcional)</label>
+       <textarea id="crew-notes" rows={3} maxLength={2000} value={notes}
+        onChange={e=>setNotes(e.target.value)} placeholder="Há algo mais que a central precisa saber?"/>
+      </div>}
       {finalQuestion&&<div className="crew-last-check">
        <label htmlFor="crew-conditions">Condições observadas (opcional)</label>
        <select id="crew-conditions" value={answers.regularity_note||'not_evaluated'}
