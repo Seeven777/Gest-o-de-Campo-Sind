@@ -23,6 +23,7 @@ export default function Rotas(){
  const [cities,setCities]=useState<AreaOption[]>([]),[districts,setDistricts]=useState<AreaOption[]>([]);
  const districtRequest=useRef(0),companyRequest=useRef(0);
  const [city,setCity]=useState(''),[district,setDistrict]=useState(''),[areasLoading,setAreasLoading]=useState(false),[companiesLoading,setCompaniesLoading]=useState(false);
+ const [selectionNotice,setSelectionNotice]=useState('');
  const canPlan=role==='admin'||role==='supervisor';
  async function reload(){const res=await fetch('/api/rotas',{cache:'no-store'});const payload=await res.json();if(!res.ok)throw Error(payload.error||'Falha ao carregar rotas');setRows(payload.items||[])}
  useEffect(()=>{let live=true;
@@ -42,12 +43,12 @@ export default function Rotas(){
   finally{if(live)setLoading(false)}})();
   return()=>{live=false};
  },[]);
- async function findCompanies(nextPage=1,q=search,areaCity=city,areaDistrict=district){
+ async function findCompanies(nextPage=1,q=search,areaCity=city,areaDistrict=district,areaDate=date){
   if(!areaCity||!areaDistrict)return;
   const request=++companyRequest.current;
   setCompaniesLoading(true);setError('');
   try{
-   const params=new URLSearchParams({q,page:String(nextPage),city:areaCity,district:areaDistrict});
+   const params=new URLSearchParams({q,page:String(nextPage),city:areaCity,district:areaDistrict,available_on:areaDate});
    const res=await fetch('/api/companies?'+params,{cache:'no-store'});
    const data=await res.json();if(!res.ok)throw Error(data.error||'Falha na busca');
    if(request===companyRequest.current){setCompanies(data.items||[]);setHasMore(Boolean(data.hasMore));setPage(nextPage)}
@@ -76,6 +77,21 @@ export default function Rotas(){
   setDistrict(next);setSelected([]);setSelectedNames({});setSearch('');setSearchInput('');
   setCompanies([]);setPage(1);setHasMore(false);
   if(next)void findCompanies(1,'',city,next);
+ }
+ function changeDate(next:string){
+  if(next===date)return;
+  if(selected.length&&!window.confirm('Alterar a data limpará as empresas selecionadas. Continuar?'))return;
+  setDate(next);setSelected([]);setSelectedNames({});setSelectionNotice('');
+  companyRequest.current++;setCompaniesLoading(false);setCompanies([]);setHasMore(false);setPage(1);
+  if(city&&district&&next)void findCompanies(1,search,city,district,next);
+ }
+ function selectPage(){
+  const remaining=49-selected.length;
+  if(remaining<=0)return;
+  const fresh=companies.filter(x=>!selected.includes(x.id)).slice(0,remaining);
+  setSelected(old=>[...old,...fresh.map(x=>x.id)]);
+  setSelectedNames(old=>Object.assign({},old,...fresh.map(x=>({[x.id]:x.trade_name||x.legal_name}))));
+  setSelectionNotice(fresh.length?fresh.length+' empresas adicionadas desta página.':'Nenhuma empresa nova disponível nesta página.');
  }
  function toggle(company:Company){
   setSelected(previous=>{
@@ -156,7 +172,7 @@ export default function Rotas(){
        <select required value={agent} onChange={e=>setAgent(e.target.value)}><option value="">Selecione um agente</option>{agents.map(a=><option value={a.id} key={a.id}>{a.name}</option>)}</select>
       </label>
       <label><CalendarDays size={17}/> Data
-       <input type="date" required value={date} onChange={e=>setDate(e.target.value)}/>
+       <input type="date" required value={date} onChange={e=>changeDate(e.target.value)}/>
       </label>
      </div>
      <div className="routes-neighborhood-picker" aria-label="Separar roteiro por município e bairro">
@@ -175,8 +191,10 @@ export default function Rotas(){
       {city&&!areasLoading&&!districts.length&&<p className="routes-area-warning">Não há empresas com bairro preenchido neste município. Corrija os cadastros antes de planejar.</p>}
      </div>
      <div className="routes-company-heading"><div><strong>2. Selecione as empresas</strong><p>{district?'Somente empresas em '+district+', '+city+'.':'Escolha município e bairro acima para visualizar as empresas.'}</p></div><span>{selected.length} / 49</span></div>
-     {city&&district&&<div className="routes-search"><Search size={18}/><input aria-label="Buscar empresa no bairro" value={searchInput} onChange={e=>setSearchInput(e.target.value)} placeholder="Nome ou CNPJ neste bairro"/>
+     {city&&district&&<div className="routes-search" role="search"><Search size={18}/><input aria-label="Buscar empresa no bairro" value={searchInput} onChange={e=>setSearchInput(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'){e.preventDefault();setSearch(searchInput);void findCompanies(1,searchInput)}}} placeholder="Nome ou CNPJ neste bairro"/>
       <button type="button" disabled={companiesLoading} onClick={()=>{setSearch(searchInput);void findCompanies(1,searchInput)}}>Buscar</button></div>}
+     {city&&district&&<div className="routes-selection-toolbar"><span>{companiesLoading?'Buscando empresas...':companies.length+' empresas nesta página'} · {selected.length} selecionadas</span><div><button type="button" disabled={!companies.length||selected.length>=49||!companies.some(x=>!selected.includes(x.id))} onClick={selectPage}>Adicionar desta página</button><button type="button" disabled={!selected.length} onClick={()=>{setSelected([]);setSelectedNames({});setSelectionNotice('')}}>Limpar seleção</button></div></div>}
+     {selectionNotice&&<p className="routes-selection-note" role="status">{selectionNotice}</p>}
      {city&&district&&<div className="routes-company-choices">{companies.map(company=><label key={company.id} className={selected.includes(company.id)?'is-selected':''}>
       <input type="checkbox" checked={selected.includes(company.id)} disabled={!selected.includes(company.id)&&selected.length>=49} onChange={()=>toggle(company)}/>
       <span><strong>{company.trade_name||company.legal_name}</strong><small>{company.district||'Bairro não informado'} · {company.city||'Município não informado'} {company.cnpj?'· '+company.cnpj:''}</small></span>
@@ -186,7 +204,7 @@ export default function Rotas(){
      <RouteChosenList ids={selected} names={selectedNames} onMove={moveSelected}
       onRemove={id=>setSelected(previous=>previous.filter(x=>x!==id))}/>
      <RouteProximityPanel selectedIds={selected} date={date} onAdd={addNearby} city={city} district={district}/>
-     <p className="routes-proximity-disclaimer">Confira a proximidade antes de salvar. A nova rota será criada em rascunho; a publicação exige outra confirmação.</p>
+     <p className="routes-proximity-disclaimer">A rota será salva em rascunho. Antes de publicar, confira o trajeto viário.</p>
      <button className="routes-create" disabled={busy||!selected.length||!agent||!date||!city||!district} type="submit"><RouteIcon size={19}/>{busy?'Salvando rota...':'Criar rota com '+selected.length+' empresa(s)'}<ArrowRight size={20}/></button>
     </form>}
    </section>}
