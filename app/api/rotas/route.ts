@@ -13,7 +13,7 @@ export async function GET(){
  // route_stops e routes não foram atualizados por versões anteriores da aplicação.
  const scope=user.role==='agent'
   ?"where r.agent_id=$1 and r.status in ('published','in_progress','completed') and progress.remaining_stops>0"
-  :'';
+  :"where r.status<>'cancelled'";
  const params=user.role==='agent'?[user.id]:[];
  const items=await db().query(`select r.id,r.route_date,
  case when progress.total_stops>0 and progress.remaining_stops=0 then 'completed'
