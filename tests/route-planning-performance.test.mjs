@@ -39,3 +39,12 @@ test('edição exclui outras rotas mas conserva paradas do roteiro atual',()=>{
  const editor=source('components/route-company-editor.tsx');
  assert.match(editor,/available_on:date,except_route:routeId,purpose:'route'/);
 });
+
+test('lista de empresas escolhidas começa recolhida sem perder mover ou remover',()=>{
+ const selected=source('components/route-chosen-list.tsx');
+ assert.match(selected,/const \[expanded,setExpanded\]=useState\(false\)/);
+ assert.match(selected,/aria-expanded=\{expanded\}/);
+ assert.match(selected,/expanded&&<ol>/);
+ assert.match(selected,/onMove\(index,-1\)/);
+ assert.match(selected,/onRemove\(id\)/);
+});
