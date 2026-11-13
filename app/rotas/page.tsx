@@ -23,6 +23,7 @@ export default function Rotas(){
  const [selected,setSelected]=useState<string[]>([]),[selectedNames,setSelectedNames]=useState<Record<string,string>>({});
  const [cities,setCities]=useState<AreaOption[]>([]),[districts,setDistricts]=useState<AreaOption[]>([]);
  const districtRequest=useRef(0),companyRequest=useRef(0);
+ const districtCache=useRef(new Map<string,AreaOption[]>());
  const [city,setCity]=useState(''),[district,setDistrict]=useState(''),[areasLoading,setAreasLoading]=useState(false),[companiesLoading,setCompaniesLoading]=useState(false);
  const [selectionNotice,setSelectionNotice]=useState('');
  const canPlan=role==='admin'||role==='supervisor';
@@ -62,12 +63,14 @@ export default function Rotas(){
   const request=++districtRequest.current;companyRequest.current++;
   setCompaniesLoading(false);setCity(next);setDistrict('');setDistricts([]);setSelected([]);setSelectedNames({});
   setCompanies([]);setSearch('');setSearchInput('');setPage(1);setHasMore(false);setError('');
-  if(!next)return;
+  if(!next){setAreasLoading(false);return}
+  const cached=districtCache.current.get(next);
+  if(cached){setDistricts(cached);setAreasLoading(false);return}
   setAreasLoading(true);
   try{
    const res=await fetch('/api/rotas/bairros?'+new URLSearchParams({city:next}),{cache:'no-store'});
    const data=await res.json();if(!res.ok)throw Error(data.error||'Não foi possível consultar bairros.');
-   if(request===districtRequest.current)setDistricts(data.districts||[]);
+   if(request===districtRequest.current){districtCache.current.set(next,data.districts||[]);setDistricts(data.districts||[])}
   }catch(e){if(request===districtRequest.current)setError(e instanceof Error?e.message:'Falha ao consultar bairros')}
   finally{if(request===districtRequest.current)setAreasLoading(false)}
  }
@@ -84,7 +87,7 @@ export default function Rotas(){
   if(selected.length&&!window.confirm('Alterar a data limpará as empresas selecionadas. Continuar?'))return;
   setDate(next);setSelected([]);setSelectedNames({});setSelectionNotice('');
   companyRequest.current++;setCompaniesLoading(false);setCompanies([]);setHasMore(false);setPage(1);
-  if(city&&district&&next)void findCompanies(1,search,city,district,next);
+  // A consulta por data ocorre ao entrar na etapa de empresas.
  }
  function selectPage(){
   const next=addVisibleStops(selected,companies.map(x=>x.id));
