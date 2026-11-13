@@ -1,3 +1,4 @@
+import {assessNeighborhoodSelection} from '@/lib/route-neighborhood';
 import {NextResponse} from 'next/server';import {currentIdentity} from '@/lib/access';import {db} from '@/lib/db';
 export const dynamic='force-dynamic';export const runtime='nodejs';
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -69,6 +70,17 @@ export async function PUT(req:Request,{params}:{params:Promise<{id:string}>}){
  ]);
  if(Number(companies[0]?.n)!==ids.length)return fail('Uma empresa selecionada não existe mais.',409);
  if(duplicate.length)return fail('Uma empresa já está em outra rota ativa na mesma data.',409);
+ // Roteiros antigos mistos continuam editáveis. Nos roteiros originalmente
+ // organizados por bairro, não permitir misturar regiões ao adicionar paradas.
+ const [originalAreas,newAreas]=await Promise.all([
+  sql.query(`select e.city,e.district from route_stops s join establishments e on e.id=s.establishment_id where s.route_id=$1`,[id]),
+  sql.query('select city,district from establishments where id=any($1::uuid[])',[ids])
+ ]);
+ if(assessNeighborhoodSelection(originalAreas).valid){
+  const areaCheck=assessNeighborhoodSelection(newAreas);
+  if(!areaCheck.valid)return fail(areaCheck.reason,409);
+ }
+
  // HTTP transaction: bloqueio da rota + ajuste de posições transitórias (> 1000)
  // + remoção + upsert em ordem + auditoria. Nenhuma visita é alterada.
  const results=await sql.transaction([
