@@ -1,0 +1,40 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';
+import {neighborhoodKey,assessNeighborhoodSelection} from '../lib/route-neighborhood.ts';
+const src=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
+test('agrupa nomes de bairros ignorando espaços e acentos',()=>{
+ assert.equal(neighborhoodKey({city:'São Paulo',district:'Vila Mariana'}),neighborhoodKey({city:' sao  paulo ',district:' VILA  MARIANA '}));
+ assert.notEqual(neighborhoodKey({city:'São Paulo',district:'Centro'}),neighborhoodKey({city:'Campinas',district:'Centro'}));
+});
+test('novas rotas só aceitam mesmo município e bairro preenchidos',()=>{
+ assert.equal(assessNeighborhoodSelection([{city:'São Paulo',district:'Pinheiros'},{city:'Sao Paulo',district:'pinheiros'}]).valid,true);
+ assert.equal(assessNeighborhoodSelection([{city:'São Paulo',district:'Pinheiros'},{city:'São Paulo',district:'Butantã'}]).valid,false);
+ assert.equal(assessNeighborhoodSelection([{city:'São Paulo',district:'Centro'},{city:'Campinas',district:'Centro'}]).valid,false);
+ assert.equal(assessNeighborhoodSelection([{city:'São Paulo',district:null}]).valid,false);
+ assert.equal(assessNeighborhoodSelection([]).valid,false);
+});
+test('API de bairros exige login e gestão; retorna bairros associados à cidade',()=>{
+ const api=src('app/api/rotas/bairros/route.ts');
+ assert.match(api,/currentIdentity\(\)/);
+ assert.match(api,/\['admin','supervisor'\]/);
+ assert.match(api,/districts:rows,city/);
+ assert.match(api,/unaccent\(trim\(district\)\)/);
+});
+test('API de empresas filtra bairro exato normalizado sem perder escopo do agente',()=>{
+ const api=src('app/api/companies/route.ts');
+ assert.match(api,/const districtParam=user.role==='agent'\?'\$8':'\$7'/);
+ assert.match(api,/e.city,e.district/);
+ assert.match(api,/lower\(unaccent\(trim\(coalesce\(e.district/);
+ assert.match(api,/user.id,district/);
+});
+test('servidor impede criação de nova rota com bairros misturados',()=>{
+ const api=src('app/api/rotas/route.ts');
+ assert.match(api,/assessNeighborhoodSelection\(check\)/);
+ assert.match(api,/if\(!territory.valid\)return fail\(territory.reason,409\)/);
+});
+test('interface separa escolha município bairro e busca restrita',()=>{
+ const page=src('app/rotas/page.tsx');
+ assert.match(page,/routes-neighborhood-picker/);
+ assert.match(page,/city:areaCity,district:areaDistrict/);
+ assert.match(page,/neighborhoodKey\(company\)!==neighborhoodKey/);
+ assert.match(page,/disabled=\{busy\|\|!selected.length\|\|!agent\|\|!date\|\|!city\|\|!district\}/);
+});
