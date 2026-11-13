@@ -123,8 +123,8 @@ export default function Cadastros(){
    <header className="registration-hero">
     <div className="registration-hero-copy">
      <span className="registration-eyebrow"><ShieldCheck size={15}/> OPERAÇÃO DE CADASTRO</span>
-     <h2>Da visita à confirmação.</h2>
-     <p>Receba empresas validadas pela supervisão, consulte a base oficial do sindicato e registre a confirmação com segurança.</p>
+     <h2>Confirme com segurança.</h2>
+     <p>Empresas validadas, conferência oficial e histórico em um fluxo.</p>
     </div>
     <div className="registration-hero-icon" aria-hidden="true"><FileCheck2 size={37} strokeWidth={1.7}/></div>
    </header>
@@ -170,10 +170,10 @@ export default function Cadastros(){
       <ShieldCheck size={18}/> Cadastros confirmados <span>{fmt(totals.confirmed)}</span></button>
     </nav>
 
-    {view==='pending'&&canConfirm&&<div className="registration-instruction" role="note">
-     <Info size={20} aria-hidden="true"/>
-     <p><strong>A conferência acontece no sistema oficial.</strong> Esta ferramenta ainda não cadastra empresas automaticamente na base do SindPetshop-SP. Primeiro cadastre ou localize a empresa no sistema oficial; depois registre aqui o identificador e a confirmação.</p>
-    </div>}
+    {view==='pending'&&canConfirm&&<details className="registration-instruction registration-instruction-compact">
+     <summary><Info size={19} aria-hidden="true"/> Como confirmar no sistema oficial</summary>
+     <p><strong>A conferência acontece no sistema oficial.</strong> Esta ferramenta não cadastra empresas automaticamente na base do SindPetshop-SP. Localize ou cadastre a empresa no sistema oficial; depois registre aqui o protocolo e a confirmação.</p>
+    </details>}
 
     <form className="registration-search" role="search" onSubmit={search}>
      <Search size={20} aria-hidden="true"/>

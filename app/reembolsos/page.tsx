@@ -227,9 +227,12 @@ export default function Reembolsos(){
        <button type="button" className="expense-history-link" onClick={()=>void showHistory(x.id)}><History size={15}/>{historyId===x.id?'Fechar histórico':'Ver histórico'}</button></div>
      </div>
      {x.last_review_note&&['returned','rejected'].includes(x.approval_status)&&<p className="expense-warning"><AlertCircle size={16}/> {x.last_review_note}</p>}
-     {x.receipt_received_at&&<p className="expense-inline-proof"><CheckCircle2 size={15}/> Nota recebida pelo RH: {date(x.receipt_received_at)} · Arquivo: {x.physical_archive_reference||'—'}</p>}
-     {x.accounting_reference&&<p className="expense-inline-proof">Conferência contábil: {x.accounting_contact} · {x.accounting_reference}</p>}
-     {x.payment_reference&&<p className="expense-inline-proof"><Wallet size={15}/> {x.receipt_acknowledged_at?'Recebido pelo agente':'Pagamento informado'}: {fmt(x.paid_amount)} · {day(x.payment_date||'')} · Ref. {x.payment_reference}</p>}
+     {(x.receipt_received_at||x.accounting_reference||x.payment_reference)&&<details className="expense-record-details">
+      <summary>Ver comprovantes e referências</summary>
+      {x.receipt_received_at&&<p className="expense-inline-proof"><CheckCircle2 size={15}/> Nota recebida pelo RH: {date(x.receipt_received_at)} · Arquivo: {x.physical_archive_reference||'—'}</p>}
+      {x.accounting_reference&&<p className="expense-inline-proof">Conferência contábil: {x.accounting_contact} · {x.accounting_reference}</p>}
+      {x.payment_reference&&<p className="expense-inline-proof"><Wallet size={15}/> {x.receipt_acknowledged_at?'Recebido pelo agente':'Pagamento informado'}: {fmt(x.paid_amount)} · {day(x.payment_date||'')} · Ref. {x.payment_reference}</p>}
+     </details>}
      {rh&&x.approval_status==='paid'&&x.receipt_disputed_at&&!x.dispute_resolved_at&&<p className="expense-warning"><AlertCircle size={16}/> Agente contestou: {x.receipt_dispute_reason||'Verifique o histórico.'}</p>}
      {canAct(x).length>0&&<div className="expense-available-actions">{canAct(x).map(action=><button type="button" key={action} disabled={busy} className="expense-secondary" onClick={()=>openAction(x,action)}>{actions[action]}</button>)}</div>}
      {active?.id===x.id&&actionForm(x,active.action)}

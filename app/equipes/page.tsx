@@ -139,8 +139,9 @@ export default function Equipes(){
      </div>)}
     </div>}
    </section>
-   {verifiedWithoutRequest.length>0&&<section className="panel" style={{marginBottom:20}}>
-    <div className="panel-title"><div><small>CONTAS JÁ VERIFICADAS</small><h2>Ainda não solicitaram acesso</h2></div><UsersRound size={22}/></div>
+   {verifiedWithoutRequest.length>0&&<details className="panel staff-verified-collapsible" style={{marginBottom:20}}>
+    <summary><UsersRound size={20}/> Contas verificadas fora da fila <strong>{verifiedWithoutRequest.length}</strong></summary>
+    <div className="staff-verified-content"><h2>Adicionar contas à fila</h2>
     <p className="muted">Estas contas têm e-mail verificado neste Neon, mas não estão na fila. Enviá-las à fila não libera o acesso. Contas criadas em outra branch do Neon não aparecem aqui.</p>
     <div style={{display:'grid',gap:10}}>
      {verifiedWithoutRequest.map(account=><div key={account.auth_user_id} style={{display:'flex',alignItems:'center',flexWrap:'wrap',gap:12,padding:12,border:'1px solid var(--line)',borderRadius:12}}>
@@ -148,7 +149,8 @@ export default function Equipes(){
       <button type="button" className="button secondary" disabled={busy!==null} onClick={()=>void queueVerified(account)}>Adicionar à fila</button>
      </div>)}
     </div>
-   </section>}
+    </div>
+   </details>}
    <section className="panel"><div className="panel-title"><div><small>ACESSOS ATIVOS</small><h2>Equipe cadastrada</h2></div><UsersRound size={22} color="#648a76"/></div>
     <div className="tablewrap staff-tablewrap"><table className="staff-table"><thead><tr><th>Pessoa</th><th>E-mail</th><th>Perfil</th><th>Situação</th><th>Alterar cargo</th></tr></thead><tbody>{profiles.map(p=><tr key={p.auth_user_id}><td data-label="Pessoa"><strong>{p.full_name}</strong></td><td data-label="E-mail">{p.email||'—'}</td><td data-label="Perfil atual">{labels[p.role]}</td><td data-label="Situação"><span className={p.is_active?'pill':'pill warn'}>{p.is_active?'Ativo':'Inativo'}</span></td><td data-label="Alterar cargo" className="staff-editor-cell">
      {p.role==='admin'?<span className="muted">Gerenciado pela administração</span>:
