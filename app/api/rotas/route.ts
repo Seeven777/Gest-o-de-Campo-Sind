@@ -1,4 +1,5 @@
 import {validISODate} from '@/lib/iso-date';
+import {assessNeighborhoodSelection} from '@/lib/route-neighborhood';
 import {evaluateRoute,type Location} from '@/lib/route-proximity';
 import {requiresTerritoryConfirmation,validPublicationConfirmation} from '@/lib/route-publication';
 import {NextResponse} from 'next/server';import {currentIdentity} from '@/lib/access';import {db} from '@/lib/db';
@@ -46,7 +47,9 @@ export async function POST(req:Request){
  const [c]=campaign?await db().query('select id from campaigns where id=$1 and $2::date between start_date and end_date and status<>\'cancelled\'',[campaign,date]):[{id:'automatic'}];
  const [a]=await db().query('select auth_user_id from app_profiles where auth_user_id=$1 and role=\'agent\' and is_active=true',[agent]);
  if(!c||!a)return fail('Rota fora do período configurado ou agente não encontrado.');
- const check=await db().query('select id from establishments where id=ANY($1::uuid[])',[stops]);if(check.length!==stops.length)return fail('Há empresas inexistentes na seleção.');
+ const check=await db().query('select id,city,district from establishments where id=ANY($1::uuid[])',[stops]);if(check.length!==stops.length)return fail('Há empresas inexistentes na seleção.');
+ const territory=assessNeighborhoodSelection(check);
+ if(!territory.valid)return fail(territory.reason,409);
  const dup=await db().query(`select 1 from routes r join route_stops s on s.route_id=r.id
  where r.route_date=$1 and r.status<>'cancelled' and s.establishment_id=ANY($2::uuid[]) limit 1`,[date,stops]);
  if(dup.length)return fail('Uma das empresas já consta em outra rota ativa nessa data.',409);
