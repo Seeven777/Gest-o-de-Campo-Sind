@@ -2,6 +2,7 @@
 import {useEffect,useState} from 'react';
 import Link from 'next/link';
 import {Portal} from '@/components/portal';
+import {StudioPageBanner} from '@/components/studio-page-banner';
 import {Navigation,Camera,ClipboardCheck,Clock3} from 'lucide-react';
 
 type Route={id:string;campaign_name:string;route_date:string;stops:number;status:string};
@@ -43,6 +44,7 @@ export default function Visitas(){
  },[]);
  return <Portal title={agent?'Minhas visitas':'Visitas registradas'}
   subtitle={agent?'Comece uma jornada e acompanhe as visitas que você já enviou.':'Acompanhe os registros enviados pelas equipes.'}>
+  <StudioPageBanner eyebrow="JORNADA DE CAMPO" title={agent?'Seu próximo atendimento.':'Cada visita importa.'} description={agent?'Retome uma rota ou consulte suas visitas. Registre somente com o veículo parado.':'Acompanhe a execução das visitas e os registros enviados.'} icon={Navigation}/>
   {error&&<p className="error" role="alert">{error}</p>}
   {loading?<section className="panel" role="status"><Clock3 size={23}/> Carregando visitas e jornadas...</section>:
   agent===null?<section className="panel" role="status">Não foi possível confirmar seu perfil. Entre novamente no sistema.</section>:
