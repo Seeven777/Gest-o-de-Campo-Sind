@@ -18,9 +18,9 @@ export function canReuseFieldPlanCache(
  cached:{expires?:number;fingerprint?:string;plan?:{order?:string[]}}|null,
  date:string,stops:FieldStopSignature[],now:number
 ):boolean{
- if(!cached||!Number.isFinite(cached.expires)||!(cached.expires!>now))return false;
+ if(!cached||!Number.isFinite(cached.expires)||(cached.expires??0)<=now)return false;
  if(cached.fingerprint!==fieldRouteFingerprint(date,stops))return false;
  const order=cached.plan?.order;
  const expected=new Set(stops.map(s=>s.id));
- return Array.isArray(order)&&order.length===expected.size&&new Set(order).size===expected.size&&order.every(id=>expected.has(id));
+ return Array.isArray(order)&&order.length>0&&order.length<=expected.size&&new Set(order).size===order.length&&order.every(id=>expected.has(id));
 }
