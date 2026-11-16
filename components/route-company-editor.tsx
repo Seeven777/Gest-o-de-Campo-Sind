@@ -16,6 +16,7 @@ export function RouteCompanyEditor({routeId,date,editToken,stops,published,onCan
  const [results,setResults]=useState<Company[]>([]),[term,setTerm]=useState(''),[page,setPage]=useState(1),[more,setMore]=useState(false);
  const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
  const pendingSearch=useRef<AbortController|null>(null);
+ const saveInFlight=useRef(false);
  const changed=ids.length!==stops.length||ids.some((id,i)=>id!==stops[i].establishment_id);
  const singleArea=assessNeighborhoodSelection(stops).valid;
  const city=singleArea?stops[0]?.city||'':'';
@@ -69,9 +70,10 @@ export function RouteCompanyEditor({routeId,date,editToken,stops,published,onCan
  }
  const submitSearch=(e:FormEvent)=>{e.preventDefault();void search(1)};
  async function save(){
-  if(!changed||busy||ids.length===0)return;
+  if(!changed||saveInFlight.current||ids.length===0)return;
   if(published&&!window.confirm('Esta rota já foi publicada. Ela ainda não começou, mas o agente poderá ver as mudanças ao atualizar a jornada. Confirma a edição?'))return;
-  setBusy(true);setError('');setMessage('');
+  if(saveInFlight.current)return;
+  saveInFlight.current=true;setBusy(true);setError('');setMessage('');
   try{
    const response=await fetch('/api/rotas/'+encodeURIComponent(routeId),{
     method:'PUT',headers:{'Content-Type':'application/json'},
@@ -82,7 +84,7 @@ export function RouteCompanyEditor({routeId,date,editToken,stops,published,onCan
    try {await onSaved()}
    catch {setError('As alterações foram salvas, mas não foi possível atualizar a tela. Recarregue a página para visualizar a rota atualizada.')}
   }catch(e){setError(e instanceof Error?e.message:'Falha ao salvar empresas.')}
-  finally{setBusy(false)}
+  finally{saveInFlight.current=false;setBusy(false)}
  }
  return <section className="routes-editor-card" aria-label="Editar empresas da rota">
   <div className="routes-editor-header">
