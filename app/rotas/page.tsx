@@ -51,6 +51,20 @@ export default function Rotas(){
   finally{if(live)setLoading(false)}})();
   return()=>{live=false};
  },[]);
+ // Ao retornar à aba após alterações de outro supervisor, atualizar somente a
+ // listagem. Não mudar o passo ou sobrescrever empresas ainda em seleção.
+ useEffect(()=>{
+  let active=true;
+  const refresh=()=>{
+   if(!active||document.visibilityState==='hidden'||mutationInFlight.current)return;
+   void reload().catch(()=>{if(active)setError('Não foi possível atualizar as rotas. Tente novamente ao retornar à tela.')});
+  };
+  const onVisibility=()=>{if(document.visibilityState==='visible')refresh()};
+  window.addEventListener('focus',refresh);
+  window.addEventListener('pageshow',refresh);
+  document.addEventListener('visibilitychange',onVisibility);
+  return()=>{active=false;window.removeEventListener('focus',refresh);window.removeEventListener('pageshow',refresh);document.removeEventListener('visibilitychange',onVisibility)};
+ },[]);
  async function findCompanies(nextPage=1,q=search,areaCity=city,areaDistrict=district,areaDate=date){
   if(!areaCity||!areaDistrict)return;
   const request=++companyRequest.current;
