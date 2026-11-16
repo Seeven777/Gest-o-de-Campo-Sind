@@ -29,7 +29,15 @@ export function RouteProximityPanel({selectedIds,date,routeId,onAdd,city,distric
    fetch('/api/rotas/planejamento',{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({establishment_ids:selectedIds,date,route_id:routeId}),
     signal:ctrl.signal,cache:'no-store'})
-   .then(async response=>{const body=await response.json() as Result;if(!response.ok)throw Error(body.error||'Não foi possível analisar a rota.');return body})
+   .then(async response=>{
+    const raw=await response.text();
+    let body:Result|null=null;
+    if(raw)try{body=JSON.parse(raw) as Result}catch{}
+    if(!response.ok)throw Error(body?.error||'A consulta de proximidade falhou (HTTP '+response.status+'). Atualize e tente novamente.');
+    if(!body?.assessment||!Array.isArray(body.suggestions))
+     throw Error('A central retornou uma análise incompleta. Tente consultar novamente.');
+    return body;
+   })
    .then(result=>{if(live)setData(result)})
    .catch(e=>{if(live&&!ctrl.signal.aborted)setError(e instanceof Error?e.message:'Falha na análise de proximidade.')})
    .finally(()=>{if(live)setLoading(false)});
