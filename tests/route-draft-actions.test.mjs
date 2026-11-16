@@ -38,7 +38,7 @@ test('cards só mostram Editar e Excluir em rascunhos para gestor',()=>{
  assert.match(page,/method:'DELETE'/);
  assert.match(page,/edit_token:detail\.route\.edit_token/);
  assert.match(page,/window\.confirm/);
- assert.match(page,/await reload\(\)/);
+ assert.match(page,/await refreshAfterMutation\(\)/);
 });
 test('atalho Editar abre editor existente e respeita permissão do usuário',()=>{
  const page=read('app/rotas/[id]/page.tsx');
