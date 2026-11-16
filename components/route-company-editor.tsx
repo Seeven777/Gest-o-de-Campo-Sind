@@ -4,7 +4,7 @@ import {ChevronLeft,ChevronRight,Search,Save,ShieldAlert,X} from 'lucide-react';
 import {RouteProximityPanel,type NearbyCompany} from '@/components/route-proximity-panel';
 import {RouteChosenList} from '@/components/route-chosen-list';
 import {readRouteEditResponse} from '@/lib/route-edit-response';
-import {assessNeighborhoodSelection} from '@/lib/route-neighborhood';
+import {assessNeighborhoodSelection,neighborhoodKey} from '@/lib/route-neighborhood';
 type Stop={establishment_id:string;legal_name:string;trade_name:string|null;city:string|null;district:string|null};
 type Company={id:string;legal_name:string;trade_name:string|null;city:string|null;district?:string|null;cnpj?:string};
 export function RouteCompanyEditor({routeId,date,editToken,stops,published,onCancel,onSaved}:{
@@ -46,7 +46,13 @@ export function RouteCompanyEditor({routeId,date,editToken,stops,published,onCan
   setIds(old=>old.includes(item.id)||old.length>=49?old:[...old,item.id]);
  };
  const toggle=(item:Company)=>ids.includes(item.id)?remove(item.id):add(item);
- const suggestion=(item:NearbyCompany)=>add(item);
+ const suggestion=(item:NearbyCompany)=>{
+  if(singleArea&&neighborhoodKey(item)!==neighborhoodKey({city,district})){
+   setError('Essa empresa pertence a outro bairro. Crie um roteiro separado para essa região.');
+   return;
+  }
+  add(item);
+ };
  async function search(nextPage=1,query=term){
   const controller=new AbortController();
   pendingSearch.current?.abort();
