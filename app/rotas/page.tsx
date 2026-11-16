@@ -23,11 +23,16 @@ export default function Rotas(){
  const [selected,setSelected]=useState<string[]>([]),[selectedNames,setSelectedNames]=useState<Record<string,string>>({});
  const [cities,setCities]=useState<AreaOption[]>([]),[districts,setDistricts]=useState<AreaOption[]>([]);
  const districtRequest=useRef(0),companyRequest=useRef(0);
+ const mutationInFlight=useRef(false);
  const districtCache=useRef(new Map<string,AreaOption[]>());
  const [city,setCity]=useState(''),[district,setDistrict]=useState(''),[areasLoading,setAreasLoading]=useState(false),[companiesLoading,setCompaniesLoading]=useState(false);
  const [selectionNotice,setSelectionNotice]=useState('');
  const canPlan=role==='admin'||role==='supervisor';
  async function reload(){const res=await fetch('/api/rotas',{cache:'no-store'});const payload=await res.json();if(!res.ok)throw Error(payload.error||'Falha ao carregar rotas');setRows(payload.items||[])}
+ async function refreshAfterMutation(){
+  try{await reload()}
+  catch{setError('A operação foi concluída, mas a lista não atualizou. Reabra esta tela para consultar o resultado antes de repetir a ação.')}
+ }
  useEffect(()=>{let live=true;
   (async()=>{try{
    const [me,routes]=await Promise.all([fetch('/api/me',{cache:'no-store'}),fetch('/api/rotas',{cache:'no-store'})]);
@@ -116,8 +121,8 @@ export default function Rotas(){
   setSelected(previous=>previous.includes(company.id)||previous.length>=49?previous:[...previous,company.id]);
  };
  async function create(e:React.FormEvent){
-  e.preventDefault();if(!agent||!selected.length||!date||!city||!district)return;
-  setBusy(true);setError('');setMessage('');
+  e.preventDefault();if(mutationInFlight.current||!agent||!selected.length||!date||!city||!district)return;
+  mutationInFlight.current=true;setBusy(true);setError('');setMessage('');
   try{
    const res=await fetch('/api/rotas',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent_id:agent,date,establishment_ids:selected})});
    const data=await res.json();
@@ -132,17 +137,18 @@ export default function Rotas(){
     throw Error(data.error||'Não foi possível criar');
    }
    setMessage('Rota criada com '+data.count+' empresas. Publique-a quando estiver pronta para a equipe.');
-   setSelected([]);setSelectedNames({});setShowForm(false);setStep(0);await reload();
-  }catch(e){setError(e instanceof Error?e.message:'Falha ao criar a rota')}finally{setBusy(false)}
+   setSelected([]);setSelectedNames({});setShowForm(false);setStep(0);await refreshAfterMutation();
+  }catch(e){setError(e instanceof Error?e.message:'Falha ao criar a rota')}finally{mutationInFlight.current=false;setBusy(false)}
  }
  async function deleteDraft(route:RouteRow){
-  if(route.status!=='draft'||busy)return;
+  if(route.status!=='draft'||mutationInFlight.current)return;
   const description=route.neighborhood_label&&route.neighborhood_label!=='Bairro não informado'
    ?route.neighborhood_label:'Rota de '+dateLabel(route.route_date);
   if(!window.confirm('Excluir o rascunho de '+description+'?\\n\\n'+
    route.stops+' empresas · '+route.agent_name+' · '+dateLabel(route.route_date)+
    '\\n\\nO roteiro sairá da lista e as empresas ficarão disponíveis para novo planejamento. A auditoria será mantida.'))return;
-  setBusy(true);setError('');setMessage('');
+  if(mutationInFlight.current)return;
+  mutationInFlight.current=true;setBusy(true);setError('');setMessage('');
   try{
    const current=await fetch('/api/rotas/'+encodeURIComponent(route.id),{cache:'no-store'});
    const detail=await current.json();
@@ -156,12 +162,13 @@ export default function Rotas(){
    const result=await response.json();
    if(!response.ok||result.ok!==true)throw Error(result.error||'Não foi possível excluir a rota.');
    setMessage('Rascunho excluído. As empresas estão liberadas para outro planejamento.');
-   await reload();
+   await refreshAfterMutation();
   }catch(e){setError(e instanceof Error?e.message:'Falha ao excluir o rascunho.')}
-  finally{setBusy(false)}
+  finally{mutationInFlight.current=false;setBusy(false)}
  }
  async function publish(id:string){
-  setBusy(true);setError('');setMessage('');
+  if(mutationInFlight.current)return;
+  mutationInFlight.current=true;setBusy(true);setError('');setMessage('');
   try{
    const request=async (territoryConfirmed=false,editToken?:string)=>{
     const response=await fetch('/api/rotas',{method:'PATCH',
@@ -184,9 +191,9 @@ export default function Rotas(){
    }
    if(!response.ok||payload.ok!==true)throw Error(payload.error||'Não foi possível publicar a rota.');
    setMessage('Rota publicada com conferência territorial registrada. O agente já pode iniciar a jornada.');
-   await reload();
+   await refreshAfterMutation();
   }catch(e){setError(e instanceof Error?e.message:'Falha ao publicar')}
-  finally{setBusy(false)}
+  finally{mutationInFlight.current=false;setBusy(false)}
  }
  const visible=useMemo(()=>rows.filter(r=>filter==='all'||filter==='active'&&['published','in_progress'].includes(r.status)||filter===r.status),[rows,filter]);
  const steps=[{label:'Região',detail:'Onde visitar',icon:MapPin},{label:'Equipe',detail:'Quem e quando',icon:UserRound},{label:'Empresas',detail:'Monte o percurso',icon:Layers},{label:'Revisão',detail:'Tudo pronto',icon:Check}];
