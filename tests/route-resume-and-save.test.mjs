@@ -22,3 +22,14 @@ test('listagem de rotas se atualiza ao retornar, sem limpar planejamento local',
  const effect=src.slice(src.indexOf('// Ao retornar à aba'),src.indexOf('async function findCompanies'));
  assert.doesNotMatch(effect,/setSelected\(|setStep\(|setDistrict\(/);
 });
+
+test('listagem descarta respostas e erros antigos após nova consulta',()=>{
+ const src=read('app/rotas/page.tsx');
+ assert.match(src,/routeListRequest=useRef\(0\)/);
+ assert.match(src,/const request=\+\+routeListRequest\.current/);
+ assert.match(src,/if\(request===routeListRequest\.current\)setRows\(payload\.items\|\|\[\]\)/);
+ assert.match(src,/if\(request===routeListRequest\.current\)throw error/);
+ assert.match(src,/const routeRequest=\+\+routeListRequest\.current/);
+ assert.match(src,/if\(routeRequest===routeListRequest\.current\)setRows\(list\.items\|\|\[\]\)/);
+ assert.match(src,/return\(\)=>\{live=false;routeListRequest\.current\+\+\}/);
+});
