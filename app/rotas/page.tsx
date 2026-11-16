@@ -8,6 +8,7 @@ import {RouteProximityPanel,type NearbyCompany} from '@/components/route-proximi
 import {RouteChosenList} from '@/components/route-chosen-list';
 import {neighborhoodKey} from '@/lib/route-neighborhood';
 import {addVisibleStops} from '@/lib/route-bulk-selection';
+import {refreshAfterSuccessfulMutation} from '@/lib/route-mutation-feedback';
 type RouteRow={id:string;route_date:string;campaign_name:string;agent_name:string;status:string;stops:number;neighborhood_label?:string};
 type Pick={id:string;name:string};
 type Company={id:string;legal_name:string;trade_name?:string|null;city:string|null;district:string|null;cnpj?:string};
@@ -30,8 +31,8 @@ export default function Rotas(){
  const canPlan=role==='admin'||role==='supervisor';
  async function reload(){const res=await fetch('/api/rotas',{cache:'no-store'});const payload=await res.json();if(!res.ok)throw Error(payload.error||'Falha ao carregar rotas');setRows(payload.items||[])}
  async function refreshAfterMutation(){
-  try{await reload()}
-  catch{setError('A operação foi concluída, mas a lista não atualizou. Reabra esta tela para consultar o resultado antes de repetir a ação.')}
+  const refreshed=await refreshAfterSuccessfulMutation(reload);
+  if(!refreshed)setError('A operação foi concluída, mas a lista não atualizou. Reabra esta tela para consultar o resultado antes de repetir a ação.');
  }
  useEffect(()=>{let live=true;
   (async()=>{try{
