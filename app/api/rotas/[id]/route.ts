@@ -130,8 +130,13 @@ export async function PUT(req:Request,{params}:{params:Promise<{id:string}>}){
      and not exists(select 1 from agent_live_presence gps where gps.route_id=r.id and gps.active)
      and md5(coalesce((select string_agg(s.establishment_id::text,',' order by s.position_order)
       from route_stops s where s.route_id=r.id),'') || ':' || r.status)=$2
+     and not exists (
+      select 1 from route_stops other_stop join routes other_route on other_route.id=other_stop.route_id
+      where other_route.id<>r.id and other_route.route_date=r.route_date
+       and other_route.status<>'cancelled' and other_stop.establishment_id=any($3::uuid[])
+     )
     for update
-   ) then 'yes' else 'no' end,true) as permitted`,[id,token]),
+   ) then 'yes' else 'no' end,true) as permitted`,[id,token,ids]),
   sql.query(`update route_stops set position_order=position_order+1000 where route_id=$1
    and current_setting('app.route_edit_permitted',true)='yes'`,[id]),
   sql.query(`delete from route_stops where route_id=$1 and establishment_id<>all($2::uuid[])
@@ -145,14 +150,16 @@ export async function PUT(req:Request,{params}:{params:Promise<{id:string}>}){
   sql.query(`insert into audit_logs(actor_id,action,details)
    select $1,'route.stops_edited',jsonb_build_object('route_id',$2::uuid,'count',$3::integer,'status',$4::text)
    where current_setting('app.route_edit_permitted',true)='yes'`,[user.id,id,ids.length,route.status])
- ]);
+ ],{isolationLevel:'Serializable'});
  if(results[0][0]?.permitted!=='yes')return fail('A rota foi modificada ou o agente iniciou a jornada. Atualize a tela.',409);
  if(results[3].length!==ids.length)return fail('Confira a rota: a alteração não retornou todas as paradas.',500);
  return NextResponse.json({ok:true,count:ids.length},{headers:{'Cache-Control':'no-store'}});
  } catch (error) {
-  // Sempre responder JSON, inclusive quando Neon rejeita uma consulta.
-  // Não expor consultas nem valores internos ao navegador.
-  console.error('[route-stops-edit]',error instanceof Error?error.message:'Falha inesperada no Neon.');
+  // O PostgreSQL aborta uma das operações concorrentes em SERIALIZABLE.
+  const message=error instanceof Error?error.message:'Falha inesperada no Neon.';
+  if(/40001|23505|could not serialize|serialization failure|duplicate key/i.test(message))
+   return fail('Outra operação alterou a disponibilidade das empresas. Atualize a rota e tente novamente.',409);
+  console.error('[route-stops-edit]',message);
   return fail('Não foi possível salvar a rota. Verifique se ela continua em rascunho ou publicada e atualize a página antes de tentar novamente.',500);
  }
 }
