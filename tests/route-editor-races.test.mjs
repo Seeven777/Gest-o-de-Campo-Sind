@@ -14,6 +14,7 @@ test('editor cancela pesquisas obsoletas ao buscar, trocar região ou desmontar'
  assert.match(editor,/return\(\)=>\{controller\.abort\(\);pendingSearch\.current\?\.abort\(\)\}/);
  assert.match(editor,/\[city,district,date,routeId\]/);
  assert.match(editor,/aria-busy=\{loading\}/);
+ assert.match(editor,/disabled=\{loading\|\|busy\|\|\(!ids\.includes\(company\.id\)/);
 });
 test('sugestões fora do bairro são bloqueadas antes de alterar paradas',()=>{
  const editor=read('components/route-company-editor.tsx');
