@@ -1,5 +1,5 @@
 'use client';
-import {useEffect,useState,type FormEvent} from 'react';
+import {useEffect,useRef,useState,type FormEvent} from 'react';
 import {ChevronLeft,ChevronRight,Search,Save,ShieldAlert,X} from 'lucide-react';
 import {RouteProximityPanel,type NearbyCompany} from '@/components/route-proximity-panel';
 import {RouteChosenList} from '@/components/route-chosen-list';
@@ -15,18 +15,27 @@ export function RouteCompanyEditor({routeId,date,editToken,stops,published,onCan
  const [names,setNames]=useState<Record<string,string>>(()=>Object.fromEntries(stops.map(s=>[s.establishment_id,s.trade_name||s.legal_name])));
  const [results,setResults]=useState<Company[]>([]),[term,setTerm]=useState(''),[page,setPage]=useState(1),[more,setMore]=useState(false);
  const [loading,setLoading]=useState(true),[busy,setBusy]=useState(false),[error,setError]=useState(''),[message,setMessage]=useState('');
+ const pendingSearch=useRef<AbortController|null>(null);
  const changed=ids.length!==stops.length||ids.some((id,i)=>id!==stops[i].establishment_id);
  const singleArea=assessNeighborhoodSelection(stops).valid;
  const city=singleArea?stops[0]?.city||'':'';
  const district=singleArea?stops[0]?.district||'':'';
- useEffect(()=>{let mounted=true;
-  fetch('/api/companies?'+new URLSearchParams({page:'1',city,district,available_on:date,except_route:routeId,purpose:'route'}),{cache:'no-store'}).then(async res=>{
+ useEffect(()=>{
+  const controller=new AbortController();
+  pendingSearch.current?.abort();
+  pendingSearch.current=controller;
+  setLoading(true);setError('');
+  fetch('/api/companies?'+new URLSearchParams({page:'1',city,district,available_on:date,except_route:routeId,purpose:'route'}),{
+   cache:'no-store',signal:controller.signal
+  }).then(async res=>{
    const body=await res.json();if(!res.ok)throw Error(body.error||'Falha ao consultar empresas.');return body
-  }).then(body=>{if(mounted){setResults(body.items||[]);setMore(Boolean(body.hasMore))}})
-   .catch(e=>{if(mounted)setError(e instanceof Error?e.message:'Não foi possível abrir empresas.')})
-   .finally(()=>{if(mounted)setLoading(false)});
-  return()=>{mounted=false};
- },[city,district]);
+  }).then(body=>{
+   if(!controller.signal.aborted){setResults(body.items||[]);setMore(Boolean(body.hasMore));setPage(1)}
+  }).catch(e=>{
+   if(!controller.signal.aborted)setError(e instanceof Error?e.message:'Não foi possível abrir empresas.')
+  }).finally(()=>{if(!controller.signal.aborted)setLoading(false)});
+  return()=>{controller.abort()};
+ },[city,district,date,routeId]);
  const move=(index:number,dir:-1|1)=>setIds(current=>{
   const next=[...current],to=index+dir;if(to<0||to>=next.length)return current;
   [next[index],next[to]]=[next[to],next[index]];return next
@@ -39,13 +48,18 @@ export function RouteCompanyEditor({routeId,date,editToken,stops,published,onCan
  const toggle=(item:Company)=>ids.includes(item.id)?remove(item.id):add(item);
  const suggestion=(item:NearbyCompany)=>add(item);
  async function search(nextPage=1,query=term){
+  const controller=new AbortController();
+  pendingSearch.current?.abort();
+  pendingSearch.current=controller;
   setLoading(true);setError('');
   try{
-   const res=await fetch('/api/companies?'+new URLSearchParams({q:query,page:String(nextPage),city,district,available_on:date,except_route:routeId,purpose:'route'}),{cache:'no-store'});
-   const d=await res.json();if(!res.ok)throw Error(d.error||'Falha ao buscar empresas.');
-   setResults(d.items||[]);setMore(Boolean(d.hasMore));setPage(nextPage);
-  }catch(e){setError(e instanceof Error?e.message:'Busca indisponível')}
-  finally{setLoading(false)}
+   const res=await fetch('/api/companies?'+new URLSearchParams({q:query,page:String(nextPage),city,district,available_on:date,except_route:routeId,purpose:'route'}),{
+    cache:'no-store',signal:controller.signal
+   });
+   const data=await res.json();if(!res.ok)throw Error(data.error||'Falha ao buscar empresas.');
+   if(!controller.signal.aborted){setResults(data.items||[]);setMore(Boolean(data.hasMore));setPage(nextPage)}
+  }catch(e){if(!controller.signal.aborted)setError(e instanceof Error?e.message:'Busca indisponível')}
+  finally{if(!controller.signal.aborted)setLoading(false)}
  }
  const submitSearch=(e:FormEvent)=>{e.preventDefault();void search(1)};
  async function save(){
@@ -75,7 +89,7 @@ export function RouteCompanyEditor({routeId,date,editToken,stops,published,onCan
    <input aria-label="Pesquisar empresa para adicionar à rota" value={term} onChange={e=>setTerm(e.target.value)} placeholder="Nome, CNPJ ou município"/>
    <button type="submit" disabled={loading}>Buscar</button>
   </form>
-  <div className="routes-company-choices" aria-label="Resultados da pesquisa">
+  <div className="routes-company-choices" aria-label="Resultados da pesquisa" aria-busy={loading}>
    {results.map(company=><label key={company.id} className={ids.includes(company.id)?'is-selected':''}>
     <input type="checkbox" checked={ids.includes(company.id)} disabled={!ids.includes(company.id)&&ids.length>=49||busy}
      onChange={()=>toggle(company)}/>
