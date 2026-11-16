@@ -37,7 +37,7 @@ export async function GET(req:Request){
     e.id,e.cnpj,e.legal_name,e.trade_name,e.city,e.district,e.state,e.field_status,
     ${registrationExpr} as registration_state
     from establishments e
-    ${planning?'':"left join registration_records rr on rr.establishment_id=e.id"}
+    ${registrationReady?'left join registration_records rr on rr.establishment_id=e.id':''}
     where ($1='' or upper(e.cnpj) like '%'||upper(regexp_replace($1,'[^A-Za-z0-9]','','g'))||'%' or unaccent(e.legal_name) ilike '%'||unaccent($1)||'%'
      or unaccent(coalesce(e.trade_name,'')) ilike '%'||unaccent($1)||'%'
      or unaccent(coalesce(e.city,'')) ilike '%'||unaccent($1)||'%')
