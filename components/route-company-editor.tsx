@@ -34,7 +34,7 @@ export function RouteCompanyEditor({routeId,date,editToken,stops,published,onCan
   }).catch(e=>{
    if(!controller.signal.aborted)setError(e instanceof Error?e.message:'Não foi possível abrir empresas.')
   }).finally(()=>{if(!controller.signal.aborted)setLoading(false)});
-  return()=>{controller.abort()};
+  return()=>{controller.abort();pendingSearch.current?.abort()};
  },[city,district,date,routeId]);
  const move=(index:number,dir:-1|1)=>setIds(current=>{
   const next=[...current],to=index+dir;if(to<0||to>=next.length)return current;
