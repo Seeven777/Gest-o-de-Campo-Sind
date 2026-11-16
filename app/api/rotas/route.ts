@@ -6,6 +6,7 @@ import {NextResponse} from 'next/server';import {currentIdentity} from '@/lib/ac
 export const dynamic='force-dynamic';
 const fail=(error:string,status=400)=>NextResponse.json({error},{status,headers:{'Cache-Control':'no-store'}});
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const availabilityConflict=(error:string)=>NextResponse.json({error,availability_changed:true},{status:409,headers:{'Cache-Control':'no-store'}});
 export async function GET(){
  const user=await currentIdentity();
  if(!user)return fail('Acesso não autorizado',401);
@@ -68,7 +69,7 @@ export async function POST(req:Request){
  if(!territory.valid)return fail(territory.reason,409);
  const dup=await db().query(`select 1 from routes r join route_stops s on s.route_id=r.id
  where r.route_date=$1 and r.status<>'cancelled' and s.establishment_id=ANY($2::uuid[]) limit 1`,[date,stops]);
- if(dup.length)return fail('Uma das empresas já consta em outra rota ativa nessa data.',409);
+ if(dup.length)return availabilityConflict('Uma das empresas já consta em outra rota ativa nessa data.');
  // Verificação de disponibilidade e escrita integram a mesma transação
  // serializável. Duas solicitações simultâneas não podem reservar a mesma
  // empresa e data sem que uma seja abortada por conflito de serialização.
@@ -108,14 +109,14 @@ export async function POST(req:Request){
    from new_route`,[campaign||null,agent,date,stops,user.id])
   ],{isolationLevel:'Serializable'});
   const route=created[0];
-  if(!route)return fail('Uma empresa foi atribuída a outra rota nessa data. Atualize a lista e tente novamente.',409);
+  if(!route)return availabilityConflict('Uma empresa foi atribuída a outra rota nessa data. Atualize a lista e tente novamente.');
   if(Number(route.count)!==stops.length||Number(route.recorded)!==1)
    return fail('Não foi possível confirmar a criação e auditoria do roteiro. Atualize a lista antes de repetir.',500);
   return NextResponse.json({id:route.id,count:stops.length},{headers:{'Cache-Control':'no-store'}});
  }catch(error){
   const message=error instanceof Error?error.message:'Erro na criação da rota';
   if(/40001|23505|could not serialize|serialization failure|duplicate key/i.test(message))
-   return fail('Outra operação reservou uma dessas empresas. Atualize as opções e tente novamente.',409);
+   return availabilityConflict('Outra operação reservou uma dessas empresas. Atualize as opções e tente novamente.');
   console.error('[route-create]',message);
   return fail('Não foi possível salvar o roteiro. Confira a lista antes de repetir a criação.',500);
  }
