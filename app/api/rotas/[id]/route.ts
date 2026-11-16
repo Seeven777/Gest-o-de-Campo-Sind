@@ -1,4 +1,4 @@
-import {assessNeighborhoodSelection,neighborhoodKey} from '@/lib/route-neighborhood';
+import {assessNeighborhoodEdit} from '@/lib/route-neighborhood';
 import {NextResponse} from 'next/server';import {currentIdentity} from '@/lib/access';import {db} from '@/lib/db';
 export const dynamic='force-dynamic';export const runtime='nodejs';
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -117,14 +117,8 @@ export async function PUT(req:Request,{params}:{params:Promise<{id:string}>}){
  ]);
  const originalLocations=originalAreas.map(x=>({city:String(x.city||''),district:String(x.district||'')}));
  const newLocations=newAreas.map(x=>({city:String(x.city||''),district:String(x.district||'')}));
- if(assessNeighborhoodSelection(originalLocations).valid){
-  const areaCheck=assessNeighborhoodSelection(newLocations);
-  if(!areaCheck.valid)return fail(areaCheck.reason,409);
-  // Homogeneidade isolada não basta: a edição não pode mudar todas as
-  // paradas de Pinheiros para outro bairro e contornar a divisão territorial.
-  if(neighborhoodKey(originalLocations[0])!==neighborhoodKey(newLocations[0]))
-   return fail('Este roteiro pertence ao bairro original. Crie outro roteiro para atender uma região diferente.',409);
- }
+ const territoryCheck=assessNeighborhoodEdit(originalLocations,newLocations);
+ if(!territoryCheck.valid)return fail(territoryCheck.reason,409);
 
  // HTTP transaction: bloqueio da rota + ajuste de posições transitórias (> 1000)
  // + remoção + upsert em ordem + auditoria. Nenhuma visita é alterada.
