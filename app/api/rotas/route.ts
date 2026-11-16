@@ -51,7 +51,10 @@ export async function GET(){
  return NextResponse.json({items},{headers:{'Cache-Control':'no-store'}});
 }
 export async function POST(req:Request){
- const user=await currentIdentity();if(!user||!['admin','supervisor'].includes(user.role))return fail('Somente administração e supervisão.',403);
+ const user=await currentIdentity();if(!user)return fail('Faça login novamente.',401);
+ if(!['admin','supervisor'].includes(user.role))return fail('Somente administração e supervisão.',403);
+ const origin=req.headers.get('origin');
+ if(origin&&new URL(origin).origin!==new URL(req.url).origin)return fail('Origem não autorizada.',403);
  const data=await req.json().catch(()=>({}));
  const campaign=String(data.campaign_id||''),agent=String(data.agent_id||''),date=String(data.date||'');
  const stops=Array.isArray(data.establishment_ids)?data.establishment_ids.map(String):[];

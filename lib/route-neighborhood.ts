@@ -13,3 +13,14 @@ export function assessNeighborhoodSelection(items:NeighborhoodLocation[]){
  if(new Set(areas).size>1)return {valid:false,reason:'Selecione empresas do mesmo município e bairro. Crie roteiros separados para os demais bairros.'};
  return {valid:true,reason:''};
 }
+
+/** Protege o bairro original das rotas homogêneas; rotas legadas mistas
+ * continuam editáveis sem forçar uma migração retroativa dos registros. */
+export function assessNeighborhoodEdit(original:NeighborhoodLocation[],updated:NeighborhoodLocation[]){
+ if(!assessNeighborhoodSelection(original).valid)return {valid:true,reason:''};
+ const selection=assessNeighborhoodSelection(updated);
+ if(!selection.valid)return selection;
+ if(neighborhoodKey(original[0])!==neighborhoodKey(updated[0]))
+  return {valid:false,reason:'Este roteiro pertence ao bairro original. Crie outro roteiro para atender uma região diferente.'};
+ return {valid:true,reason:''};
+}

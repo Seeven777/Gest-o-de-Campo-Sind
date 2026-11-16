@@ -1,4 +1,4 @@
-import {assessNeighborhoodSelection} from '@/lib/route-neighborhood';
+import {assessNeighborhoodEdit} from '@/lib/route-neighborhood';
 import {NextResponse} from 'next/server';import {currentIdentity} from '@/lib/access';import {db} from '@/lib/db';
 export const dynamic='force-dynamic';export const runtime='nodejs';
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -115,10 +115,10 @@ export async function PUT(req:Request,{params}:{params:Promise<{id:string}>}){
   sql.query(`select e.city,e.district from route_stops s join establishments e on e.id=s.establishment_id where s.route_id=$1`,[id]),
   sql.query('select city,district from establishments where id=any($1::uuid[])',[ids])
  ]);
- if(assessNeighborhoodSelection(originalAreas.map(x=>({city:String(x.city||''),district:String(x.district||'')}))).valid){
-  const areaCheck=assessNeighborhoodSelection(newAreas.map(x=>({city:String(x.city||''),district:String(x.district||'')})));
-  if(!areaCheck.valid)return fail(areaCheck.reason,409);
- }
+ const originalLocations=originalAreas.map(x=>({city:String(x.city||''),district:String(x.district||'')}));
+ const newLocations=newAreas.map(x=>({city:String(x.city||''),district:String(x.district||'')}));
+ const territoryCheck=assessNeighborhoodEdit(originalLocations,newLocations);
+ if(!territoryCheck.valid)return fail(territoryCheck.reason,409);
 
  // HTTP transaction: bloqueio da rota + ajuste de posições transitórias (> 1000)
  // + remoção + upsert em ordem + auditoria. Nenhuma visita é alterada.

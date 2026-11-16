@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';
-import {neighborhoodKey,assessNeighborhoodSelection} from '../lib/route-neighborhood.ts';
+import {neighborhoodKey,assessNeighborhoodSelection,assessNeighborhoodEdit} from '../lib/route-neighborhood.ts';
 const src=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 test('agrupa nomes de bairros ignorando espaços e acentos',()=>{
  assert.equal(neighborhoodKey({city:'São Paulo',district:'Vila Mariana'}),neighborhoodKey({city:' sao  paulo ',district:' VILA  MARIANA '}));
@@ -31,8 +31,7 @@ test('servidor impede criação de nova rota com bairros misturados',()=>{
  assert.match(api,/assessNeighborhoodSelection\(check\.map/);
  assert.match(api,/if\(!territory.valid\)return fail\(territory.reason,409\)/);
  const editor=src('app/api/rotas/[id]/route.ts');
- assert.match(editor,/assessNeighborhoodSelection\(originalAreas\.map/);
- assert.match(editor,/assessNeighborhoodSelection\(newAreas\.map/);
+ assert.match(editor,/assessNeighborhoodEdit\(originalLocations,newLocations\)/);
 });
 test('interface separa escolha município bairro e busca restrita',()=>{
  const page=src('app/rotas/page.tsx');
@@ -59,4 +58,13 @@ test('editor usa município e bairro da rota e não mistura pesquisa de outras r
  assert.match(editor,/page:String\(nextPage\),city,district/);
  assert.match(editor,/city=\{city\|\|undefined\} district=\{district\|\|undefined\}/);
  assert.match(route,/district:string\|null;city:string\|null/);
+});
+
+test('edição preserva bairro original e mantém legados mistos',()=>{
+ const original=[{city:'São Paulo',district:'Pinheiros'},{city:'São Paulo',district:'Pinheiros'}];
+ assert.equal(assessNeighborhoodEdit(original,[{city:'Sao Paulo',district:'PINHEIROS'}]).valid,true);
+ assert.equal(assessNeighborhoodEdit(original,[{city:'São Paulo',district:'Moema'}]).valid,false);
+ assert.equal(assessNeighborhoodEdit(original,[{city:'São Paulo',district:'Pinheiros'},{city:'São Paulo',district:'Moema'}]).valid,false);
+ assert.equal(assessNeighborhoodEdit(original,[{city:'São Paulo',district:''}]).valid,false);
+ assert.equal(assessNeighborhoodEdit([{city:'São Paulo',district:'Pinheiros'},{city:'São Paulo',district:'Moema'}],[{city:'Santos',district:'Centro'}]).valid,true);
 });

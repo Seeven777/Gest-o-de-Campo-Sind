@@ -25,7 +25,7 @@ test('busca do planejador exclui empresa agendada na mesma data e evita joins de
  assert.match(api,/route\.route_date=\$\{availableParam\}::date/);
  assert.match(api,/route\.status<>'cancelled'/);
  assert.match(api,/planning\?false:await isSchemaReady\('cadastro'\)/);
- assert.match(api,/\$\{planning\?'':"left join registration_records/);
+ assert.match(api,/\$\{registrationReady\?'left join registration_records/);
 });
 test('busca em lote e atalhos respeitam data, Enter e bairro escolhido',()=>{
  const page=source('app/rotas/page.tsx');
