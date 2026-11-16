@@ -204,6 +204,8 @@ function CampoGuiadoSession({id}:{id:string}){
  const [rerouteToken,setRerouteToken]=useState(0);
  const sentAt=useRef(0),positionRef=useRef<CurrentPosition|null>(null),positionUpdatedAt=useRef(0);
  const wazeHandoffAt=useRef(0);
+ // Travas imediatas: um segundo toque pode ocorrer antes do React aplicar busy.
+ const visitMutation=useRef(false),photoUpload=useRef(false);
  const cacheKey='sind-jornada-plan:'+id;
  async function reload(){
   const r=await fetch('/api/campo/'+encodeURIComponent(id),{cache:'no-store'});
@@ -427,7 +429,8 @@ function CampoGuiadoSession({id}:{id:string}){
   return()=>{window.removeEventListener('pagehide',leave);leave()};
  },[started,id]);
  async function arrive(){
-  if(!current||busy)return;
+  if(!current||busy||visitMutation.current)return;
+  visitMutation.current=true;
   const stopId=current.id;
   setArrivalDialog(false);setBusy(true);setArrivalPhase('locating');setError('');setNotice('');
   try{
@@ -448,11 +451,11 @@ function CampoGuiadoSession({id}:{id:string}){
    )}:previous);
    setNotice('Chegada registrada! Agora tire uma foto da fachada.');
   }catch(e){if((e as GpsFailure)?.geoCode!==undefined)setGpsIssue(true);setError(e instanceof Error?e.message:'Não foi possível registrar a chegada.')}
-  finally{setArrivalPhase(null);setBusy(false)}
+  finally{visitMutation.current=false;setArrivalPhase(null);setBusy(false)}
  }
  async function uploadPhoto(file:File|undefined){
-  if(!file||!current?.visit_id)return;
-  setPhotoBusy(true);setError('');setNotice('');
+  if(!file||!current?.visit_id||photoUpload.current)return;
+  photoUpload.current=true;setPhotoBusy(true);setError('');setNotice('');
   try{
    const jpeg=await compressedPhoto(file),form=new FormData();form.append('visit_id',current.visit_id);form.append('photo',jpeg);
    const r=await fetch('/api/campo/foto',{method:'POST',body:form}),d=await apiResponse<{error?:string}>(r);
@@ -464,10 +467,11 @@ function CampoGuiadoSession({id}:{id:string}){
    )}:previous);
    setNotice('Foto recebida e protegida. Responda às perguntas para concluir.');
   }catch(e){setError(e instanceof Error?e.message:'Erro no envio da fotografia.')}
-  finally{setPhotoBusy(false)}
+  finally{photoUpload.current=false;setPhotoBusy(false)}
  }
  async function finish(){
-  if(!current?.visit_id||shownQuestions.some(q=>!answers[q.key]))return;
+  if(!current?.visit_id||busy||visitMutation.current||shownQuestions.some(q=>!answers[q.key]))return;
+  visitMutation.current=true;
   const stopId=current.id,visitId=current.visit_id;
   setBusy(true);setError('');setNotice('');
   try{
@@ -485,7 +489,7 @@ function CampoGuiadoSession({id}:{id:string}){
     setNotice('Jornada concluída. A central confirmou o fim da rota e encerrou o GPS.');
    }else {setNotice('Visita enviada. A central fará a análise; você já pode seguir para a próxima empresa.');setLeg(null);setLegError('');setRerouteToken(n=>n+1);}
   }catch(e){setError(e instanceof Error?e.message:'Falha ao enviar visita. Suas respostas continuam na tela.')}
-  finally{setBusy(false)}
+  finally{visitMutation.current=false;setBusy(false)}
  }
  const answer=(key:AnswerKey,value:string)=>setAnswers(old=>({...old,[key]:value}));
  async function startJourney(){
