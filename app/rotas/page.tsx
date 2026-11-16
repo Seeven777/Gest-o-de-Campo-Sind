@@ -23,24 +23,37 @@ export default function Rotas(){
  const [searchInput,setSearchInput]=useState(''),[search,setSearch]=useState(''),[page,setPage]=useState(1),[hasMore,setHasMore]=useState(false);
  const [selected,setSelected]=useState<string[]>([]),[selectedNames,setSelectedNames]=useState<Record<string,string>>({});
  const [cities,setCities]=useState<AreaOption[]>([]),[districts,setDistricts]=useState<AreaOption[]>([]);
- const districtRequest=useRef(0),companyRequest=useRef(0);
+ const districtRequest=useRef(0),companyRequest=useRef(0),routeListRequest=useRef(0);
  const mutationInFlight=useRef(false);
  const districtCache=useRef(new Map<string,AreaOption[]>());
  const [city,setCity]=useState(''),[district,setDistrict]=useState(''),[areasLoading,setAreasLoading]=useState(false),[companiesLoading,setCompaniesLoading]=useState(false);
  const [selectionNotice,setSelectionNotice]=useState('');
  const canPlan=role==='admin'||role==='supervisor';
- async function reload(){const res=await fetch('/api/rotas',{cache:'no-store'});const payload=await res.json();if(!res.ok)throw Error(payload.error||'Falha ao carregar rotas');setRows(payload.items||[])}
+ async function reload(){
+  const request=++routeListRequest.current;
+  try{
+   const res=await fetch('/api/rotas',{cache:'no-store'});
+   const payload=await res.json();
+   if(!res.ok)throw Error(payload.error||'Falha ao carregar rotas');
+   if(request===routeListRequest.current)setRows(payload.items||[]);
+  }catch(error){
+   // Um erro de consulta obsoleta não deve substituir uma resposta mais recente.
+   if(request===routeListRequest.current)throw error;
+  }
+ }
  async function refreshAfterMutation(){
   const refreshed=await refreshAfterSuccessfulMutation(reload);
   if(!refreshed)setError('A operação foi concluída, mas a lista não atualizou. Reabra esta tela para consultar o resultado antes de repetir a ação.');
  }
  useEffect(()=>{let live=true;
+  const routeRequest=++routeListRequest.current;
   (async()=>{try{
    const [me,routes]=await Promise.all([fetch('/api/me',{cache:'no-store'}),fetch('/api/rotas',{cache:'no-store'})]);
    const user=await me.json();const list=await routes.json();
    if(!me.ok||!user.user?.role)throw Error('Faça login novamente.');
    if(!routes.ok)throw Error(list.error||'Rotas indisponíveis.');
-   if(!live)return;setRole(user.user.role);setRows(list.items||[]);
+   if(!live)return;setRole(user.user.role);
+   if(routeRequest===routeListRequest.current)setRows(list.items||[]);
    if(user.user.role==='agent')return;
    const [people,areas]=await Promise.all([fetch('/api/equipe',{cache:'no-store'}),fetch('/api/rotas/bairros',{cache:'no-store'})]);
    const [pd,ad]=await Promise.all([people.json(),areas.json()]);
@@ -49,7 +62,7 @@ export default function Rotas(){
    setCities(ad.cities||[]);
   }catch(e){if(live)setError(e instanceof Error?e.message:'Falha ao abrir as rotas')}
   finally{if(live)setLoading(false)}})();
-  return()=>{live=false};
+  return()=>{live=false;routeListRequest.current++};
  },[]);
  // Ao retornar à aba após alterações de outro supervisor, atualizar somente a
  // listagem. Não mudar o passo ou sobrescrever empresas ainda em seleção.
