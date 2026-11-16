@@ -97,7 +97,7 @@ export function RouteCompanyEditor({routeId,date,editToken,stops,published,onCan
   </form>
   <div className="routes-company-choices" aria-label="Resultados da pesquisa" aria-busy={loading}>
    {results.map(company=><label key={company.id} className={ids.includes(company.id)?'is-selected':''}>
-    <input type="checkbox" checked={ids.includes(company.id)} disabled={!ids.includes(company.id)&&ids.length>=49||busy}
+    <input type="checkbox" checked={ids.includes(company.id)} disabled={loading||busy||(!ids.includes(company.id)&&ids.length>=49)}
      onChange={()=>toggle(company)}/>
     <span><strong>{company.trade_name||company.legal_name}</strong><small>{company.district||'Bairro não informado'} · {company.city||'Cidade não informada'} · {company.cnpj||'CNPJ não informado'}</small></span>
    </label>)}
