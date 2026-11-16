@@ -120,7 +120,17 @@ export default function Rotas(){
   setBusy(true);setError('');setMessage('');
   try{
    const res=await fetch('/api/rotas',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent_id:agent,date,establishment_ids:selected})});
-   const data=await res.json();if(!res.ok)throw Error(data.error||'Não foi possível criar');
+   const data=await res.json();
+   if(!res.ok){
+    if(res.status===409&&data.availability_changed===true){
+     // A seleção foi feita sobre uma disponibilidade que acabou de mudar.
+     // Reabrir somente o passo das empresas para impedir o reenvio de dados antigos.
+     setSelected([]);setSelectedNames({});setStep(2);
+     setSelectionNotice('A disponibilidade mudou. Atualizamos a lista; selecione novamente as empresas para esta data.');
+     void findCompanies(1,search,city,district,date);
+    }
+    throw Error(data.error||'Não foi possível criar');
+   }
    setMessage('Rota criada com '+data.count+' empresas. Publique-a quando estiver pronta para a equipe.');
    setSelected([]);setSelectedNames({});setShowForm(false);setStep(0);await reload();
   }catch(e){setError(e instanceof Error?e.message:'Falha ao criar a rota')}finally{setBusy(false)}
