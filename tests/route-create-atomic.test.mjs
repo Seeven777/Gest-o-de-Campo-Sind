@@ -4,7 +4,8 @@ const read=p=>readFileSync(new URL('../'+p,import.meta.url),'utf8');
 test('criação registra auditoria e paradas numa única consulta atômica',()=>{
  const api=read('app/api/rotas/route.ts');
  const create=api.slice(api.indexOf('export async function POST'),api.indexOf('export async function PATCH'));
- assert.match(create,/with automatic_campaign as \(/);
+ assert.match(create,/with available as \(/);
+ assert.match(create,/automatic_campaign as \(/);
  assert.match(create,/new_route as \(/);
  assert.match(create,/new_stops as \(/);
  assert.match(create,/recorded as \(/);

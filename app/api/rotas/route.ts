@@ -6,6 +6,7 @@ import {NextResponse} from 'next/server';import {currentIdentity} from '@/lib/ac
 export const dynamic='force-dynamic';
 const fail=(error:string,status=400)=>NextResponse.json({error},{status,headers:{'Cache-Control':'no-store'}});
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const availabilityConflict=(error:string)=>NextResponse.json({error,availability_changed:true},{status:409,headers:{'Cache-Control':'no-store'}});
 export async function GET(){
  const user=await currentIdentity();
  if(!user)return fail('Acesso não autorizado',401);
@@ -68,34 +69,57 @@ export async function POST(req:Request){
  if(!territory.valid)return fail(territory.reason,409);
  const dup=await db().query(`select 1 from routes r join route_stops s on s.route_id=r.id
  where r.route_date=$1 and r.status<>'cancelled' and s.establishment_id=ANY($2::uuid[]) limit 1`,[date,stops]);
- if(dup.length)return fail('Uma das empresas já consta em outra rota ativa nessa data.',409);
- // A rota e todas as paradas são gravadas em um único comando atômico.
- // Uma falha intermediária não deixa rota incompleta, inclusive com até 49 empresas.
- const [route]=await db().query(`with automatic_campaign as (
-   insert into campaigns(name,start_date,end_date,status,created_by)
-   select 'Rota de '||to_char($3::date,'DD/MM/YYYY'),$3::date,$3::date,'draft',$5
-   where $1::uuid is null returning id
- ), new_route as (
-   insert into routes(campaign_id,agent_id,route_date,status)
-   values(coalesce((select id from automatic_campaign),$1::uuid),$2,$3,'draft') returning id
- ), new_stops as (
-   insert into route_stops(route_id,establishment_id,position_order)
-   select new_route.id,item.establishment_id,item.ordinality::int
-   from new_route cross join unnest($4::uuid[]) with ordinality as item(establishment_id,ordinality)
-   returning id
- ), recorded as (
-   insert into audit_logs(actor_id,action,details)
-   select $5,'route.created',
-    jsonb_build_object('id',new_route.id,'count',(select count(*)::int from new_stops))
-   from new_route returning id
- )
- select new_route.id,(select count(*)::int from new_stops) as count,
-        (select count(*)::int from recorded) as recorded
- from new_route`,
- [campaign||null,agent,date,stops,user.id]);
- if(!route||Number(route.count)!==stops.length||Number(route.recorded)!==1)
-  return fail('Não foi possível confirmar a criação e auditoria do roteiro. Atualize a lista antes de repetir.',500);
- return NextResponse.json({id:route.id,count:stops.length},{headers:{'Cache-Control':'no-store'}});
+ if(dup.length)return availabilityConflict('Uma das empresas já consta em outra rota ativa nessa data.');
+ // Verificação de disponibilidade e escrita integram a mesma transação
+ // serializável. Duas solicitações simultâneas não podem reservar a mesma
+ // empresa e data sem que uma seja abortada por conflito de serialização.
+ try{
+  const sql=db();
+  const [,created]=await sql.transaction([
+   sql.query(`select s.establishment_id from routes r join route_stops s on s.route_id=r.id
+    where r.route_date=$1::date and r.status<>'cancelled'
+     and s.establishment_id=any($2::uuid[]) limit 1`,[date,stops]),
+   sql.query(`with available as (
+    select not exists (
+     select 1 from routes r join route_stops s on s.route_id=r.id
+     where r.route_date=$3::date and r.status<>'cancelled'
+       and s.establishment_id=any($4::uuid[])
+    ) as ok
+   ), automatic_campaign as (
+    insert into campaigns(name,start_date,end_date,status,created_by)
+    select 'Rota de '||to_char($3::date,'DD/MM/YYYY'),$3::date,$3::date,'draft',$5
+    from available where $1::uuid is null and available.ok returning id
+   ), new_route as (
+    insert into routes(campaign_id,agent_id,route_date,status)
+    select coalesce((select id from automatic_campaign),$1::uuid),$2,$3,'draft'
+    from available where available.ok returning id
+   ), new_stops as (
+    insert into route_stops(route_id,establishment_id,position_order)
+    select new_route.id,item.establishment_id,item.ordinality::int
+    from new_route cross join unnest($4::uuid[]) with ordinality as item(establishment_id,ordinality)
+    returning id
+   ), recorded as (
+    insert into audit_logs(actor_id,action,details)
+    select $5,'route.created',
+     jsonb_build_object('id',new_route.id,'count',(select count(*)::int from new_stops))
+    from new_route returning id
+   )
+   select new_route.id,(select count(*)::int from new_stops) as count,
+          (select count(*)::int from recorded) as recorded
+   from new_route`,[campaign||null,agent,date,stops,user.id])
+  ],{isolationLevel:'Serializable'});
+  const route=created[0];
+  if(!route)return availabilityConflict('Uma empresa foi atribuída a outra rota nessa data. Atualize a lista e tente novamente.');
+  if(Number(route.count)!==stops.length||Number(route.recorded)!==1)
+   return fail('Não foi possível confirmar a criação e auditoria do roteiro. Atualize a lista antes de repetir.',500);
+  return NextResponse.json({id:route.id,count:stops.length},{headers:{'Cache-Control':'no-store'}});
+ }catch(error){
+  const message=error instanceof Error?error.message:'Erro na criação da rota';
+  if(/40001|23505|could not serialize|serialization failure|duplicate key/i.test(message))
+   return availabilityConflict('Outra operação reservou uma dessas empresas. Atualize as opções e tente novamente.');
+  console.error('[route-create]',message);
+  return fail('Não foi possível salvar o roteiro. Confira a lista antes de repetir a criação.',500);
+ }
 }
 
 export async function PATCH(req:Request){
