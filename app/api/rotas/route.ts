@@ -4,7 +4,8 @@ import {evaluateRoute,type Location} from '@/lib/route-proximity';
 import {requiresTerritoryConfirmation,validPublicationConfirmation} from '@/lib/route-publication';
 import {NextResponse} from 'next/server';import {currentIdentity} from '@/lib/access';import {db} from '@/lib/db';
 export const dynamic='force-dynamic';
-const fail=(error:string,status=400)=>NextResponse.json({error},{status});
+const fail=(error:string,status=400)=>NextResponse.json({error},{status,headers:{'Cache-Control':'no-store'}});
+const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 export async function GET(){
  const user=await currentIdentity();
  if(!user)return fail('Acesso não autorizado',401);
@@ -58,7 +59,7 @@ export async function POST(req:Request){
  const data=await req.json().catch(()=>({}));
  const campaign=String(data.campaign_id||''),agent=String(data.agent_id||''),date=String(data.date||'');
  const stops=Array.isArray(data.establishment_ids)?data.establishment_ids.map(String):[];
- if(campaign&&!/^[0-9a-f-]{36}$/i.test(campaign)||!agent||!validISODate(date)||stops.length<1||stops.length>49||new Set(stops).size!==stops.length||stops.some((x:string)=>!/^[0-9a-f-]{36}$/i.test(x)))return fail('Informe responsável, data e de 1 a 49 empresas únicas.');
+ if((campaign&&!uuid.test(campaign))||!agent||!validISODate(date)||stops.length<1||stops.length>49||new Set(stops).size!==stops.length||stops.some((x:string)=>!uuid.test(x)))return fail('Informe responsável, data e de 1 a 49 empresas únicas.');
  const [c]=campaign?await db().query('select id from campaigns where id=$1 and $2::date between start_date and end_date and status<>\'cancelled\'',[campaign,date]):[{id:'automatic'}];
  const [a]=await db().query('select auth_user_id from app_profiles where auth_user_id=$1 and role=\'agent\' and is_active=true',[agent]);
  if(!c||!a)return fail('Rota fora do período configurado ou agente não encontrado.');
@@ -82,10 +83,19 @@ export async function POST(req:Request){
    select new_route.id,item.establishment_id,item.ordinality::int
    from new_route cross join unnest($4::uuid[]) with ordinality as item(establishment_id,ordinality)
    returning id
- ) select new_route.id,(select count(*)::int from new_stops) as count from new_route`,
+ ), recorded as (
+   insert into audit_logs(actor_id,action,details)
+   select $5,'route.created',
+    jsonb_build_object('id',new_route.id,'count',(select count(*)::int from new_stops))
+   from new_route returning id
+ )
+ select new_route.id,(select count(*)::int from new_stops) as count,
+        (select count(*)::int from recorded) as recorded
+ from new_route`,
  [campaign||null,agent,date,stops,user.id]);
- await db().query('insert into audit_logs(actor_id,action,details) values($1,$2,$3::jsonb)',[user.id,'route.created',JSON.stringify({id:route.id,count:stops.length})]);
- return NextResponse.json({id:route.id,count:stops.length});
+ if(!route||Number(route.count)!==stops.length||Number(route.recorded)!==1)
+  return fail('Não foi possível confirmar a criação e auditoria do roteiro. Atualize a lista antes de repetir.',500);
+ return NextResponse.json({id:route.id,count:stops.length},{headers:{'Cache-Control':'no-store'}});
 }
 
 export async function PATCH(req:Request){
