@@ -28,3 +28,17 @@ test('backend prioriza bairro e CEP no SQL antes do limite',()=>{
  assert.match(api,/rankCandidates\(selected,candidates,12\)/);
  assert.match(api,/sameArea/);
 });
+
+test('proximidade apresenta erro HTTP em vez de falhar ao interpretar HTML ou corpo vazio',()=>{
+ const ui=readFileSync(new URL('../components/route-proximity-panel.tsx',import.meta.url),'utf8');
+ assert.match(ui,/await response\.text\(\)/);
+ assert.match(ui,/A consulta de proximidade falhou \(HTTP /);
+ assert.doesNotMatch(ui,/const body=await response\.json\(\) as Result/);
+});
+test('SQL filtra rotas homogêneas pelo bairro antes de limitar sugestões',()=>{
+ const api=readFileSync(new URL('../app/api/rotas/planejamento/route.ts',import.meta.url),'utf8');
+ const filter=api.indexOf('($5::boolean and lower(unaccent(trim(coalesce(e.city');
+ const limit=api.indexOf('limit 150');
+ assert.ok(filter>=0&&limit>filter);
+ assert.match(api,/scope\.cities,date\|\|null,routeId\|\|null,scope\.sameArea,scope\.city,scope\.district/);
+});
