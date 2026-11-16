@@ -7,6 +7,7 @@ import {FieldNavigationMap,type ActiveLeg,type CurrentPosition,type FieldPlan} f
 import {ArrowLeft,ArrowRight,Camera,CheckCircle2,LocateFixed,MapPin,Navigation,Route as RouteIcon,X,ExternalLink,RotateCcw,CornerUpLeft,CornerUpRight,MoveUp} from 'lucide-react';
 import {CrewTravelPanel} from '@/components/crew-travel-panel';
 import {isRecentNavigationHandoff} from '@/lib/field-navigation-handoff';
+import {fieldRouteFingerprint,canReuseFieldPlanCache} from '@/lib/field-route-cache';
 import '../jornada.css';
 import '../equipe.css';
 import '../equipe-motion.css';
@@ -226,8 +227,8 @@ function CampoGuiadoSession({id}:{id:string}){
    try{
     const raw=sessionStorage.getItem('sind-jornada-plan:'+id);
     if(raw){
-     const cached=JSON.parse(raw) as {expires:number;stopIds:string;plan:FieldPlan};
-     if(cached.expires>Date.now()&&cached.stopIds===route.stops.map(s=>s.id).sort().join(','))setPlan(cached.plan);
+     const cached=JSON.parse(raw) as {expires:number;fingerprint?:string;plan:FieldPlan};
+     if(canReuseFieldPlanCache(cached,route.route.route_date,route.stops,Date.now()))setPlan(cached.plan);
     }
    }catch{ /* Cache opcional. A rota pode ser recalculada. */ }
   }).catch(e=>{if(alive)setError(e instanceof Error?e.message:'Erro ao abrir jornada.')});
@@ -342,7 +343,7 @@ function CampoGuiadoSession({id}:{id:string}){
    }
    if(!saved)throw Error('Não foi possível concluir o cálculo. Tente novamente.');
    setPlan(saved);
-   try{sessionStorage.setItem(cacheKey,JSON.stringify({expires:Date.now()+8*3600000,stopIds:data.stops.map(s=>s.id).sort().join(','),plan:saved}))}catch{}
+   try{sessionStorage.setItem(cacheKey,JSON.stringify({expires:Date.now()+8*3600000,fingerprint:fieldRouteFingerprint(data.route.route_date,data.stops),plan:saved}))}catch{}
    if(saved.route_warning)setNotice(saved.route_warning);
    return true;
   }catch(e){setError(e instanceof Error?e.message:'Falha no cálculo.');return false;}
