@@ -1,4 +1,4 @@
-import {assessNeighborhoodSelection} from '@/lib/route-neighborhood';
+import {assessNeighborhoodSelection,neighborhoodKey} from '@/lib/route-neighborhood';
 import {NextResponse} from 'next/server';import {currentIdentity} from '@/lib/access';import {db} from '@/lib/db';
 export const dynamic='force-dynamic';export const runtime='nodejs';
 const uuid=/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -115,9 +115,15 @@ export async function PUT(req:Request,{params}:{params:Promise<{id:string}>}){
   sql.query(`select e.city,e.district from route_stops s join establishments e on e.id=s.establishment_id where s.route_id=$1`,[id]),
   sql.query('select city,district from establishments where id=any($1::uuid[])',[ids])
  ]);
- if(assessNeighborhoodSelection(originalAreas.map(x=>({city:String(x.city||''),district:String(x.district||'')}))).valid){
-  const areaCheck=assessNeighborhoodSelection(newAreas.map(x=>({city:String(x.city||''),district:String(x.district||'')})));
+ const originalLocations=originalAreas.map(x=>({city:String(x.city||''),district:String(x.district||'')}));
+ const newLocations=newAreas.map(x=>({city:String(x.city||''),district:String(x.district||'')}));
+ if(assessNeighborhoodSelection(originalLocations).valid){
+  const areaCheck=assessNeighborhoodSelection(newLocations);
   if(!areaCheck.valid)return fail(areaCheck.reason,409);
+  // Homogeneidade isolada não basta: a edição não pode mudar todas as
+  // paradas de Pinheiros para outro bairro e contornar a divisão territorial.
+  if(neighborhoodKey(originalLocations[0])!==neighborhoodKey(newLocations[0]))
+   return fail('Este roteiro pertence ao bairro original. Crie outro roteiro para atender uma região diferente.',409);
  }
 
  // HTTP transaction: bloqueio da rota + ajuste de posições transitórias (> 1000)
