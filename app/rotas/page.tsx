@@ -9,6 +9,7 @@ import {RouteChosenList} from '@/components/route-chosen-list';
 import {neighborhoodKey} from '@/lib/route-neighborhood';
 import {addVisibleStops} from '@/lib/route-bulk-selection';
 import {refreshAfterSuccessfulMutation} from '@/lib/route-mutation-feedback';
+import {createRouteRefreshFlight} from '@/lib/route-refresh-flight';
 type RouteRow={id:string;route_date:string;campaign_name:string;agent_name:string;status:string;stops:number;neighborhood_label?:string};
 type Pick={id:string;name:string};
 type Company={id:string;legal_name:string;trade_name?:string|null;city:string|null;district:string|null;cnpj?:string};
@@ -25,6 +26,7 @@ export default function Rotas(){
  const [cities,setCities]=useState<AreaOption[]>([]),[districts,setDistricts]=useState<AreaOption[]>([]);
  const districtRequest=useRef(0),companyRequest=useRef(0),routeListRequest=useRef(0);
  const mutationInFlight=useRef(false);
+ const focusRefresh=useRef(createRouteRefreshFlight());
  const districtCache=useRef(new Map<string,AreaOption[]>());
  const [city,setCity]=useState(''),[district,setDistrict]=useState(''),[areasLoading,setAreasLoading]=useState(false),[companiesLoading,setCompaniesLoading]=useState(false);
  const [selectionNotice,setSelectionNotice]=useState('');
@@ -70,7 +72,7 @@ export default function Rotas(){
   let active=true;
   const refresh=()=>{
    if(!active||document.visibilityState==='hidden'||mutationInFlight.current)return;
-   void reload().catch(()=>{if(active)setError('Não foi possível atualizar as rotas. Tente novamente ao retornar à tela.')});
+   void focusRefresh.current(reload).catch(()=>{if(active&&!mutationInFlight.current)setError('Não foi possível atualizar as rotas. Tente novamente ao retornar à tela.')});
   };
   const onVisibility=()=>{if(document.visibilityState==='visible')refresh()};
   window.addEventListener('focus',refresh);
